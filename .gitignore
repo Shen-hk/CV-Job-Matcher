@@ -1,0 +1,34 @@
+# Built outputs
+*.iml
+.gradle/
+/local.properties
+/build/
+app/build/
+
+# Android Studio / IntelliJ IDEA
+/.idea/
+
+# OS-generated
+.DS_Store
+Thumbs.db
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# Keystore files — keep out of VCS
+*.jks
+*.keystore
+keystore.properties
+
+# Captures / profiling
+/captures/
+
+# Lint
+lint/
+
+# Google services (may contain API keys)
+google-services.json
+
+# Claude Code
+.claude/settings.local.json

@@ -1,0 +1,117 @@
+[
+  {
+    "category": "编程语言",
+    "keywords": [
+      "Java", "Kotlin", "Python", "C++", "C#", "Swift", "Objective-C",
+      "JavaScript", "TypeScript", "Go", "Golang", "Rust", "Ruby", "PHP",
+      "Scala", "Dart", "R", "MATLAB", "Shell", "Bash", "SQL", "Groovy",
+      "Lua", "Perl", "Haskell", "C", "Assembly", "COBOL", "Fortran"
+    ]
+  },
+  {
+    "category": "Android开发",
+    "keywords": [
+      "Android", "Jetpack", "Compose", "Jetpack Compose", "MVVM", "MVI",
+      "MVP", "Clean Architecture", "Hilt", "Dagger", "Koin",
+      "Room", "SQLite", "Retrofit", "OkHttp", "Coroutines", "Flow",
+      "LiveData", "ViewModel", "Navigation", "DataStore", "WorkManager",
+      "ExoPlayer", "Glide", "Coil", "Picasso", "RxJava", "RxAndroid",
+      "Fragment", "Activity", "Service", "BroadcastReceiver", "ContentProvider",
+      "NDK", "JNI", "ABI", "ProGuard", "R8", "Gradle", "AGP",
+      "Material Design", "Material 3", "ConstraintLayout", "RecyclerView",
+      "ViewPager", "ViewBinding", "DataBinding", "Paging3",
+      "Firebase", "FCM", "AdMob", "Crashlytics", "Remote Config",
+      "Google Play", "In-App Purchase", "Billing"
+    ]
+  },
+  {
+    "category": "iOS开发",
+    "keywords": [
+      "iOS", "SwiftUI", "UIKit", "Xcode", "CocoaPods", "Swift Package Manager",
+      "Objective-C Runtime", "Core Data", "Core ML", "ARKit", "SpriteKit",
+      "Combine", "Alamofire", "Realm", "TestFlight", "App Store Connect"
+    ]
+  },
+  {
+    "category": "前端框架",
+    "keywords": [
+      "React", "React Native", "Vue", "Vue.js", "Angular", "Next.js", "Nuxt.js",
+      "Svelte", "Flutter", "Electron", "Webpack", "Vite", "Rollup", "Babel",
+      "HTML", "CSS", "SCSS", "Sass", "Less", "Tailwind", "Bootstrap",
+      "Redux", "MobX", "Vuex", "Pinia", "Zustand", "GraphQL", "Apollo",
+      "Jest", "Cypress", "Playwright", "Storybook"
+    ]
+  },
+  {
+    "category": "后端框架",
+    "keywords": [
+      "Spring", "Spring Boot", "Spring Cloud", "Spring MVC", "MyBatis",
+      "Hibernate", "JPA", "Django", "Flask", "FastAPI", "Express", "NestJS",
+      "Gin", "Echo", "gRPC", "REST", "RESTful", "GraphQL API",
+      "Microservices", "SOA", "WebSocket", "Kafka", "RabbitMQ", "ActiveMQ",
+      "Netty", "Tomcat", "Nginx", "Apache"
+    ]
+  },
+  {
+    "category": "数据库",
+    "keywords": [
+      "MySQL", "PostgreSQL", "Oracle", "SQL Server", "SQLite",
+      "MongoDB", "Redis", "Elasticsearch", "Cassandra", "HBase",
+      "DynamoDB", "Neo4j", "InfluxDB", "Clickhouse", "TiDB",
+      "数据库设计", "索引优化", "SQL优化", "分库分表", "读写分离"
+    ]
+  },
+  {
+    "category": "云与DevOps",
+    "keywords": [
+      "Docker", "Kubernetes", "K8s", "Helm", "CI/CD", "Jenkins",
+      "GitLab CI", "GitHub Actions", "Travis CI", "CircleCI",
+      "AWS", "Azure", "GCP", "阿里云", "腾讯云", "华为云",
+      "Terraform", "Ansible", "Prometheus", "Grafana", "ELK",
+      "Linux", "Unix", "Shell", "Bash", "Nginx", "Load Balancing",
+      "Serverless", "Lambda", "CDN", "Microservices"
+    ]
+  },
+  {
+    "category": "AI与机器学习",
+    "keywords": [
+      "机器学习", "深度学习", "Machine Learning", "Deep Learning",
+      "TensorFlow", "PyTorch", "Keras", "Scikit-learn", "OpenCV",
+      "NLP", "自然语言处理", "Computer Vision", "计算机视觉",
+      "BERT", "GPT", "Transformer", "CNN", "RNN", "LSTM",
+      "LLM", "大模型", "Prompt Engineering", "RAG",
+      "TFLite", "ONNX", "Core ML", "ML Kit",
+      "数据分析", "数据挖掘", "特征工程", "模型调优",
+      "Pandas", "NumPy", "Matplotlib", "Jupyter"
+    ]
+  },
+  {
+    "category": "测试",
+    "keywords": [
+      "单元测试", "集成测试", "UI测试", "性能测试", "压力测试",
+      "JUnit", "Mockito", "Espresso", "Robolectric",
+      "XCTest", "XCUITest", "Appium", "Selenium",
+      "TDD", "BDD", "测试驱动开发", "代码覆盖率"
+    ]
+  },
+  {
+    "category": "工程实践",
+    "keywords": [
+      "Git", "SVN", "代码审查", "Code Review", "重构", "Refactoring",
+      "设计模式", "Design Pattern", "SOLID", "DRY", "KISS",
+      "敏捷开发", "Agile", "Scrum", "Kanban", "Sprint",
+      "版本管理", "分支策略", "GitFlow",
+      "性能优化", "内存优化", "启动优化", "包体积优化",
+      "安全", "加密", "HTTPS", "OAuth", "JWT"
+    ]
+  },
+  {
+    "category": "软技能",
+    "keywords": [
+      "沟通", "团队协作", "跨部门协作", "项目管理", "时间管理",
+      "解决问题", "学习能力", "自驱力", "责任心", "细心",
+      "文档能力", "演讲", "Presentation", "Leadership", "领导力",
+      "英语", "普通话", "CET-4", "CET-6", "雅思", "托福"
+    ]
+  }
+]
