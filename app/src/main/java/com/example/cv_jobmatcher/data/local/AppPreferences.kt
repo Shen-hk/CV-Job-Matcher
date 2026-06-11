@@ -17,6 +17,20 @@ object PrefKeys {
     val LLM_BASE_URL = stringPreferencesKey("llm_base_url")
     val LAST_RESUME_TEXT = stringPreferencesKey("last_resume")
     val HAS_SEEN_ONBOARDING = stringPreferencesKey("has_seen_onboarding")
+    
+    // Ollama配置
+    val OLLAMA_BASE_URL = stringPreferencesKey("ollama_base_url")
+    val OLLAMA_MODEL = stringPreferencesKey("ollama_model")
+    val OLLAMA_EMBED_MODEL = stringPreferencesKey("ollama_embed_model")
+    
+    // AI Provider选择
+    val AI_PROVIDER = stringPreferencesKey("ai_provider") // "deepseek" | "ollama" | "local"
+    
+    // PDF模板偏好
+    val PDF_TEMPLATE = stringPreferencesKey("pdf_template")
+    
+    // 语言设置
+    val APP_LANGUAGE = stringPreferencesKey("app_language") // "zh" | "en"
 }
 
 @Singleton
@@ -104,6 +118,74 @@ class AppPreferences @Inject constructor(
     suspend fun setOnboardingSeen() {
         dataStore.edit { prefs ->
             prefs[PrefKeys.HAS_SEEN_ONBOARDING] = "true"
+        }
+    }
+
+    // ── Ollama配置 ────────────────────────────────────────────
+
+    suspend fun getOllamaBaseUrl(): String {
+        return dataStore.data.first()[PrefKeys.OLLAMA_BASE_URL] ?: "http://10.0.2.2:11434"
+    }
+
+    suspend fun setOllamaBaseUrl(url: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.OLLAMA_BASE_URL] = url
+        }
+    }
+
+    suspend fun getOllamaModel(): String {
+        return dataStore.data.first()[PrefKeys.OLLAMA_MODEL] ?: "qwen2.5:7b"
+    }
+
+    suspend fun setOllamaModel(model: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.OLLAMA_MODEL] = model
+        }
+    }
+
+    suspend fun getOllamaEmbedModel(): String {
+        return dataStore.data.first()[PrefKeys.OLLAMA_EMBED_MODEL] ?: "nomic-embed-text"
+    }
+
+    suspend fun setOllamaEmbedModel(model: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.OLLAMA_EMBED_MODEL] = model
+        }
+    }
+
+    // ── AI Provider ───────────────────────────────────────────
+
+    suspend fun getAiProvider(): String {
+        return dataStore.data.first()[PrefKeys.AI_PROVIDER] ?: "deepseek"
+    }
+
+    suspend fun setAiProvider(provider: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.AI_PROVIDER] = provider
+        }
+    }
+
+    // ── PDF模板 ───────────────────────────────────────────────
+
+    suspend fun getPdfTemplate(): String {
+        return dataStore.data.first()[PrefKeys.PDF_TEMPLATE] ?: "CLASSIC_SINGLE"
+    }
+
+    suspend fun setPdfTemplate(template: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.PDF_TEMPLATE] = template
+        }
+    }
+
+    // ── 语言设置 ─────────────────────────────────────────────
+
+    suspend fun getAppLanguage(): String {
+        return dataStore.data.first()[PrefKeys.APP_LANGUAGE] ?: "zh"
+    }
+
+    suspend fun setAppLanguage(language: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.APP_LANGUAGE] = language
         }
     }
 }

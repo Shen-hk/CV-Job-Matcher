@@ -20,6 +20,18 @@ data class ClassifiedKeywords(
     val uncategorized: List<String>
 ) {
     val allMatched: List<String> get() = byCategory.values.flatten() + uncategorized
+    
+    /**
+     * 获取关键词数量最多的前N个分类
+     * @param count 返回的分类数量
+     * @return 按关键词数量降序排列的 (categoryName, keywords) 列表
+     */
+    fun getTopCategories(count: Int): List<Pair<String, List<String>>> {
+        return byCategory.entries
+            .sortedByDescending { it.value.size }
+            .take(count)
+            .map { it.key to it.value }
+    }
 }
 
 /**

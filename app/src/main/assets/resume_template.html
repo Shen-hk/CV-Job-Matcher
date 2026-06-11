@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+    color: #2c3e50;
+    background: #fff;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 12mm 16mm;
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+
+  .header {
+    text-align: center;
+    border-bottom: 2.5px solid {{primaryColor}};
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .header h1 {
+    font-size: 22pt;
+    font-weight: 700;
+    color: {{primaryColor}};
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .header .target {
+    font-size: 11pt;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  .header .contact {
+    font-size: 9pt;
+    color: #888;
+  }
+  .header .contact span { margin: 0 8px; }
+
+  .section { margin-bottom: 12px; }
+  .section-title {
+    font-size: 11pt;
+    font-weight: 700;
+    color: {{primaryColor}};
+    border-bottom: 1.5px solid {{accentColor}};
+    padding-bottom: 3px;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  .summary { font-size: 9.5pt; color: #444; text-align: justify; }
+
+  .entry { margin-bottom: 10px; }
+  .entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .entry-title { font-weight: 700; font-size: 10pt; color: #2c3e50; }
+  .entry-subtitle { font-size: 9pt; color: #666; }
+  .entry-period { font-size: 9pt; color: #999; white-space: nowrap; }
+  .entry-highlights { margin-top: 3px; padding-left: 14px; }
+  .entry-highlights li {
+    font-size: 9.5pt;
+    color: #444;
+    margin-bottom: 2px;
+    line-height: 1.45;
+  }
+
+  .skills-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .skill-tag {
+    background: {{accentColor}}18;
+    color: {{accentColor}};
+    border: 1px solid {{accentColor}}44;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 9pt;
+  }
+
+  .project-tech {
+    font-size: 8.5pt;
+    color: #888;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>{{name}}</h1>
+  {{#targetPosition}}<div class="target">{{targetPosition}}</div>{{/targetPosition}}
+  <div class="contact">{{#contactItems}}<span>{{.}}</span>{{/contactItems}}</div>
+</div>
+
+{{#summary}}
+<div class="section">
+  <div class="section-title">个人总结</div>
+  <div class="summary">{{summary}}</div>
+</div>
+{{/summary}}
+
+{{#experiences}}
+<div class="section">
+  <div class="section-title">工作经历</div>
+  {{#items}}
+  <div class="entry">
+    <div class="entry-header">
+      <div>
+        <span class="entry-title">{{title}}</span>
+        <span class="entry-subtitle"> · {{company}}</span>
+      </div>
+      <span class="entry-period">{{period}}</span>
+    </div>
+    {{#highlights}}
+    <ul class="entry-highlights">
+      {{#.}}<li>{{.}}</li>{{/.}}
+    </ul>
+    {{/highlights}}
+  </div>
+  {{/items}}
+</div>
+{{/experiences}}
+
+{{#projects}}
+<div class="section">
+  <div class="section-title">项目经历</div>
+  {{#items}}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{name}}</span>
+      <span class="entry-period">{{period}}</span>
+    </div>
+    {{#description}}<div class="summary" style="margin-top:2px;">{{description}}</div>{{/description}}
+    {{#technologies}}
+    <div class="project-tech">技术栈: {{.}}</div>
+    {{/technologies}}
+  </div>
+  {{/items}}
+</div>
+{{/projects}}
+
+{{#education}}
+<div class="section">
+  <div class="section-title">教育背景</div>
+  {{#items}}
+  <div class="entry">
+    <div class="entry-header">
+      <div>
+        <span class="entry-title">{{degree}}</span>
+        <span class="entry-subtitle"> · {{school}}</span>
+      </div>
+      <span class="entry-period">{{period}}</span>
+    </div>
+  </div>
+  {{/items}}
+</div>
+{{/education}}
+
+{{#skills}}
+<div class="section">
+  <div class="section-title">专业技能</div>
+  <div class="skills-list">
+    {{#items}}<span class="skill-tag">{{.}}</span>{{/items}}
+  </div>
+</div>
+{{/skills}}
+
+</body>
+</html>

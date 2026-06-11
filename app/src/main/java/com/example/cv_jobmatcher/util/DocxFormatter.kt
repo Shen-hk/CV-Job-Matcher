@@ -2,6 +2,7 @@ package com.example.cv_jobmatcher.util
 
 import android.content.Context
 import android.util.Log
+import com.example.cv_jobmatcher.domain.model.ResumeData
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
@@ -37,6 +38,19 @@ object DocxFormatter {
         entries["_rels/.rels"] = RELS.toByteArray(Charsets.UTF_8)
         entries["word/_rels/document.xml.rels"] = DOC_RELS.toByteArray(Charsets.UTF_8)
         entries["word/document.xml"] = buildDocument(polishedText, template).toByteArray(Charsets.UTF_8)
+        return writeZip(entries, outputFileName, context)
+    }
+
+    fun exportFromData(
+        resumeData: ResumeData, outputFileName: String, context: Context,
+        template: Template = Template.CLASSIC
+    ): File {
+        Log.d(TAG, "exportFromData: template=${template.key}, name=${resumeData.name}, exps=${resumeData.experiences.size}")
+        val entries = LinkedHashMap<String, ByteArray>()
+        entries["[Content_Types].xml"] = CONTENT_TYPES.toByteArray(Charsets.UTF_8)
+        entries["_rels/.rels"] = RELS.toByteArray(Charsets.UTF_8)
+        entries["word/_rels/document.xml.rels"] = DOC_RELS.toByteArray(Charsets.UTF_8)
+        entries["word/document.xml"] = buildDocumentFromData(resumeData, template).toByteArray(Charsets.UTF_8)
         return writeZip(entries, outputFileName, context)
     }
 
@@ -77,6 +91,137 @@ object DocxFormatter {
                 P.SKILLS  -> skillsBlock(p, s)
                 P.BODY    -> bodyBlock(p, s)
             }.let { body.append(it) }
+        }
+
+        return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+$body
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720"/>
+    </w:sectPr>
+  </w:body>
+</w:document>""".trimIndent()
+    }
+
+    private fun buildDocumentFromData(data: ResumeData, template: Template): String {
+        val s = style(template)
+        val body = StringBuilder()
+
+        body.append(para(runs(data.name, s, bold = true, size = s.nameSize),
+            align = "center", spacingAfter = 60, spacingLine = s.lineSpacing))
+
+        if (data.targetPosition.isNotBlank()) {
+            body.append(para(runs(data.targetPosition, s, bold = false, size = s.bodySize, italic = true),
+                align = "center", spacingAfter = 40, spacingLine = s.lineSpacing))
+        }
+
+        if (data.contact.isNotBlank()) {
+            body.append(para(runs(data.contact, s, bold = false, size = s.bodySize),
+                align = "center", spacingAfter = 80, spacingLine = s.lineSpacing))
+        }
+
+        if (data.summary.isNotBlank()) {
+            body.append(headerBlock(Par(P.HEADER, "个人总结", listOf("个人总结")), s))
+            for (line in data.summary.split("\n").filter { it.isNotBlank() }) {
+                body.append(para(runs(line.trim(), s, bold = false, size = s.bodySize),
+                    align = "left", spacingAfter = 20, spacingLine = s.lineSpacing))
+            }
+        }
+
+        if (data.experiences.isNotEmpty()) {
+            body.append(headerBlock(Par(P.HEADER, "工作经历", listOf("工作经历")), s))
+            for (exp in data.experiences) {
+                val leftPart = "${exp.title} | ${exp.company}"
+                val rightPart = exp.period
+                val sb = StringBuilder()
+                sb.append("<w:p><w:pPr>")
+                sb.append("<w:spacing w:after=\"20\" w:line=\"${s.lineSpacing}\" w:lineRule=\"auto\"/>")
+                if (rightPart.isNotBlank()) {
+                    sb.append("<w:tabs><w:tab w:val=\"right\" w:pos=\"$RIGHT_TAB_POS\"/></w:tabs>")
+                }
+                sb.append("</w:pPr>")
+                sb.append(runs(leftPart, s, bold = true, size = s.bodySize))
+                if (rightPart.isNotBlank()) {
+                    sb.append("<w:r><w:rPr><w:rFonts w:ascii=\"微软雅黑\" w:hAnsi=\"微软雅黑\" w:eastAsia=\"微软雅黑\"/></w:rPr><w:tab/></w:r>")
+                    sb.append(runs(rightPart, s, bold = false, italic = true, size = s.smallSize))
+                }
+                sb.append("</w:p>")
+                body.append(sb.toString())
+
+                if (exp.description.isNotBlank()) {
+                    for (line in exp.description.split("\n").map { it.trim() }.filter { it.isNotBlank() }) {
+                        val text = if (line.startsWith("-") || line.startsWith("•")) "• ${line.removePrefix("-").removePrefix("•").trim()}" else "• $line"
+                        body.append(para(runs(text, s, bold = false, size = s.bodySize),
+                            align = "left", spacingAfter = 20, spacingLine = s.lineSpacing,
+                            indentLeft = 240, indentHanging = 240))
+                    }
+                }
+            }
+        }
+
+        if (data.education.isNotEmpty()) {
+            body.append(headerBlock(Par(P.HEADER, "教育背景", listOf("教育背景")), s))
+            for (edu in data.education) {
+                val leftPart = "${edu.degree} | ${edu.school}"
+                val rightPart = edu.period
+                val sb = StringBuilder()
+                sb.append("<w:p><w:pPr>")
+                sb.append("<w:spacing w:after=\"20\" w:line=\"${s.lineSpacing}\" w:lineRule=\"auto\"/>")
+                if (rightPart.isNotBlank()) {
+                    sb.append("<w:tabs><w:tab w:val=\"right\" w:pos=\"$RIGHT_TAB_POS\"/></w:tabs>")
+                }
+                sb.append("</w:pPr>")
+                sb.append(runs(leftPart, s, bold = true, size = s.bodySize))
+                if (rightPart.isNotBlank()) {
+                    sb.append("<w:r><w:rPr><w:rFonts w:ascii=\"微软雅黑\" w:hAnsi=\"微软雅黑\" w:eastAsia=\"微软雅黑\"/></w:rPr><w:tab/></w:r>")
+                    sb.append(runs(rightPart, s, bold = false, italic = true, size = s.smallSize))
+                }
+                sb.append("</w:p>")
+                body.append(sb.toString())
+            }
+        }
+
+        if (data.projects.isNotEmpty()) {
+            body.append(headerBlock(Par(P.HEADER, "项目经历", listOf("项目经历")), s))
+            for (proj in data.projects) {
+                val leftPart = proj.name
+                val rightPart = proj.period
+                val sb = StringBuilder()
+                sb.append("<w:p><w:pPr>")
+                sb.append("<w:spacing w:after=\"20\" w:line=\"${s.lineSpacing}\" w:lineRule=\"auto\"/>")
+                if (rightPart.isNotBlank()) {
+                    sb.append("<w:tabs><w:tab w:val=\"right\" w:pos=\"$RIGHT_TAB_POS\"/></w:tabs>")
+                }
+                sb.append("</w:pPr>")
+                sb.append(runs(leftPart, s, bold = true, size = s.bodySize))
+                if (rightPart.isNotBlank()) {
+                    sb.append("<w:r><w:rPr><w:rFonts w:ascii=\"微软雅黑\" w:hAnsi=\"微软雅黑\" w:eastAsia=\"微软雅黑\"/></w:rPr><w:tab/></w:r>")
+                    sb.append(runs(rightPart, s, bold = false, italic = true, size = s.smallSize))
+                }
+                sb.append("</w:p>")
+                body.append(sb.toString())
+
+                if (proj.description.isNotBlank()) {
+                    for (line in proj.description.split("\n").map { it.trim() }.filter { it.isNotBlank() }) {
+                        body.append(para(runs("• $line", s, bold = false, size = s.bodySize),
+                            align = "left", spacingAfter = 20, spacingLine = s.lineSpacing,
+                            indentLeft = 240, indentHanging = 240))
+                    }
+                }
+                if (proj.technologies.isNotEmpty()) {
+                    body.append(para(runs("技术栈: ${proj.technologies.joinToString(", ")}", s, bold = false, size = s.smallSize),
+                        align = "left", spacingAfter = 20, spacingLine = s.lineSpacing,
+                        indentLeft = 240))
+                }
+            }
+        }
+
+        if (data.skills.isNotEmpty()) {
+            body.append(headerBlock(Par(P.HEADER, "技能列表", listOf("技能列表")), s))
+            body.append(para(runs(data.skills.joinToString(", "), s, bold = false, size = s.bodySize),
+                align = "left", spacingAfter = s.paraAfter, spacingLine = s.lineSpacing))
         }
 
         return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

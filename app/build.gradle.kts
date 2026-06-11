@@ -7,16 +7,12 @@ plugins {
 
 android {
     namespace = "com.example.cv_jobmatcher"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.cv_jobmatcher"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -89,6 +85,15 @@ dependencies {
 
     // PDF text extraction
     implementation(libs.pdfbox.android)
+
+    // TensorFlow Lite (Embedding models for semantic matching)
+    // 使用 2.16.1 版本，排除api模块以避免命名空间冲突
+    implementation(libs.tensorflow.lite) {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
+    implementation(libs.tensorflow.lite.support) {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-support-api")
+    }
 
     // DOCX handled via direct ZIP+XML (no extra dependency)
 

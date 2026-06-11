@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Share
@@ -36,11 +37,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,9 +59,9 @@ import com.example.cv_jobmatcher.domain.model.MatchLevel
 import com.example.cv_jobmatcher.ui.components.ScoreRingChart
 import com.example.cv_jobmatcher.ui.components.ErrorBanner
 import com.example.cv_jobmatcher.ui.components.SectionCard
+import com.example.cv_jobmatcher.util.PdfGenerator
 import com.example.cv_jobmatcher.ui.theme.MatchGreen
 import com.example.cv_jobmatcher.ui.theme.MissRed
-import com.example.cv_jobmatcher.ui.theme.WarningOrange
 import com.example.cv_jobmatcher.util.DocxFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -67,6 +73,7 @@ fun ResultScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var iterativeInstruction by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -174,14 +181,86 @@ fun ResultScreen(
                         Spacer(Modifier.height(16.dp))
                     }
 
+                    // ═══ Iterative Polish ══════════════════════
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("继续优化", style = MaterialTheme.typography.titleSmall)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "告诉 AI 你还想怎么改，它会基于当前简历继续调整",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+
+                            if (state.iterativeHistory.isNotEmpty()) {
+                                state.iterativeHistory.forEach { h ->
+                                    Text(
+                                        h,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                }
+                                Spacer(Modifier.height(4.dp))
+                            }
+
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = iterativeInstruction,
+                                    onValueChange = { iterativeInstruction = it },
+                                    placeholder = { Text("例：把项目经历中的 Spring 改成 Spring Boot") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    enabled = !state.isIterativePolishing
+                                )
+                                IconButton(
+                                    onClick = {
+                                        if (iterativeInstruction.isNotBlank()) {
+                                            viewModel.iterativePolish(iterativeInstruction)
+                                            iterativeInstruction = ""
+                                        }
+                                    },
+                                    enabled = !state.isIterativePolishing && iterativeInstruction.isNotBlank()
+                                ) {
+                                    if (state.isIterativePolishing) {
+                                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Send,
+                                            contentDescription = "发送",
+                                            tint = if (iterativeInstruction.isNotBlank())
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
                     // ═══ Template Selector ══════════════════════
                     Text("选择导出模板", style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(8.dp))
+
+                    // DOCX 模板选择
+                    Text("DOCX格式", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         DocxFormatter.Template.entries.forEach { tpl ->
                             FilterChip(
-                                selected = state.selectedTemplate == tpl,
-                                onClick = { viewModel.selectTemplate(tpl) },
+                                selected = state.selectedDocxTemplate == tpl,
+                                onClick = { viewModel.selectDocxTemplate(tpl) },
                                 label = { Text(tpl.label) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
@@ -190,10 +269,53 @@ fun ResultScreen(
                         }
                     }
 
+                    Spacer(Modifier.height(12.dp))
+
+                    // PDF 模板选择
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("PDF格式", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.weight(1f))
+                        Text("HTML渲染", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Switch(
+                            checked = state.useHtmlPdf,
+                            onCheckedChange = viewModel::toggleHtmlPdf
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    if (state.useHtmlPdf) {
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f))
+                        ) {
+                            Text(
+                                "HTML渲染模式：使用 WebView 渲染网页简历后导出 PDF，排版更精美，接近网页预览效果",
+                                modifier = Modifier.padding(8.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PdfGenerator.Template.entries.forEach { tpl ->
+                                FilterChip(
+                                    selected = state.selectedPdfTemplate == tpl,
+                                    onClick = { viewModel.selectPdfTemplate(tpl) },
+                                    label = { Text(tpl.label) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer
+                                    )
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(Modifier.height(16.dp))
 
                     // ═══ Export Button ══════════════════════════
-                    Row(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = viewModel::exportDocx,
                             modifier = Modifier.weight(1f),
@@ -202,11 +324,23 @@ fun ResultScreen(
                             if (state.isExporting) {
                                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
-                                Text("导出 ${state.selectedTemplate.label} DOCX")
+                                Text("导出 DOCX")
                             }
                         }
+
+                        Button(
+                            onClick = viewModel::exportPdf,
+                            modifier = Modifier.weight(1f),
+                            enabled = !state.isExporting
+                        ) {
+                            if (state.isExporting) {
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text(if (state.useHtmlPdf) "导出 HTML PDF" else "导出 PDF")
+                            }
+                        }
+
                         state.exportFile?.let {
-                            Spacer(Modifier.width(12.dp))
                             OutlinedButton(
                                 onClick = { viewModel.shareFile(context) },
                                 modifier = Modifier.weight(1f)
@@ -243,8 +377,6 @@ fun ResultScreen(
     }
 }
 
-// ── Sub-components ─────────────────────────────────────────
-
 @Composable
 private fun KeywordsPanel(matched: List<String>, missing: List<String>) {
     Card(Modifier.fillMaxWidth()) {
@@ -252,7 +384,6 @@ private fun KeywordsPanel(matched: List<String>, missing: List<String>) {
             Text("关键词对比", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(12.dp))
 
-            // Matched
             if (matched.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, null, tint = MatchGreen, modifier = Modifier.size(16.dp))
@@ -275,7 +406,6 @@ private fun KeywordsPanel(matched: List<String>, missing: List<String>) {
                 if (missing.isNotEmpty()) Spacer(Modifier.height(12.dp))
             }
 
-            // Missing
             if (missing.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Warning, null, tint = MissRed, modifier = Modifier.size(16.dp))

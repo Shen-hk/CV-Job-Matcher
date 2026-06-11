@@ -9,6 +9,8 @@ import com.example.cv_jobmatcher.data.local.AppPreferences
 import com.example.cv_jobmatcher.data.local.db.AppDatabase
 import com.example.cv_jobmatcher.data.local.db.dao.HistoryDao
 import com.example.cv_jobmatcher.data.remote.DeepSeekApiService
+import com.example.cv_jobmatcher.data.remote.DeepSeekProvider
+import com.example.cv_jobmatcher.data.remote.OllamaProvider
 import com.example.cv_jobmatcher.data.remote.interceptor.ApiKeyInterceptor
 import com.example.cv_jobmatcher.domain.nlp.KeywordClassifier
 import com.example.cv_jobmatcher.domain.usecase.MatchAnalysisUseCase
@@ -105,7 +107,9 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "cv_jobmatcher.db"
-        ).fallbackToDestructiveMigration(false)
+        )
+            .addMigrations(AppDatabase.MIGRATION_3_4)
+            .fallbackToDestructiveMigration(false)
             .build()
     }
 
@@ -113,5 +117,24 @@ object AppModule {
     @Singleton
     fun provideHistoryDao(db: AppDatabase): HistoryDao {
         return db.historyDao()
+    }
+
+    // ── AI Providers ───────────────────────────────────────────
+
+    @Provides
+    @Singleton
+    fun provideDeepSeekProvider(
+        apiService: DeepSeekApiService,
+        appPreferences: AppPreferences
+    ): DeepSeekProvider {
+        return DeepSeekProvider(apiService, appPreferences)
+    }
+
+    @Provides
+    @Singleton
+    fun provideOllamaProvider(
+        appPreferences: AppPreferences
+    ): OllamaProvider {
+        return OllamaProvider(appPreferences)
     }
 }

@@ -24,23 +24,26 @@ data class HistoryEntity(
     @ColumnInfo(name = "polished_resume")
     val polishedResume: String,
 
+    @ColumnInfo(name = "resume_json", defaultValue = "")
+    val resumeJson: String = "",
+
     @ColumnInfo(name = "jd_skills")
-    val jdSkills: String,       // JSON array string — JD required skills
+    val jdSkills: String,
 
     @ColumnInfo(name = "match_note")
-    val matchNote: String,      // optimization note from LLM
+    val matchNote: String,
 
     @ColumnInfo(name = "match_score")
-    val matchScore: Int = 0,    // 0-100 ATS match score
+    val matchScore: Int = 0,
 
     @ColumnInfo(name = "matched_keywords")
-    val matchedKeywords: String = "[]",   // JSON array — keywords found in resume
+    val matchedKeywords: String = "[]",
 
     @ColumnInfo(name = "missing_keywords")
-    val missingKeywords: String = "[]",   // JSON array — keywords missing from resume
+    val missingKeywords: String = "[]",
 
     @ColumnInfo(name = "suggestions")
-    val suggestions: String = "[]",       // JSON array — improvement suggestions
+    val suggestions: String = "[]",
 
     @ColumnInfo(name = "original_file_path")
     val originalFilePath: String? = null,
@@ -49,5 +52,5 @@ data class HistoryEntity(
     val sourceType: String = "text",
 
     @ColumnInfo(name = "template_style")
-    val templateStyle: String = "classic"  // "classic" | "modern" | "compact"
+    val templateStyle: String = "classic"
 )
