@@ -4,17 +4,13 @@ package com.example.cv_jobmatcher.util
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.pdf.PdfDocument
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.print.PrintAttributes
 import android.util.Log
-import android.view.View
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.print.PdfPrint
 import com.example.cv_jobmatcher.domain.model.ResumeData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -57,7 +53,7 @@ object HtmlPdfExporter {
             return renderFullHtml(resumeData, HtmlConfig(), null)
         }
 
-        val avatarBlock = ""
+        val avatarBlock = """<div class="photo-frame"><div class="profile-photo"></div></div>"""
 
         val eyebrow = if (resumeData.targetPosition.isNotBlank()) {
             "求职意向: ${escapeHtml(resumeData.targetPosition)}"
@@ -279,19 +275,17 @@ $body
     }
 
     private fun defaultCss(config: HtmlConfig): String = """
-  @page { size: A4; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
     color: #2c3e50; background: #fff;
-    width: 210mm; min-height: 297mm;
-    padding: 12mm 16mm; font-size: 10pt; line-height: 1.5;
+    width: 794px; padding: 44px 52px; font-size: 10pt; line-height: 1.5;
   }
-  .header { text-align: center; border-bottom: 2.5px solid ${config.primaryColor}; padding-bottom: 10px; margin-bottom: 14px; }
-  .header h1 { font-size: 22pt; font-weight: 700; color: ${config.primaryColor}; letter-spacing: 2px; margin-bottom: 4px; }
-  .header .target { font-size: 11pt; color: #555; margin-bottom: 4px; }
-  .header .contact { font-size: 9pt; color: #888; }
-  .header .contact span { margin: 0 8px; }
+  .header { text-align: center; border-bottom: 2.5px solid ${config.primaryColor}; padding-bottom: 12px; margin-bottom: 16px; }
+  .header h1 { font-size: 22pt; font-weight: 700; color: ${config.primaryColor}; letter-spacing: 2px; margin-bottom: 6px; }
+  .header .target { font-size: 11pt; color: #555; margin-bottom: 6px; }
+  .header .contact { font-size: 10pt; color: #666; }
+  .header .contact span + span::before { content: " | "; color: #ccc; }
   .section { margin-bottom: 12px; }
   .section-title { font-size: 11pt; font-weight: 700; color: ${config.primaryColor};
     border-bottom: 1.5px solid ${config.accentColor}; padding-bottom: 3px; margin-bottom: 8px; letter-spacing: 1px; }
@@ -400,14 +394,13 @@ $body
     /**
      * 将简历 HTML 导出为 PDF 文件。
      *
-     * 使用 [PdfDocument] API，通过离屏 WebView（软件渲染）将 HTML 渲染到 Canvas，
-     * 然后按 A4 尺寸逐页切割。软件渲染 (`LAYER_TYPE_SOFTWARE`) 是关键，
-     * 它让离屏 WebView 的 `draw(Canvas)` 能够真正产出内容。
+     * Uses [WebView.createPrintDocumentAdapter] so the system print infrastructure handles
+     * A4 layout, [@media print] CSS, pagination, and density — producing a proper vector PDF.
      */
     @SuppressLint("SetJavaScriptEnabled")
     suspend fun exportPdf(context: Context, resumeData: ResumeData, config: HtmlConfig = HtmlConfig()): File =
         withContext(Dispatchers.Main) {
-            val html = buildHtml(context, resumeData, config).let { injectPdfExportCss(it) }
+            val html = buildHtml(context, resumeData, config)
             Log.d(TAG, "HTML 生成完成: ${html.length} chars")
 
             val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS)
@@ -415,15 +408,10 @@ $body
             if (!dir.exists()) dir.mkdirs()
             val file = File(dir, "resume_html_${System.currentTimeMillis()}.pdf")
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                WebView.enableSlowWholeDocumentDraw()
-            }
-
             suspendCancellableCoroutine { continuation ->
                 val webView = WebView(context).apply {
                     settings.javaScriptEnabled = true
-                    setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-                    setBackgroundColor(Color.WHITE)
+                    setBackgroundColor(android.graphics.Color.WHITE)
                 }
 
                 val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
@@ -441,111 +429,46 @@ $body
                     override fun onPageFinished(view: WebView, url: String) {
                         Handler(Looper.getMainLooper()).postDelayed({
                             try {
-                                renderWebViewToPdf(view, file, context)
-                                if (continuation.isActive) continuation.resume(file)
+                                val adapter = view.createPrintDocumentAdapter("resume")
+
+                                val attributes = PrintAttributes.Builder()
+                                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                    .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                                    .setResolution(PrintAttributes.Resolution("pdf", "pdf", 300, 300))
+                                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                                    .build()
+
+                                PdfPrint(attributes).write(adapter, file) { success, output ->
+                                    try {
+                                        windowManager.removeView(webView)
+                                    } catch (_: Exception) {}
+                                    webView.destroy()
+
+                                    if (success && output != null && continuation.isActive) {
+                                        continuation.resume(output)
+                                    } else if (continuation.isActive) {
+                                        continuation.resumeWithException(
+                                            RuntimeException("PDF 导出失败")
+                                        )
+                                    }
+                                }
                             } catch (e: Exception) {
-                                Log.e(TAG, "PDF 写入失败: ${e.message}", e)
-                                if (continuation.isActive) continuation.resumeWithException(e)
-                            } finally {
-                                try {
-                                    windowManager.removeView(webView)
-                                } catch (_: Exception) {}
+                                Log.e(TAG, "PDF 导出失败: ${e.message}", e)
+                                try { windowManager.removeView(webView) } catch (_: Exception) {}
                                 webView.destroy()
+                                if (continuation.isActive) continuation.resumeWithException(e)
                             }
                         }, 1500)
                     }
                 }
 
                 continuation.invokeOnCancellation {
-                    try {
-                        windowManager.removeView(webView)
-                    } catch (_: Exception) {}
+                    try { windowManager.removeView(webView) } catch (_: Exception) {}
                     webView.destroy()
                 }
                 webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
             }
         }
-
-    private fun injectPdfExportCss(html: String): String {
-        val css = """
-<style id="pdf-export-fix">
-html, body {
-  width: 794px !important;
-  min-width: 794px !important;
-  max-width: 794px !important;
-  margin: 0 !important;
-  overflow: visible !important;
-}
-body {
-  transform: none !important;
-}
-</style>
-""".trimIndent()
-        return if (html.contains("</head>", ignoreCase = true)) {
-            html.replace("</head>", "$css\n</head>", ignoreCase = true)
-        } else {
-            css + html
-        }
-    }
-
-    private fun renderWebViewToPdf(webView: WebView, file: File, context: Context) {
-        val metrics = context.resources.displayMetrics
-        val A4_WIDTH_PT = 595
-        val A4_HEIGHT_PT = 842
-        val A4_CSS_WIDTH_PX = 794
-        val webViewWidthPx = (A4_CSS_WIDTH_PX * metrics.density).toInt()
-
-        val wSpec = View.MeasureSpec.makeMeasureSpec(webViewWidthPx, View.MeasureSpec.EXACTLY)
-        val hSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-
-        webView.measure(wSpec, hSpec)
-        webView.layout(0, 0, webView.measuredWidth, webView.measuredHeight)
-
-        webView.measure(wSpec, hSpec)
-        webView.layout(0, 0, webView.measuredWidth, webView.measuredHeight)
-
-        val contentWidth = webView.measuredWidth
-        val contentHeight = webView.measuredHeight
-        Log.d(TAG, "WebView测量: ${contentWidth}x${contentHeight}, density=${metrics.density}, xdpi=${metrics.xdpi}")
-
-        if (contentWidth <= 0 || contentHeight <= 0) {
-            throw RuntimeException("WebView 内容尺寸为零 (${contentWidth}x${contentHeight})")
-        }
-
-        val scale = A4_WIDTH_PT.toFloat() / contentWidth.toFloat()
-        val totalContentHeightPt = (contentHeight * scale).toInt()
-        Log.d(TAG, "PDF缩放: scale=$scale, 内容总高度=${totalContentHeightPt}pt")
-
-        val pdf = PdfDocument()
-        val whitePaint = Paint().apply { color = Color.WHITE; style = Paint.Style.FILL }
-        var pageNum = 0
-
-        try {
-            var yOffsetPt = 0
-            while (yOffsetPt < totalContentHeightPt) {
-                val pageInfo = PdfDocument.PageInfo.Builder(A4_WIDTH_PT, A4_HEIGHT_PT, pageNum + 1).create()
-                val page = pdf.startPage(pageInfo)
-                val canvas = page.canvas
-
-                canvas.drawRect(0f, 0f, A4_WIDTH_PT.toFloat(), A4_HEIGHT_PT.toFloat(), whitePaint)
-
-                canvas.save()
-                canvas.scale(scale, scale)
-                canvas.translate(0f, -yOffsetPt / scale)
-                webView.draw(canvas)
-                canvas.restore()
-
-                pdf.finishPage(page)
-                yOffsetPt += A4_HEIGHT_PT
-                pageNum++
-            }
-
-            file.outputStream().use { pdf.writeTo(it) }
-            Log.i(TAG, "PDF 导出成功: ${file.absolutePath} (${file.length() / 1024}KB, $pageNum 页)")
-        } finally {
-            pdf.close()
-        }
-    }
 
     private fun escapeHtml(text: String): String {
         return text
