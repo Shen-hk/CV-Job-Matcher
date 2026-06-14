@@ -290,12 +290,24 @@ fun ResultScreen(
                             Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f))
                         ) {
-                            Text(
-                                "HTML渲染模式：使用 WebView 渲染网页简历后导出 PDF，排版更精美，接近网页预览效果",
-                                modifier = Modifier.padding(8.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(Modifier.padding(8.dp)) {
+                                Text(
+                                    "HTML渲染模式：使用 WebView 渲染网页简历后导出 PDF，排版更精美，接近网页预览效果",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text("Vibe风格模板", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Switch(
+                                        checked = state.useVibeTemplate,
+                                        onCheckedChange = viewModel::toggleVibeTemplate
+                                    )
+                                }
+                            }
                         }
                     } else {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

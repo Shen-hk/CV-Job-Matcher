@@ -50,6 +50,7 @@ data class ResultUiState(
     val selectedDocxTemplate: DocxFormatter.Template = DocxFormatter.Template.CLASSIC,
     val selectedPdfTemplate: PdfGenerator.Template = PdfGenerator.Template.CLASSIC_SINGLE,
     val useHtmlPdf: Boolean = false,
+    val useVibeTemplate: Boolean = false,
     val isExporting: Boolean = false,
     val exportFile: File? = null,
     // Structured resume data (from JSON)
@@ -250,6 +251,10 @@ class ResultViewModel @Inject constructor(
         _uiState.update { it.copy(useHtmlPdf = use) }
     }
 
+    fun toggleVibeTemplate(use: Boolean) {
+        _uiState.update { it.copy(useVibeTemplate = use) }
+    }
+
     fun exportDocx() {
         viewModelScope.launch {
             _uiState.update { it.copy(isExporting = true) }
@@ -291,11 +296,12 @@ class ResultViewModel @Inject constructor(
     }
 
     private suspend fun exportHtmlPdf(state: ResultUiState) {
-        Log.i(TAG, "exportPdf (HTML): template=webview")
+        Log.i(TAG, "exportPdf (HTML): useVibeTemplate=${state.useVibeTemplate}")
         try {
             val resumeData = state.resumeData ?: ResumeData.fromPolishedText(state.polishedResume)
+            val config = HtmlPdfExporter.HtmlConfig(useVibeTemplate = state.useVibeTemplate)
             val file = withContext(Dispatchers.Main) {
-                HtmlPdfExporter.exportPdf(application, resumeData)
+                HtmlPdfExporter.exportPdf(application, resumeData, config)
             }
             Log.i(TAG, "HTML PDF导出成功: ${file.absolutePath} (${file.length() / 1024}KB)")
             _uiState.update { it.copy(isExporting = false, exportFile = file) }

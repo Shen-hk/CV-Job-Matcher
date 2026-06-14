@@ -1,4 +1,4 @@
-@file:Suppress("DEPRECATION")
+﻿@file:Suppress("DEPRECATION")
 
 package com.example.cv_jobmatcher.util
 
@@ -28,10 +28,14 @@ object HtmlPdfExporter {
 
     data class HtmlConfig(
         val primaryColor: String = "#003366",
-        val accentColor: String = "#006699"
+        val accentColor: String = "#006699",
+        val useVibeTemplate: Boolean = false
     )
 
     fun buildHtml(context: Context, resumeData: ResumeData, config: HtmlConfig = HtmlConfig()): String {
+        if (config.useVibeTemplate) {
+            return buildVibeHtml(context, resumeData)
+        }
         val templateCss = try {
             context.assets.open("resume_template.html")
                 .bufferedReader().use { it.readText() }
@@ -42,6 +46,209 @@ object HtmlPdfExporter {
         }
 
         return renderFullHtml(resumeData, config, templateCss)
+    }
+
+    private fun buildVibeHtml(context: Context, resumeData: ResumeData): String {
+        val template = try {
+            context.assets.open("vibe_resume_template.html")
+                .bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            Log.w(TAG, "读取Vibe模板失败: ${e.message}")
+            return renderFullHtml(resumeData, HtmlConfig(), null)
+        }
+
+        val avatarBlock = ""
+
+        val eyebrow = if (resumeData.targetPosition.isNotBlank()) {
+            "求职意向: ${escapeHtml(resumeData.targetPosition)}"
+        } else ""
+
+        val identityLine = buildIdentityLine(resumeData)
+
+        val contactHtml = buildVibeContact(resumeData)
+
+        val summaryHtml = if (resumeData.summary.isNotBlank()) {
+            """<p class="summary">${escapeHtml(resumeData.summary)}</p>"""
+        } else ""
+
+        val educationGridHtml = buildVibeEducationGrid(resumeData)
+        val educationInfoHtml = buildVibeEducationInfo(resumeData)
+
+        val experiencesHtml = buildVibeExperiences(resumeData)
+        val projectsHtml = buildVibeProjects(resumeData)
+        val skillsHtml = buildVibeSkills(resumeData)
+        val certsHtml = buildVibeCerts(resumeData)
+
+        return template
+            .replace("{{avatarBlock}}", avatarBlock)
+            .replace("{{eyebrow}}", eyebrow)
+            .replace("{{name}}", escapeHtml(resumeData.name))
+            .replace("{{identityLine}}", identityLine)
+            .replace("{{contact}}", contactHtml)
+            .replace("{{summary}}", summaryHtml)
+            .replace("{{educationGrid}}", educationGridHtml)
+            .replace("{{educationInfo}}", educationInfoHtml)
+            .replace("{{experiences}}", experiencesHtml)
+            .replace("{{projects}}", projectsHtml)
+            .replace("{{skills}}", skillsHtml)
+            .replace("{{certs}}", certsHtml)
+            .let { removeEmptyVibeSections(it) }
+    }
+
+    private fun buildIdentityLine(data: ResumeData): String {
+        val parts = mutableListOf<String>()
+        if (data.targetPosition.isNotBlank()) {
+            parts.add(data.targetPosition)
+        }
+        val expYears = data.experiences.size
+        if (expYears > 0) {
+            parts.add("${expYears}段经历")
+        }
+        val highestEdu = data.education.firstOrNull()?.degree
+        if (highestEdu != null && highestEdu.isNotBlank()) {
+            parts.add(highestEdu)
+        }
+        return parts.joinToString(" · ")
+    }
+
+    private fun buildVibeContact(data: ResumeData): String {
+        val items = data.contact.split(",", "，", " ", "|")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        if (items.isEmpty()) return ""
+
+        val sb = StringBuilder()
+        for (item in items) {
+            val escaped = escapeHtml(item)
+            when {
+                item.contains("@") -> {
+                    sb.appendLine("""      <a href="mailto:$escaped"><svg class="icon"><use href="#icon-mail"/></svg>$escaped</a>""")
+                }
+                item.contains("github.com") || item.contains("github.io") -> {
+                    sb.appendLine("""      <a href="https://$escaped"><svg class="icon"><use href="#icon-github"/></svg>$escaped</a>""")
+                }
+                item.matches(Regex("""[\d\-+() ]{7,}""")) -> {
+                    val digits = item.replace(Regex("""[^\d+]"""), "")
+                    sb.appendLine("""      <a href="tel:$digits"><svg class="icon"><use href="#icon-phone"/></svg>$escaped</a>""")
+                }
+                item.startsWith("http") -> {
+                    sb.appendLine("""      <a href="$escaped"><svg class="icon"><use href="#icon-link"/></svg>$escaped</a>""")
+                }
+                else -> {
+                    sb.appendLine("""      <a href="#"><svg class="icon"><use href="#icon-link"/></svg>$escaped</a>""")
+                }
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    private fun buildVibeEducationGrid(data: ResumeData): String {
+        if (data.education.isEmpty()) return ""
+        val sb = StringBuilder()
+        for (edu in data.education) {
+            sb.appendLine("""      <div><strong>${escapeHtml(edu.degree)}</strong></div>""")
+            sb.appendLine("""      <div>${escapeHtml(edu.school)}</div>""")
+            sb.appendLine("""      <div>${escapeHtml(edu.period)}</div>""")
+        }
+        return sb.toString().trimEnd()
+    }
+
+    private fun buildVibeEducationInfo(data: ResumeData): String {
+        if (data.education.isEmpty()) return ""
+        val sb = StringBuilder()
+        for (edu in data.education) {
+            if (edu.gpa != null && edu.gpa.isNotBlank()) {
+                sb.appendLine("""    <p class="info-line"><strong>GPA:</strong> ${escapeHtml(edu.gpa)}</p>""")
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    private fun removeEmptyVibeSections(html: String): String {
+        var result = html
+        if (!result.contains("<p class=\"summary\">")) {
+            result = result.replace(
+                Regex("""<section class="section" id="summary-section">.*?</section>""", RegexOption.DOT_MATCHES_ALL),
+                ""
+            )
+        }
+        if (!result.contains("""<div class="education-grid">""")) {
+            result = result.replace(
+                Regex("""<section class="section" id="education-section">.*?</section>""", RegexOption.DOT_MATCHES_ALL),
+                ""
+            )
+        }
+        if (!result.contains("""<div class="cert-list">""") || !result.contains("cert-item")) {
+            result = result.replace(
+                Regex("""<section class="section" id="cert-section">.*?</section>""", RegexOption.DOT_MATCHES_ALL),
+                ""
+            )
+        }
+        return result
+    }
+
+    private fun buildVibeExperiences(data: ResumeData): String {
+        if (data.experiences.isEmpty()) return ""
+        val sb = StringBuilder()
+        for (exp in data.experiences) {
+            sb.appendLine("""    <div class="experience">""")
+            sb.appendLine("""      <div class="entry-head">""")
+            sb.appendLine("""        <div class="company-title"><strong>${escapeHtml(exp.title)}</strong></div>""")
+            sb.appendLine("""        <span>${escapeHtml(exp.company)}</span>""")
+            sb.appendLine("""        <span>${escapeHtml(exp.period)}</span>""")
+            sb.appendLine("""      </div>""")
+            val highlights = exp.description.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+            if (highlights.isNotEmpty()) {
+                sb.appendLine("""      <ul>""")
+                for (h in highlights) {
+                    sb.appendLine("""        <li>${escapeHtml(h.trimStart('-', '•', ' '))}</li>""")
+                }
+                sb.appendLine("""      </ul>""")
+            }
+            sb.appendLine("""    </div>""")
+        }
+        return sb.toString()
+    }
+
+    private fun buildVibeProjects(data: ResumeData): String {
+        if (data.projects.isEmpty()) return ""
+        val sb = StringBuilder()
+        for (proj in data.projects) {
+            sb.appendLine("""    <div class="experience">""")
+            sb.appendLine("""      <div class="entry-head">""")
+            sb.appendLine("""        <div class="project-title"><strong>${escapeHtml(proj.name)}</strong></div>""")
+            sb.appendLine("""        <span></span>""")
+            sb.appendLine("""        <span>${escapeHtml(proj.period)}</span>""")
+            sb.appendLine("""      </div>""")
+            if (proj.description.isNotBlank()) {
+                sb.appendLine("""      <p class="summary">${escapeHtml(proj.description)}</p>""")
+            }
+            if (proj.technologies.isNotEmpty()) {
+                val techStr = proj.technologies.joinToString(" · ") { escapeHtml(it) }
+                sb.appendLine("""      <p class="summary" style="color:var(--muted);font-size:0.9em;">技术栈: $techStr</p>""")
+            }
+            sb.appendLine("""    </div>""")
+        }
+        return sb.toString()
+    }
+
+    private fun buildVibeSkills(data: ResumeData): String {
+        if (data.skills.isEmpty()) return ""
+        val sb = StringBuilder()
+        for (skill in data.skills) {
+            val name = skill.removePrefix("*").trim()
+            sb.appendLine("""        <li>${escapeHtml(name)}</li>""")
+        }
+        return sb.toString().trimEnd()
+    }
+
+    private fun buildVibeCerts(data: ResumeData): String {
+        if (data.certifications.isEmpty()) return ""
+        val sb = StringBuilder()
+        for (cert in data.certifications) {
+            sb.appendLine("""      <span class="cert-item">${escapeHtml(cert)}</span>""")
+        }
+        return sb.toString().trimEnd()
     }
 
     private fun extractCss(template: String): String {
@@ -200,7 +407,7 @@ $body
     @SuppressLint("SetJavaScriptEnabled")
     suspend fun exportPdf(context: Context, resumeData: ResumeData, config: HtmlConfig = HtmlConfig()): File =
         withContext(Dispatchers.Main) {
-            val html = buildHtml(context, resumeData, config)
+            val html = buildHtml(context, resumeData, config).let { injectPdfExportCss(it) }
             Log.d(TAG, "HTML 生成完成: ${html.length} chars")
 
             val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS)
@@ -208,20 +415,30 @@ $body
             if (!dir.exists()) dir.mkdirs()
             val file = File(dir, "resume_html_${System.currentTimeMillis()}.pdf")
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                WebView.enableSlowWholeDocumentDraw()
+            }
+
             suspendCancellableCoroutine { continuation ->
                 val webView = WebView(context).apply {
                     settings.javaScriptEnabled = true
-                    // ★ 离屏绘制必须用软件渲染，GPU 渲染不产出 Canvas 像素
                     setLayerType(View.LAYER_TYPE_SOFTWARE, null)
                     setBackgroundColor(Color.WHITE)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        WebView.enableSlowWholeDocumentDraw()
-                    }
+                }
+
+                val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+                val layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                try {
+                    windowManager.addView(webView, layoutParams)
+                } catch (e: Exception) {
+                    Log.w(TAG, "无法将WebView添加到WindowManager: ${e.message}")
                 }
 
                 webView.webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String) {
-                        // 等 WebView 完成布局后再导出
                         Handler(Looper.getMainLooper()).postDelayed({
                             try {
                                 renderWebViewToPdf(view, file, context)
@@ -230,68 +447,96 @@ $body
                                 Log.e(TAG, "PDF 写入失败: ${e.message}", e)
                                 if (continuation.isActive) continuation.resumeWithException(e)
                             } finally {
+                                try {
+                                    windowManager.removeView(webView)
+                                } catch (_: Exception) {}
                                 webView.destroy()
                             }
-                        }, 1000)
+                        }, 1500)
                     }
                 }
 
-                continuation.invokeOnCancellation { webView.destroy() }
+                continuation.invokeOnCancellation {
+                    try {
+                        windowManager.removeView(webView)
+                    } catch (_: Exception) {}
+                    webView.destroy()
+                }
                 webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
             }
         }
 
-    private fun renderWebViewToPdf(webView: WebView, file: File, context: Context) {
-        // A4 尺寸 (毫米 → 像素)
-        val metrics = context.resources.displayMetrics
-        val pageWidthPx = (210f / 25.4f * metrics.xdpi).toInt()
-        val pageHeightPx = (297f / 25.4f * metrics.ydpi).toInt()
+    private fun injectPdfExportCss(html: String): String {
+        val css = """
+<style id="pdf-export-fix">
+html, body {
+  width: 794px !important;
+  min-width: 794px !important;
+  max-width: 794px !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+body {
+  transform: none !important;
+}
+</style>
+""".trimIndent()
+        return if (html.contains("</head>", ignoreCase = true)) {
+            html.replace("</head>", "$css\n</head>", ignoreCase = true)
+        } else {
+            css + html
+        }
+    }
 
-        // ===== 第0步：先让 WebView 以 A4 宽度预布局两次来稳定内容高度 =====
-        val wSpec = View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY)
+    private fun renderWebViewToPdf(webView: WebView, file: File, context: Context) {
+        val metrics = context.resources.displayMetrics
+        val A4_WIDTH_PT = 595
+        val A4_HEIGHT_PT = 842
+        val A4_CSS_WIDTH_PX = 794
+        val webViewWidthPx = (A4_CSS_WIDTH_PX * metrics.density).toInt()
+
+        val wSpec = View.MeasureSpec.makeMeasureSpec(webViewWidthPx, View.MeasureSpec.EXACTLY)
         val hSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
 
-        // 第一次 measure 触发 WebView 内部布局
         webView.measure(wSpec, hSpec)
         webView.layout(0, 0, webView.measuredWidth, webView.measuredHeight)
 
-        // 第二次 measure 获得稳定的最终高度（首次可能不准）
         webView.measure(wSpec, hSpec)
         webView.layout(0, 0, webView.measuredWidth, webView.measuredHeight)
 
         val contentWidth = webView.measuredWidth
         val contentHeight = webView.measuredHeight
-        Log.d(TAG, "WebView 测量: ${contentWidth}x${contentHeight}")
+        Log.d(TAG, "WebView测量: ${contentWidth}x${contentHeight}, density=${metrics.density}, xdpi=${metrics.xdpi}")
 
         if (contentWidth <= 0 || contentHeight <= 0) {
             throw RuntimeException("WebView 内容尺寸为零 (${contentWidth}x${contentHeight})")
         }
 
-        // ===== 逐页绘制到 PdfDocument =====
+        val scale = A4_WIDTH_PT.toFloat() / contentWidth.toFloat()
+        val totalContentHeightPt = (contentHeight * scale).toInt()
+        Log.d(TAG, "PDF缩放: scale=$scale, 内容总高度=${totalContentHeightPt}pt")
+
         val pdf = PdfDocument()
         val whitePaint = Paint().apply { color = Color.WHITE; style = Paint.Style.FILL }
         var pageNum = 0
 
         try {
-            var yOffset = 0
-            while (yOffset < contentHeight) {
-                val pageHeight = minOf(pageHeightPx, contentHeight - yOffset)
-                val pageInfo = PdfDocument.PageInfo.Builder(pageWidthPx, pageHeightPx, pageNum + 1).create()
+            var yOffsetPt = 0
+            while (yOffsetPt < totalContentHeightPt) {
+                val pageInfo = PdfDocument.PageInfo.Builder(A4_WIDTH_PT, A4_HEIGHT_PT, pageNum + 1).create()
                 val page = pdf.startPage(pageInfo)
                 val canvas = page.canvas
 
-                // 绘制白色背景
-                canvas.drawRect(0f, 0f, pageWidthPx.toFloat(), pageHeightPx.toFloat(), whitePaint)
+                canvas.drawRect(0f, 0f, A4_WIDTH_PT.toFloat(), A4_HEIGHT_PT.toFloat(), whitePaint)
 
-                // 平移画布，使当前页从内容的 yOffset 位置开始绘制
                 canvas.save()
-                canvas.translate(0f, -yOffset.toFloat())
-                canvas.clipRect(0f, yOffset.toFloat(), contentWidth.toFloat(), (yOffset + pageHeight).toFloat())
+                canvas.scale(scale, scale)
+                canvas.translate(0f, -yOffsetPt / scale)
                 webView.draw(canvas)
                 canvas.restore()
 
                 pdf.finishPage(page)
-                yOffset += pageHeightPx
+                yOffsetPt += A4_HEIGHT_PT
                 pageNum++
             }
 
