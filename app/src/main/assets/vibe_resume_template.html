@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root {
+    --page-width: 794px;
+    --accent: #2563eb;
+    --accent-soft: #eaf1ff;
+    --rust: #d97757;
+    --ink: #141414;
+    --muted: #667085;
+    --hairline: #dbe2ea;
+    --panel: #f7f9fc;
+    --screen-bg: #eef2f7;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; min-height: 100%; }
+
+  body {
+    background: #fff;
+    color: var(--ink);
+    font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", "Heiti SC", Arial, sans-serif;
+    line-height: 1.35;
+  }
+
+  .icon-sprite { display: none; }
+
+  .icon, .section-icon {
+    display: inline-block;
+    fill: none;
+    flex: 0 0 auto;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+  }
+
+  .icon { height: 16px; width: 16px; }
+
+  .page {
+    background: #fff;
+    margin: 0 auto;
+    overflow: visible;
+    padding: 44px 52px;
+    width: var(--page-width);
+  }
+
+  .resume-header {
+    align-items: stretch;
+    background: #fff;
+    border: 1px solid #dbe2ea;
+    border-radius: 4px;
+    border-top: 3px solid #111827;
+    display: grid;
+    gap: 22px;
+    grid-template-columns: 110px minmax(0, 1fr);
+    margin-bottom: 20px;
+    padding: 18px 20px 20px;
+    text-align: left;
+  }
+
+  .photo-frame {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-shadow: none;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    padding: 3px;
+  }
+
+  .profile-photo {
+    aspect-ratio: 3 / 4;
+    background: #dbeafe;
+    border-radius: 4px;
+    display: block;
+    height: 156px;
+    object-fit: cover;
+    object-position: 50% 34%;
+    width: 117px;
+  }
+
+  .profile-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .eyebrow {
+    color: #475467;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    line-height: 1.2;
+    margin: 0 0 7px;
+    text-transform: uppercase;
+  }
+
+  .name-row {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    margin-bottom: 18px;
+  }
+
+  .resume-header h1 {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1.05;
+    margin: 0;
+  }
+
+  .identity-line {
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+
+  .contact-line {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 14.5px;
+    gap: 9px;
+    justify-content: flex-start;
+    letter-spacing: 0;
+    margin: 0;
+  }
+
+  .contact-line a {
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #dbe2ea;
+    border-radius: 4px;
+    color: #1f2937;
+    display: inline-flex;
+    gap: 8px;
+    min-height: 32px;
+    padding: 5px 10px;
+    text-decoration: none;
+    width: auto;
+  }
+
+  .contact-line a:hover {
+    border-color: rgba(37, 99, 235, 0.35);
+    color: var(--accent);
+  }
+
+  .project-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .project-link:hover { text-decoration: underline; }
+
+  .section { margin-top: 22px; }
+
+  .section:first-of-type { margin-top: 0; }
+
+  .section h2 {
+    align-items: center;
+    color: #101828;
+    display: flex;
+    font-size: 19px;
+    font-weight: 800;
+    gap: 9px;
+    line-height: 1.05;
+    margin: 0 0 12px;
+    position: relative;
+  }
+
+  .section h2::after {
+    background: linear-gradient(90deg, var(--accent) 0%, rgba(37, 99, 235, 0.12) 100%);
+    content: "";
+    flex: 1;
+    height: 2px;
+    margin-left: 4px;
+  }
+
+  .section-icon {
+    background: var(--accent-soft);
+    border-radius: 8px;
+    color: var(--accent);
+    height: 28px;
+    padding: 6px;
+    width: 28px;
+  }
+
+  .education-grid {
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    display: grid;
+    font-size: 16px;
+    grid-template-columns: 1.25fr 1.1fr 1fr;
+    line-height: 1.45;
+    margin-bottom: 10px;
+    padding: 10px 14px;
+    row-gap: 4px;
+  }
+
+  .education-grid div:nth-child(3n) {
+    color: var(--muted);
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .info-line {
+    font-size: 16px;
+    line-height: 1.15;
+    margin: 5px 0 0;
+  }
+
+  .info-line strong {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .experience {
+    border-left: 3px solid var(--accent-soft);
+    margin-top: 18px;
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .experience::before {
+    background: var(--accent);
+    border: 3px solid #fff;
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+    content: "";
+    height: 9px;
+    left: -6px;
+    position: absolute;
+    top: 4px;
+    width: 9px;
+  }
+
+  .experience:first-of-type { margin-top: 0; }
+
+  .entry-head {
+    align-items: start;
+    display: grid;
+    font-size: 16px;
+    grid-template-columns: 1.25fr 1.1fr 1fr;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+
+  .entry-head strong { font-weight: 800; }
+
+  .company-title {
+    align-items: center;
+    display: inline-flex;
+    gap: 8px;
+  }
+
+  .company-logo {
+    display: block;
+    flex: 0 0 auto;
+    height: 24px;
+    object-fit: contain;
+    width: 24px;
+  }
+
+  .entry-head span {
+    color: var(--muted);
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .project-title {
+    align-items: center;
+    display: inline-flex;
+    gap: 8px;
+  }
+
+  .project-title img {
+    height: 22px;
+    width: 22px;
+  }
+
+  .experience h3 {
+    color: #1f2937;
+    font-size: 16.5px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin: 0 0 6px;
+  }
+
+  .project-stat {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 999px;
+    color: #9a3412;
+    display: inline-block;
+    font-size: 0.82em;
+    font-weight: 700;
+    margin-left: 8px;
+    padding: 2px 8px;
+  }
+
+  .summary {
+    font-size: 15.5px;
+    line-height: 1.32;
+    margin: 0 0 4px;
+    text-align: justify;
+  }
+
+  .experience ul {
+    font-size: 15.5px;
+    line-height: 1.32;
+    list-style-position: outside;
+    margin: 0;
+    padding-left: 21px;
+  }
+
+  .experience li {
+    margin: 5px 0 0;
+    padding-left: 3px;
+  }
+
+  .experience li::marker { color: var(--accent); font-size: 0.9em; }
+
+  .experience li strong { font-weight: 800; }
+
+  .skills-section { margin-top: 20px; }
+
+  .skills-list {
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    columns: 2;
+    column-gap: 28px;
+    font-size: 15.5px;
+    line-height: 1.35;
+    list-style: none;
+    margin: 0;
+    padding: 12px 14px;
+  }
+
+  .skills-list li {
+    break-inside: avoid;
+    margin-top: 4px;
+    padding-left: 13px;
+    position: relative;
+  }
+
+  .skills-list li::before {
+    background: var(--rust);
+    border-radius: 999px;
+    content: "";
+    height: 5px;
+    left: 0;
+    position: absolute;
+    top: 8px;
+    width: 5px;
+  }
+
+  .cert-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .cert-item {
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    color: var(--ink);
+    display: inline-flex;
+    font-size: 15px;
+    font-weight: 600;
+    gap: 6px;
+    padding: 6px 12px;
+  }
+
+  .cert-item::before {
+    content: "";
+    background: var(--accent);
+    border-radius: 999px;
+    display: inline-block;
+    height: 6px;
+    width: 6px;
+  }
+
+  @page { margin: 0; size: A4; }
+
+  @media print {
+    html, body { background: #fff; }
+
+    .page {
+      border: 0; box-shadow: none; margin: 0;
+      padding: 32px 44px; width: 794px;
+    }
+
+    .resume-header {
+      border-color: #d7dde6; border-radius: 0; border-top: 2px solid #111827;
+      gap: 14px; grid-template-columns: 60px 1fr;
+      margin-bottom: 12px; padding: 14px 0 14px;
+    }
+
+    .photo-frame { border-radius: 4px; box-shadow: none; padding: 2px; }
+    .profile-photo { border-radius: 2px; height: 72px; width: 54px; }
+
+    .resume-header h1 { font-size: 24px; }
+    .eyebrow { font-size: 10px; margin-bottom: 4px; }
+    .identity-line { display: block; font-size: 12px; margin: 2px 0 4px; }
+    .name-row { display: block; margin-bottom: 6px; }
+    .contact-line { font-size: 11px; gap: 10px; }
+    .contact-line a { border: 0; min-height: 0; padding: 0; background: none; }
+
+    .section { margin-top: 12px; }
+    .section h2 { font-size: 16px; margin-bottom: 7px; }
+    .section-icon { height: 20px; padding: 4px; width: 20px; }
+
+    .education-grid, .entry-head, .info-line, .info-line strong { font-size: 13px; }
+    .education-grid, .skills-list { background: #fff; border-color: #d7dde6; border-radius: 0; }
+    .education-grid { padding: 8px 10px; }
+
+    .experience { border-left-color: #dbeafe; margin-top: 10px; padding-left: 10px; }
+    .experience::before { height: 6px; left: -5px; width: 6px; }
+    .experience h3 { font-size: 14px; }
+
+    .summary, .experience ul, .skills-list { font-size: 12px; }
+
+    .skills-list { columns: 2; padding: 6px 8px; }
+    .cert-item { font-size: 12px; padding: 3px 7px; }
+  }
+</style>
+</head>
+<body>
+
+<svg aria-hidden="true" class="icon-sprite" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-phone" viewBox="0 0 24 24">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.11 4.18 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.89.66 2.78a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.3-1.22a2 2 0 0 1 2.11-.45c.89.31 1.82.53 2.78.66A2 2 0 0 1 22 16.92z"/>
+  </symbol>
+  <symbol id="icon-mail" viewBox="0 0 24 24">
+    <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+    <path d="m22 6-10 7L2 6"/>
+  </symbol>
+  <symbol id="icon-github" viewBox="0 0 24 24">
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.94-2.64c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.4 3.4 0 0 0 9 18.11V22"/>
+  </symbol>
+  <symbol id="icon-link" viewBox="0 0 24 24">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  </symbol>
+  <symbol id="icon-school" viewBox="0 0 24 24">
+    <path d="M22 10 12 5 2 10l10 5 10-5z"/>
+    <path d="M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5M22 10v6"/>
+  </symbol>
+  <symbol id="icon-briefcase" viewBox="0 0 24 24">
+    <path d="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1"/>
+    <path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h18M9 13v2h6v-2"/>
+  </symbol>
+  <symbol id="icon-code" viewBox="0 0 24 24">
+    <path d="m16 18 6-6-6-6M8 6l-6 6 6 6M14 4l-4 16"/>
+  </symbol>
+  <symbol id="icon-tool" viewBox="0 0 24 24">
+    <path d="M14.7 6.3a4 4 0 0 0 5 5L11 20l-5-5 8.7-8.7z"/>
+    <path d="m7 17-3 3"/>
+  </symbol>
+  <symbol id="icon-user" viewBox="0 0 24 24">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </symbol>
+  <symbol id="icon-award" viewBox="0 0 24 24">
+    <circle cx="12" cy="8" r="7"/>
+    <path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12"/>
+  </symbol>
+</svg>
+
+<main class="page" aria-label="简历">
+  <header class="resume-header">
+    {{avatarBlock}}
+    <div class="profile-main">
+      <p class="eyebrow">{{eyebrow}}</p>
+      <div class="name-row">
+        <h1>{{name}}</h1>
+        <p class="identity-line">{{identityLine}}</p>
+      </div>
+      <div class="contact-line">{{contact}}</div>
+    </div>
+  </header>
+
+  <section class="section" id="summary-section">
+    <h2><svg class="section-icon"><use href="#icon-user"></use></svg>个人总结</h2>
+    <p class="summary">{{summary}}</p>
+  </section>
+
+  <section class="section" id="education-section">
+    <h2><svg class="section-icon"><use href="#icon-school"></use></svg>教育背景</h2>
+    <div class="education-grid">{{educationGrid}}</div>
+    {{educationInfo}}
+  </section>
+
+  <section class="section" id="experience-section">
+    <h2><svg class="section-icon"><use href="#icon-briefcase"></use></svg>工作经历</h2>
+    {{experiences}}
+  </section>
+
+  <section class="section" id="project-section">
+    <h2><svg class="section-icon"><use href="#icon-code"></use></svg>项目经历</h2>
+    {{projects}}
+  </section>
+
+  <section class="section skills-section" id="skills-section">
+    <h2><svg class="section-icon"><use href="#icon-tool"></use></svg>专业技能</h2>
+    <ul class="skills-list">{{skills}}</ul>
+  </section>
+
+  <section class="section" id="cert-section">
+    <h2><svg class="section-icon"><use href="#icon-award"></use></svg>证书与资质</h2>
+    <div class="cert-list">{{certs}}</div>
+  </section>
+</main>
+
+</body>
+</html>

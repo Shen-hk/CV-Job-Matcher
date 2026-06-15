@@ -17,9 +17,7 @@ import com.example.cv_jobmatcher.domain.model.MatchLevel
 import com.example.cv_jobmatcher.domain.model.PolishResult
 import com.example.cv_jobmatcher.domain.model.ResumeData
 import com.example.cv_jobmatcher.domain.nlp.SemanticMatcher
-import com.example.cv_jobmatcher.util.DocxFormatter
 import com.example.cv_jobmatcher.util.HtmlPdfExporter
-import com.example.cv_jobmatcher.util.PdfGenerator
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,9 +45,6 @@ data class ResultUiState(
     val missingKeywords: List<String> = emptyList(),
     val suggestions: List<String> = emptyList(),
     // Export
-    val selectedDocxTemplate: DocxFormatter.Template = DocxFormatter.Template.CLASSIC,
-    val selectedPdfTemplate: PdfGenerator.Template = PdfGenerator.Template.CLASSIC_SINGLE,
-    val useHtmlPdf: Boolean = false,
     val useVibeTemplate: Boolean = false,
     val isExporting: Boolean = false,
     val exportFile: File? = null,
@@ -61,6 +56,8 @@ data class ResultUiState(
     // Iterative polish
     val isIterativePolishing: Boolean = false,
     val iterativeHistory: List<String> = emptyList(),
+    val isHistoryExpanded: Boolean = false,
+    val polishMode: String = "ai", // "ai" or "manual"
     // State
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -239,47 +236,20 @@ class ResultViewModel @Inject constructor(
         }
     }
 
-    fun selectDocxTemplate(template: DocxFormatter.Template) {
-        _uiState.update { it.copy(selectedDocxTemplate = template) }
-    }
-
-    fun selectPdfTemplate(template: PdfGenerator.Template) {
-        _uiState.update { it.copy(selectedPdfTemplate = template) }
-    }
-
-    fun toggleHtmlPdf(use: Boolean) {
-        _uiState.update { it.copy(useHtmlPdf = use) }
-    }
-
     fun toggleVibeTemplate(use: Boolean) {
         _uiState.update { it.copy(useVibeTemplate = use) }
     }
 
-    fun exportDocx() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isExporting = true) }
-            val state = _uiState.value
-            Log.i(TAG, "exportDocx: template=${state.selectedDocxTemplate.key}")
+    fun setPolishMode(mode: String) {
+        _uiState.update { it.copy(polishMode = mode) }
+    }
 
-            try {
-                val fileName = "润色简历_${state.jdTitle.ifBlank { "output" }}"
-                val file = withContext(Dispatchers.IO) {
-                    val data = state.resumeData ?: ResumeData.fromPolishedText(state.polishedResume)
-                    DocxFormatter.exportFromData(
-                        resumeData = data,
-                        outputFileName = fileName,
-                        context = application,
-                        template = state.selectedDocxTemplate
-                    )
-                }
-                Log.i(TAG, "DOCX导出成功: ${file.absolutePath} (${file.length()} bytes)")
-                _uiState.update { it.copy(isExporting = false, exportFile = file) }
-            } catch (e: Exception) {
-                Log.e(TAG, "DOCX导出失败: ${e.message}", e)
-                _uiState.update { it.copy(isExporting = false) }
-                Toast.makeText(application, "DOCX导出失败: ${e.localizedMessage ?: "未知错误"}", Toast.LENGTH_LONG).show()
-            }
-        }
+    fun toggleHistoryExpanded() {
+        _uiState.update { it.copy(isHistoryExpanded = !it.isHistoryExpanded) }
+    }
+
+    fun updatePolishedResume(text: String) {
+        _uiState.update { it.copy(polishedResume = text) }
     }
 
     fun exportPdf() {
@@ -287,52 +257,20 @@ class ResultViewModel @Inject constructor(
             _uiState.update { it.copy(isExporting = true) }
             val state = _uiState.value
 
-            if (state.useHtmlPdf) {
-                exportHtmlPdf(state)
-            } else {
-                exportNativePdf(state)
+            Log.i(TAG, "exportPdf (HTML): useVibeTemplate=${state.useVibeTemplate}")
+            try {
+                val resumeData = state.resumeData ?: ResumeData.fromPolishedText(state.polishedResume)
+                val config = HtmlPdfExporter.HtmlConfig(useVibeTemplate = state.useVibeTemplate)
+                val file = withContext(Dispatchers.Main) {
+                    HtmlPdfExporter.exportPdf(application, resumeData, config)
+                }
+                Log.i(TAG, "PDF导出成功: ${file.absolutePath} (${file.length() / 1024}KB)")
+                _uiState.update { it.copy(isExporting = false, exportFile = file) }
+            } catch (e: Exception) {
+                Log.e(TAG, "PDF导出失败: ${e.message}", e)
+                _uiState.update { it.copy(isExporting = false) }
+                Toast.makeText(application, "PDF导出失败: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
             }
-        }
-    }
-
-    private suspend fun exportHtmlPdf(state: ResultUiState) {
-        Log.i(TAG, "exportPdf (HTML): useVibeTemplate=${state.useVibeTemplate}")
-        try {
-            val resumeData = state.resumeData ?: ResumeData.fromPolishedText(state.polishedResume)
-            val config = HtmlPdfExporter.HtmlConfig(useVibeTemplate = state.useVibeTemplate)
-            val file = withContext(Dispatchers.Main) {
-                HtmlPdfExporter.exportPdf(application, resumeData, config)
-            }
-            Log.i(TAG, "HTML PDF导出成功: ${file.absolutePath} (${file.length() / 1024}KB)")
-            _uiState.update { it.copy(isExporting = false, exportFile = file) }
-        } catch (e: Exception) {
-            Log.e(TAG, "HTML PDF导出失败: ${e.message}", e)
-            _uiState.update { it.copy(isExporting = false) }
-            Toast.makeText(application, "HTML PDF导出失败: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private suspend fun exportNativePdf(state: ResultUiState) {
-        Log.i(TAG, "exportPdf (Native): template=${state.selectedPdfTemplate.label}")
-        try {
-            val resumeData = state.resumeData ?: ResumeData.fromPolishedText(state.polishedResume)
-            val config = PdfGenerator.PdfConfig(template = state.selectedPdfTemplate)
-
-            val file = withContext(Dispatchers.IO) {
-                PdfGenerator.generate(
-                    context = application,
-                    resumeData = resumeData,
-                    config = config
-                )
-            }
-
-            Log.i(TAG, "PDF导出成功: ${file.absolutePath} (${file.length() / 1024}KB)")
-            _uiState.update { it.copy(isExporting = false, exportFile = file) }
-        } catch (e: Exception) {
-            Log.e(TAG, "PDF导出失败: ${e.javaClass.simpleName}: ${e.message}", e)
-            _uiState.update { it.copy(isExporting = false) }
-            val detail = e.message ?: e.javaClass.simpleName ?: "未知异常"
-            Toast.makeText(application, "PDF导出失败: $detail", Toast.LENGTH_LONG).show()
         }
     }
 
