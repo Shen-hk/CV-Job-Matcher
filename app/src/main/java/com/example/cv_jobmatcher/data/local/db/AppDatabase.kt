@@ -5,20 +5,106 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.cv_jobmatcher.data.local.db.dao.HistoryDao
+import com.example.cv_jobmatcher.data.local.db.dao.InterviewDao
+import com.example.cv_jobmatcher.data.local.db.dao.ResumeVersionDao
+import com.example.cv_jobmatcher.data.local.db.dao.TrackingDao
 import com.example.cv_jobmatcher.data.local.db.entity.HistoryEntity
+import com.example.cv_jobmatcher.data.local.db.entity.InterviewMessageEntity
+import com.example.cv_jobmatcher.data.local.db.entity.InterviewSessionEntity
+import com.example.cv_jobmatcher.data.local.db.entity.ResumeVersionEntity
+import com.example.cv_jobmatcher.data.local.db.entity.TrackingEntity
 
 @Database(
-    entities = [HistoryEntity::class],
-    version = 4,
+    entities = [
+        HistoryEntity::class,
+        ResumeVersionEntity::class,
+        TrackingEntity::class,
+        InterviewSessionEntity::class,
+        InterviewMessageEntity::class
+    ],
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
+    abstract fun resumeVersionDao(): ResumeVersionDao
+    abstract fun trackingDao(): TrackingDao
+    abstract fun interviewDao(): InterviewDao
 
     companion object {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE history ADD COLUMN resume_json TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Resume versions table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS resume_versions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        raw_text TEXT NOT NULL,
+                        cleaned_text TEXT NOT NULL DEFAULT '',
+                        jd_matched_with TEXT NOT NULL DEFAULT '',
+                        match_score REAL NOT NULL DEFAULT 0,
+                        tags TEXT NOT NULL DEFAULT '',
+                        is_active INTEGER NOT NULL DEFAULT 0,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                // Tracking table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS tracking (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        company_name TEXT NOT NULL,
+                        position_name TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT '已投',
+                        resume_version_id INTEGER,
+                        jd_raw_text TEXT NOT NULL DEFAULT '',
+                        notes TEXT NOT NULL DEFAULT '',
+                        timeline TEXT NOT NULL DEFAULT '[]',
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                // Interview sessions table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS interview_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        persona_type TEXT NOT NULL,
+                        jd_raw_text TEXT NOT NULL DEFAULT '',
+                        resume_version_id INTEGER,
+                        resume_text TEXT NOT NULL DEFAULT '',
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        question_count INTEGER NOT NULL DEFAULT 0,
+                        overall_score REAL,
+                        dimension_scores TEXT NOT NULL DEFAULT '',
+                        improvements TEXT NOT NULL DEFAULT '',
+                        created_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                // Interview messages table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS interview_messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id INTEGER NOT NULL,
+                        role TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        timestamp INTEGER NOT NULL,
+                        is_hint INTEGER NOT NULL DEFAULT 0,
+                        is_evaluation INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY (session_id) REFERENCES interview_sessions(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+
+                // Index on session_id for fast message lookups
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_interview_messages_session_id ON interview_messages(session_id)")
             }
         }
     }

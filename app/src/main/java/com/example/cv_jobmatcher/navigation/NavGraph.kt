@@ -2,19 +2,31 @@ package com.example.cv_jobmatcher.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import com.example.cv_jobmatcher.ui.LocalGlobalJdViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.cv_jobmatcher.ui.history.HistoryScreen
+import com.example.cv_jobmatcher.ui.home.HomeScreen
+import com.example.cv_jobmatcher.ui.interview.InterviewScreen
 import com.example.cv_jobmatcher.ui.jdinput.JdInputScreen
 import com.example.cv_jobmatcher.ui.polish.PolishScreen
 import com.example.cv_jobmatcher.ui.result.ResultScreen
 import com.example.cv_jobmatcher.ui.resumeinput.ResumeInputScreen
+import com.example.cv_jobmatcher.ui.resumeoptimize.ResumeOptimizeScreen
 import com.example.cv_jobmatcher.ui.settings.SettingsScreen
+import com.example.cv_jobmatcher.ui.tracking.TrackingScreen
 import java.net.URLEncoder
 
 object Routes {
+    // ── New: Parallel workbench ──
+    const val HOME = "home"
+    const val RESUME_OPTIMIZE = "resume_optimize"
+    const val MOCK_INTERVIEW = "mock_interview"
+    const val TRACKING = "tracking"
+
+    // ── Legacy: Linear flow (kept for backward compat) ──
     const val JD_INPUT = "jd_input"
     const val RESUME_INPUT = "resume_input/{jdRawText}/{jdStructuredJson}"
     const val POLISH = "polish/{resumeText}/{jdRawText}/{jdStructuredJson}/{templatePath}/{sourceType}/{fullPolish}"
@@ -41,23 +53,89 @@ object Routes {
 fun NavGraph(navController: NavHostController) {
     NavHost(
         navController = navController,
-        startDestination = Routes.JD_INPUT
+        startDestination = Routes.HOME  // New: Home as entry point
     ) {
-        // ── JD Input ────────────────────────────────────────
+        // ── Home ────────────────────────────────────────────
+        composable(Routes.HOME) {
+            HomeScreen(
+                onNavigateToResumeOptimize = {
+                    navController.navigate(Routes.RESUME_OPTIMIZE)
+                },
+                onNavigateToMockInterview = {
+                    navController.navigate(Routes.MOCK_INTERVIEW)
+                },
+                onNavigateToTracking = {
+                    navController.navigate(Routes.TRACKING)
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Routes.SETTINGS)
+                },
+                onNavigateToJdInput = {
+                    navController.navigate(Routes.JD_INPUT)
+                }
+            )
+        }
+
+        // ── Resume Optimize (new parallel module) ───────────
+        composable(Routes.RESUME_OPTIMIZE) {
+            ResumeOptimizeScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToInterview = {
+                    navController.navigate(Routes.MOCK_INTERVIEW)
+                },
+                onNavigateToJdInput = {
+                    navController.navigate(Routes.JD_INPUT)
+                }
+            )
+        }
+
+        // ── Mock Interview (new) ────────────────────────────
+        composable(Routes.MOCK_INTERVIEW) {
+            InterviewScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToResumeEdit = {
+                    navController.navigate(Routes.RESUME_OPTIMIZE)
+                },
+                onNavigateToTracking = {
+                    navController.navigate(Routes.TRACKING)
+                },
+                onNavigateToJdInput = {
+                    navController.navigate(Routes.JD_INPUT)
+                }
+            )
+        }
+
+        // ── Tracking (new) ──────────────────────────────────
+        composable(Routes.TRACKING) {
+            TrackingScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToJdInput = {
+                    navController.navigate(Routes.JD_INPUT)
+                }
+            )
+        }
+
+        // ── JD Input (legacy, reused as standalone) ────────
         composable(Routes.JD_INPUT) {
+            val globalJdVm = LocalGlobalJdViewModel.current
             JdInputScreen(
                 onNavigateToSettings = {
                     navController.navigate(Routes.SETTINGS)
                 },
                 onJdSubmitted = { jdRawText, jdStructuredJson ->
-                    navController.navigate(
-                        Routes.resumeInput(jdRawText, jdStructuredJson)
-                    )
+                    // Save JD to global state so all modules can access it
+                    globalJdVm.setJd(jdRawText, jdStructuredJson)
+                    // Navigate back or go home
+                    navController.previousBackStackEntry?.let {
+                        navController.popBackStack()
+                    } ?: navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.HOME) { inclusive = true }
+                    }
                 }
             )
         }
 
-        // ── Resume Input ────────────────────────────────────
+        // ── Resume Input (legacy) ───────────────────────────
         composable(
             route = Routes.RESUME_INPUT,
             arguments = listOf(
@@ -75,7 +153,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // ── Polish (loading) ─────────────────────────────────
+        // ── Polish (legacy) ─────────────────────────────────
         composable(
             route = Routes.POLISH,
             arguments = listOf(
@@ -91,13 +169,13 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onPolishSuccess = { sessionId ->
                     navController.navigate(Routes.result(sessionId)) {
-                        popUpTo(Routes.JD_INPUT) { inclusive = false }
+                        popUpTo(Routes.HOME) { inclusive = false }
                     }
                 }
             )
         }
 
-        // ── Result ──────────────────────────────────────────
+        // ── Result (legacy) ─────────────────────────────────
         composable(
             route = Routes.RESULT,
             arguments = listOf(
@@ -106,8 +184,8 @@ fun NavGraph(navController: NavHostController) {
         ) {
             ResultScreen(
                 onNavigateBack = {
-                    navController.navigate(Routes.JD_INPUT) {
-                        popUpTo(Routes.JD_INPUT) { inclusive = true }
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.HOME) { inclusive = true }
                     }
                 },
                 onNavigateToHistory = {

@@ -31,6 +31,14 @@ object PrefKeys {
     
     // 语言设置
     val APP_LANGUAGE = stringPreferencesKey("app_language") // "zh" | "en"
+
+    // JD缓存
+    val CACHED_JD_RAW = stringPreferencesKey("cached_jd_raw")
+    val CACHED_JD_JSON = stringPreferencesKey("cached_jd_json")
+    val CACHED_JD_COMPANY = stringPreferencesKey("cached_jd_company")
+
+    // 面试偏好
+    val LAST_INTERVIEW_PERSONA = stringPreferencesKey("last_interview_persona")
 }
 
 @Singleton
@@ -186,6 +194,50 @@ class AppPreferences @Inject constructor(
     suspend fun setAppLanguage(language: String) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.APP_LANGUAGE] = language
+        }
+    }
+
+    // ── JD 缓存 ──────────────────────────────────────────────
+
+    suspend fun getCachedJdRawText(): String {
+        return dataStore.data.first()[PrefKeys.CACHED_JD_RAW] ?: ""
+    }
+
+    suspend fun setCachedJdRawText(text: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CACHED_JD_RAW] = text
+        }
+    }
+
+    suspend fun getCachedJdStructuredJson(): String {
+        return dataStore.data.first()[PrefKeys.CACHED_JD_JSON] ?: ""
+    }
+
+    suspend fun setCachedJdStructuredJson(json: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CACHED_JD_JSON] = json
+        }
+    }
+
+    suspend fun getCachedJdCompanyName(): String {
+        return dataStore.data.first()[PrefKeys.CACHED_JD_COMPANY] ?: ""
+    }
+
+    suspend fun setCachedJdCompanyName(name: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CACHED_JD_COMPANY] = name
+        }
+    }
+
+    // ── 面试偏好 ──────────────────────────────────────────────
+
+    suspend fun getLastInterviewPersona(): String {
+        return dataStore.data.first()[PrefKeys.LAST_INTERVIEW_PERSONA] ?: "MILD_TECH"
+    }
+
+    suspend fun setLastInterviewPersona(persona: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.LAST_INTERVIEW_PERSONA] = persona
         }
     }
 }

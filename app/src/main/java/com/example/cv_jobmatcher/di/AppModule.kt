@@ -8,12 +8,16 @@ import androidx.room.Room
 import com.example.cv_jobmatcher.data.local.AppPreferences
 import com.example.cv_jobmatcher.data.local.db.AppDatabase
 import com.example.cv_jobmatcher.data.local.db.dao.HistoryDao
+import com.example.cv_jobmatcher.data.local.db.dao.InterviewDao
+import com.example.cv_jobmatcher.data.local.db.dao.ResumeVersionDao
+import com.example.cv_jobmatcher.data.local.db.dao.TrackingDao
 import com.example.cv_jobmatcher.data.remote.DeepSeekApiService
 import com.example.cv_jobmatcher.data.remote.DeepSeekProvider
 import com.example.cv_jobmatcher.data.remote.OllamaProvider
 import com.example.cv_jobmatcher.data.remote.interceptor.ApiKeyInterceptor
 import com.example.cv_jobmatcher.domain.nlp.KeywordClassifier
 import com.example.cv_jobmatcher.domain.usecase.MatchAnalysisUseCase
+import com.example.cv_jobmatcher.util.TextCleaner
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -108,7 +112,7 @@ object AppModule {
             AppDatabase::class.java,
             "cv_jobmatcher.db"
         )
-            .addMigrations(AppDatabase.MIGRATION_3_4)
+            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
             .fallbackToDestructiveMigration(false)
             .build()
     }
@@ -117,6 +121,32 @@ object AppModule {
     @Singleton
     fun provideHistoryDao(db: AppDatabase): HistoryDao {
         return db.historyDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideResumeVersionDao(db: AppDatabase): ResumeVersionDao {
+        return db.resumeVersionDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTrackingDao(db: AppDatabase): TrackingDao {
+        return db.trackingDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideInterviewDao(db: AppDatabase): InterviewDao {
+        return db.interviewDao()
+    }
+
+    // ── Utilities ──────────────────────────────────────────────
+
+    @Provides
+    @Singleton
+    fun provideTextCleaner(): TextCleaner {
+        return TextCleaner
     }
 
     // ── AI Providers ───────────────────────────────────────────
