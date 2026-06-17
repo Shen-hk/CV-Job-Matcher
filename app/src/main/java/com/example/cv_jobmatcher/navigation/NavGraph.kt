@@ -125,12 +125,10 @@ fun NavGraph(navController: NavHostController) {
                 onJdSubmitted = { jdRawText, jdStructuredJson ->
                     // Save JD to global state so all modules can access it
                     globalJdVm.setJd(jdRawText, jdStructuredJson)
-                    // Navigate back or go home
-                    navController.previousBackStackEntry?.let {
-                        navController.popBackStack()
-                    } ?: navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.HOME) { inclusive = true }
-                    }
+                    // 继续旧的完整流程：JD → 简历输入 → AI润色 → HTML预览
+                    navController.navigate(
+                        Routes.resumeInput(jdRawText, jdStructuredJson)
+                    )
                 }
             )
         }
