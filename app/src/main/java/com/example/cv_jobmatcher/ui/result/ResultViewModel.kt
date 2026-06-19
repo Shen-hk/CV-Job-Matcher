@@ -31,6 +31,12 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
+data class ChatMessage(
+    val role: String,   // "user" | "assistant"
+    val content: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 data class ResultUiState(
     val polishedResume: String = "",
     val originalResume: String = "",
@@ -65,7 +71,10 @@ data class ResultUiState(
     // ── 内容编辑 ──
     val selectedTab: String = "edit",   // "edit" | "flow_agent"
     val expandedSection: String? = null, // "personal" | "projects" | "education" | "experience" | "skills"
-    val aiChatMessage: String = ""
+    // ── AI 聊天 ──
+    val aiChatMessages: List<ChatMessage> = emptyList(),
+    val isAiProcessing: Boolean = false,
+    val showCompletionAnimation: Boolean = false
 )
 
 @HiltViewModel
@@ -351,8 +360,87 @@ class ResultViewModel @Inject constructor(
         _uiState.update { it.copy(expandedSection = section) }
     }
 
-    fun setAiChatMessage(msg: String) {
-        _uiState.update { it.copy(aiChatMessage = msg) }
+    /** 发送 AI 聊天消息，自动修改简历 */
+    fun sendAiChatMessage(instruction: String) {
+        if (instruction.isBlank()) return
+        viewModelScope.launch {
+            val state = _uiState.value
+            val userMsg = ChatMessage(role = "user", content = instruction)
+            _uiState.update {
+                it.copy(
+                    aiChatMessages = it.aiChatMessages + userMsg,
+                    isAiProcessing = true
+                )
+            }
+
+            try {
+                val resumeJson = state.resumeData?.let { data ->
+                    moshi.adapter(ResumeData::class.java).toJson(data)
+                } ?: ""
+
+                val result = polishRepository.iterativePolish(
+                    jdText = state.jdRawText,
+                    currentResumeJson = resumeJson,
+                    instruction = instruction
+                )
+
+                result.fold(
+                    onSuccess = { rawOutput ->
+                        val polishResult = PolishResult.fromLlmOutput(rawOutput)
+                        val newResumeData = if (polishResult.resumeJson.isNotBlank()) {
+                            ResumeData.fromJsonString(polishResult.resumeJson)
+                        } else {
+                            ResumeData.fromPolishedText(polishResult.polishedResume)
+                        }
+
+                        val replyContent = polishResult.optimizationNote.ifBlank {
+                            "已根据你的需求完成修改 ✅"
+                        }
+                        val assistantMsg = ChatMessage(role = "assistant", content = replyContent)
+
+                        _uiState.update {
+                            it.copy(
+                                resumeData = newResumeData,
+                                polishedResume = polishResult.polishedResume,
+                                aiChatMessages = it.aiChatMessages + assistantMsg,
+                                isAiProcessing = false,
+                                showCompletionAnimation = true
+                            )
+                        }
+                        Log.i(TAG, "AI聊天修改完成")
+                    },
+                    onFailure = { e ->
+                        Log.e(TAG, "AI聊天修改失败: ${e.message}", e)
+                        val errorMsg = ChatMessage(
+                            role = "assistant",
+                            content = "抱歉，修改失败：${e.localizedMessage}"
+                        )
+                        _uiState.update {
+                            it.copy(
+                                aiChatMessages = it.aiChatMessages + errorMsg,
+                                isAiProcessing = false
+                            )
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "AI聊天异常: ${e.message}", e)
+                val errorMsg = ChatMessage(
+                    role = "assistant",
+                    content = "抱歉，出了点问题：${e.localizedMessage}"
+                )
+                _uiState.update {
+                    it.copy(
+                        aiChatMessages = it.aiChatMessages + errorMsg,
+                        isAiProcessing = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissCompletionAnimation() {
+        _uiState.update { it.copy(showCompletionAnimation = false) }
     }
 
     /** 整体替换 ResumeData（用于字段级编辑后提交） */

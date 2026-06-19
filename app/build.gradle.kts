@@ -97,6 +97,9 @@ dependencies {
 
     // DOCX handled via direct ZIP+XML (no extra dependency)
 
+    // Konfetti — celebration confetti animation
+    implementation(libs.konfetti.compose)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
