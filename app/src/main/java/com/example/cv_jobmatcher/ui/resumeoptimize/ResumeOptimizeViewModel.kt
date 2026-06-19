@@ -1,5 +1,7 @@
 package com.example.cv_jobmatcher.ui.resumeoptimize
 
+import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,15 +14,18 @@ import com.example.cv_jobmatcher.domain.model.ResumeVersion
 import com.example.cv_jobmatcher.domain.model.SkillGap
 import com.example.cv_jobmatcher.domain.model.SkillImportance
 import com.example.cv_jobmatcher.domain.usecase.MatchAnalysisUseCase
+import com.example.cv_jobmatcher.util.FileParser
 import com.example.cv_jobmatcher.util.TextCleaner
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class ResumeOptimizeUiState(
@@ -43,8 +48,10 @@ data class ResumeOptimizeUiState(
     // UI mode
     val isVersionSelectorOpen: Boolean = false,
     val showMatchDetail: Boolean = false,
-    // Source type
-    val sourceType: String = "text"
+    // Source type & file
+    val sourceType: String = "text",
+    val isFileProcessing: Boolean = false,
+    val fileName: String? = null
 )
 
 @HiltViewModel
@@ -196,6 +203,44 @@ class ResumeOptimizeViewModel @Inject constructor(
         _uiState.update { it.copy(isVersionSelectorOpen = !it.isVersionSelectorOpen) }
     }
 
+    // ── File Upload ────────────────────────────────────────
+
+    fun processFile(context: Context, uri: Uri, mimeType: String?, fileName: String?) {
+        viewModelScope.launch {
+            Log.d(TAG, "processFile: uri=$uri, fileName=$fileName")
+            _uiState.update { it.copy(isFileProcessing = true, error = null) }
+
+            val result = withContext(Dispatchers.IO) {
+                FileParser.extractText(context, uri, mimeType)
+            }
+
+            result.fold(
+                onSuccess = { text ->
+                    val sourceType = when {
+                        mimeType?.contains("pdf") == true || fileName?.lowercase()?.endsWith(".pdf") == true -> "pdf"
+                        mimeType?.contains("docx") == true || fileName?.lowercase()?.endsWith(".docx") == true -> "docx"
+                        else -> "text"
+                    }
+                    _uiState.update {
+                        it.copy(
+                            resumeText = if (it.resumeText.isBlank()) text else "${it.resumeText}\n\n$text",
+                            cleanedText = TextCleaner.clean(text),
+                            isFileProcessing = false,
+                            fileName = fileName,
+                            sourceType = sourceType
+                        )
+                    }
+                    appPreferences.setLastResume(text)
+                    Log.i(TAG, "文件处理完成: sourceType=$sourceType, textLen=${text.length}")
+                },
+                onFailure = { e ->
+                    Log.e(TAG, "文件处理失败: ${e.message}", e)
+                    _uiState.update { it.copy(isFileProcessing = false, error = "文件解析失败: ${e.message}") }
+                }
+            )
+        }
+    }
+
     fun clearResume() {
         _uiState.update {
             it.copy(
@@ -205,7 +250,9 @@ class ResumeOptimizeViewModel @Inject constructor(
                 matchScore = 0,
                 suggestions = emptyList(),
                 optimizationNote = "",
-                currentVersion = null
+                currentVersion = null,
+                fileName = null,
+                sourceType = "text"
             )
         }
     }

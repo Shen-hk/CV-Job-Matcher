@@ -6,8 +6,11 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.cv_jobmatcher.data.local.db.entity.HistoryEntity
+import com.example.cv_jobmatcher.data.repository.HistoryRepository
 import com.example.cv_jobmatcher.data.repository.ResumeRepository
 import com.example.cv_jobmatcher.domain.model.JobDescription
+import com.example.cv_jobmatcher.domain.usecase.MatchAnalysisUseCase
 import com.example.cv_jobmatcher.util.FileParser
 import com.example.cv_jobmatcher.util.TextCleaner
 import com.squareup.moshi.Moshi
@@ -16,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,14 +35,26 @@ data class ResumeInputUiState(
     val templatePath: String? = null,
     val sourceType: String = "text",
     val fullPolish: Boolean = true,  // true=全篇优化, false=部分优化
-    val error: String? = null
+    val error: String? = null,
+    // ── JD优化 mode ──
+    val flowMode: String = "legacy",  // "legacy" | "jd_optimize"
+    val showHistoryPicker: Boolean = false,
+    val historyItems: List<HistoryEntity> = emptyList(),
+    val showMatchDialog: Boolean = false,
+    val matchScore: Int = 0,
+    val matchedKeywords: List<String> = emptyList(),
+    val missingKeywords: List<String> = emptyList(),
+    val matchSuggestions: List<String> = emptyList(),
+    val isAnalyzing: Boolean = false
 )
 
 @HiltViewModel
 class ResumeInputViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val resumeRepository: ResumeRepository,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val historyRepository: HistoryRepository,
+    private val matchAnalysisUseCase: MatchAnalysisUseCase
 ) : ViewModel() {
     companion object {
         private const val TAG = "ResumeInputVM"
@@ -156,5 +172,91 @@ class ResumeInputViewModel @Inject constructor(
 
             onSuccess(cleanedResume, state.jdRawText, jdJson, state.templatePath, state.sourceType, state.fullPolish)
         }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  JD优化 mode — 历史版本选择
+    // ═══════════════════════════════════════════════════════
+
+    fun loadHistoryVersions() {
+        viewModelScope.launch {
+            try {
+                val items = historyRepository.getAllFlow().first()
+                _uiState.update { it.copy(historyItems = items, showHistoryPicker = true) }
+            } catch (e: Exception) {
+                Log.e(TAG, "加载历史版本失败: ${e.message}", e)
+            }
+        }
+    }
+
+    fun selectHistoryVersion(entityId: Long) {
+        viewModelScope.launch {
+            try {
+                val entity = historyRepository.getById(entityId)
+                if (entity != null) {
+                    _uiState.update {
+                        it.copy(
+                            resumeText = entity.polishedResume,
+                            showHistoryPicker = false,
+                            isLoaded = true,
+                            sourceType = "history"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "选择历史版本失败: ${e.message}", e)
+            }
+        }
+    }
+
+    fun dismissHistoryPicker() {
+        _uiState.update { it.copy(showHistoryPicker = false) }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  JD优化 mode — 匹配分析 + 优化确认
+    // ═══════════════════════════════════════════════════════
+
+    fun analyzeAndPrompt(jdSkills: List<String> = emptyList()) {
+        val state = _uiState.value
+        val resumeText = state.resumeText.trim()
+        if (resumeText.isBlank() || state.jdRawText.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAnalyzing = true, error = null) }
+            try {
+                val result = matchAnalysisUseCase.analyze(
+                    jdText = state.jdRawText,
+                    resumeText = resumeText,
+                    jdSkills = jdSkills.ifEmpty { state.jdStructured?.skills ?: emptyList() }
+                )
+                _uiState.update {
+                    it.copy(
+                        isAnalyzing = false,
+                        showMatchDialog = true,
+                        matchScore = result.analysis.score,
+                        matchedKeywords = result.analysis.matched,
+                        missingKeywords = result.analysis.missing,
+                        matchSuggestions = result.analysis.suggestions
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "匹配分析失败: ${e.message}", e)
+                _uiState.update { it.copy(isAnalyzing = false, error = "匹配分析失败: ${e.message}") }
+            }
+        }
+    }
+
+    fun dismissMatchDialog() {
+        _uiState.update { it.copy(showMatchDialog = false) }
+    }
+
+    /** 用户在匹配弹窗点"开始优化"后，继续走润色流程 */
+    fun confirmPolish(
+        onSuccess: (resumeText: String, jdRawText: String, jdStructuredJson: String,
+                     templatePath: String?, sourceType: String, fullPolish: Boolean) -> Unit
+    ) {
+        _uiState.update { it.copy(showMatchDialog = false) }
+        submitResume(onSuccess)
     }
 }

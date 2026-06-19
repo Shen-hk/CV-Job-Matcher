@@ -13,6 +13,8 @@ import com.example.cv_jobmatcher.domain.nlp.SemanticMatcher
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,9 +29,18 @@ sealed interface PolishState {
     data class Error(val message: String) : PolishState
 }
 
+/** 润色流程中的单个步骤 */
+data class PolishStep(
+    val label: String,
+    val isComplete: Boolean = false,
+    val isCurrent: Boolean = false
+)
+
 data class PolishUiState(
     val state: PolishState = PolishState.Idle,
-    val progressHint: String = ""
+    val progressHint: String = "",
+    val steps: List<PolishStep> = emptyList(),
+    val overallProgress: Float = 0f
 )
 
 @HiltViewModel
@@ -46,6 +57,18 @@ class PolishViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PolishUiState())
     val uiState: StateFlow<PolishUiState> = _uiState.asStateFlow()
 
+    // ── 步骤定义 ──────────────────────────────────────
+    private val allSteps = listOf(
+        "正在解析岗位需求与个人信息",
+        "整理基本信息",
+        "梳理教育背景",
+        "匹配工作经历",
+        "提炼核心技能",
+        "撰写优化简历",
+        "评估匹配度",
+        "生成最终结果"
+    )
+
     private val resumeText: String = savedStateHandle.get<String>("resumeText") ?: ""
     private val jdRawText: String = savedStateHandle.get<String>("jdRawText") ?: ""
     private val jdStructuredJson: String = savedStateHandle.get<String>("jdStructuredJson") ?: ""
@@ -54,9 +77,59 @@ class PolishViewModel @Inject constructor(
     private val sourceType: String = savedStateHandle.get<String>("sourceType") ?: "text"
     private val fullPolish: Boolean = savedStateHandle.get<String>("fullPolish") != "0"
 
+    /** 步骤动画 Job，API 返回后取消 */
+    private var stepAnimationJob: Job? = null
+
+    /** API 是否已返回 */
+    private var apiFinished = false
+
     init {
         Log.d(TAG, "init: resumeLen=${resumeText.length}, jdLen=${jdRawText.length}, fullPolish=$fullPolish")
         startPolish()
+    }
+
+    /** 启动步骤动画协程，按固定节奏推进步骤，直到 API 返回后收尾 */
+    private fun startStepAnimation() {
+        stepAnimationJob?.cancel()
+        apiFinished = false
+        stepAnimationJob = viewModelScope.launch {
+            val totalSteps = allSteps.size
+            for (i in 0 until totalSteps) {
+                if (apiFinished) break
+                // 每步停留 1.2~2.0 秒，末尾步稍长
+                val baseDelay = if (i < totalSteps - 2) 1400L else 1800L
+                delay(baseDelay)
+
+                if (apiFinished) break
+
+                val completedCount = i + 1
+                val progress = completedCount.toFloat() / totalSteps
+                _uiState.update {
+                    it.copy(
+                        steps = allSteps.mapIndexed { idx, label ->
+                            PolishStep(
+                                label = label,
+                                isComplete = idx < completedCount,
+                                isCurrent = idx == completedCount && idx < totalSteps
+                            )
+                        },
+                        overallProgress = progress
+                    )
+                }
+            }
+        }
+    }
+
+    /** API 返回后调用：将剩余步骤全部标记完成 */
+    private fun finishAllSteps() {
+        apiFinished = true
+        stepAnimationJob?.cancel()
+        _uiState.update {
+            it.copy(
+                steps = allSteps.map { label -> PolishStep(label = label, isComplete = true) },
+                overallProgress = 1f
+            )
+        }
     }
 
     private fun startPolish() {
@@ -69,7 +142,18 @@ class PolishViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(state = PolishState.Loading, progressHint = "正在分析岗位需求...") }
+            // 初始化步骤列表并启动动画
+            _uiState.update {
+                it.copy(
+                    state = PolishState.Loading,
+                    progressHint = "AI 正在为你优化简历...",
+                    steps = allSteps.mapIndexed { idx, label ->
+                        PolishStep(label = label, isCurrent = idx == 0)
+                    },
+                    overallProgress = 0f
+                )
+            }
+            startStepAnimation()
             Log.d(TAG, "开始润色...")
 
             val result = polishRepository.polishResume(jdRawText, resumeText, fullPolish)
@@ -77,6 +161,7 @@ class PolishViewModel @Inject constructor(
             result.fold(
                 onSuccess = { polishedText ->
                     Log.d(TAG, "润色 API 返回成功: ${polishedText.length} 字符")
+                    finishAllSteps()
                     _uiState.update { it.copy(progressHint = "正在保存结果...") }
 
                     val polishResult = PolishResult.fromLlmOutput(polishedText)

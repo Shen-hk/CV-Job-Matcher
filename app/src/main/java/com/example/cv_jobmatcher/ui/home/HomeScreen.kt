@@ -16,10 +16,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +54,7 @@ fun HomeScreen(
     onNavigateToTracking: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToJdInput: () -> Unit,
+    onNavigateToJdOptimize: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val globalJdVm = LocalGlobalJdViewModel.current
@@ -132,11 +136,12 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ── JD Status Bar ─────────────────────────────
-            JdStatusBar(
+            // ── JD优化 Section ──────────────────────────
+            JdOptimizeSection(
                 jdLabel = jdState.displayLabel,
                 isSet = jdState.isSet,
-                onSetJd = onNavigateToJdInput
+                onSetJd = onNavigateToJdInput,
+                onStartOptimize = onNavigateToJdOptimize
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -203,14 +208,15 @@ private fun EntryCard(
 }
 
 @Composable
-private fun JdStatusBar(
+private fun JdOptimizeSection(
     jdLabel: String,
     isSet: Boolean,
-    onSetJd: () -> Unit
+    onSetJd: () -> Unit,
+    onStartOptimize: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSet)
                 MaterialTheme.colorScheme.primaryContainer
@@ -218,35 +224,77 @@ private fun JdStatusBar(
                 MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(20.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (isSet) "当前目标岗位" else "未设置目标岗位",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            // ── JD status row ─────────────────────────
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    tint = if (isSet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isSet) "当前目标岗位" else "未设置目标岗位",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = jdLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (isSet) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onSetJd)
+                ) {
+                    Text(
+                        text = if (isSet) "更换" else "设置",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // ── CTA button ────────────────────────────
+            Button(
+                onClick = onStartOptimize,
+                enabled = isSet,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = jdLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isSet) FontWeight.SemiBold else FontWeight.Normal
+                    "开始 JD 优化 →",
+                    style = MaterialTheme.typography.labelLarge
                 )
             }
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable(onClick = onSetJd)
-            ) {
+
+            if (!isSet) {
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (isSet) "更换" else "设置",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    text = "请先设置目标岗位，AI 将根据 JD 智能匹配和优化简历",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

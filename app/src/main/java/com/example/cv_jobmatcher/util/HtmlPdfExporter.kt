@@ -270,6 +270,7 @@ object HtmlPdfExporter {
 $css
 </style>
 </head>
+
 <body>
 $body
 </body> 

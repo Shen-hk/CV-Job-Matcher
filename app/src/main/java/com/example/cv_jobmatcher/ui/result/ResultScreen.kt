@@ -1,5 +1,8 @@
 package com.example.cv_jobmatcher.ui.result
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -16,53 +19,51 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.MenuOpen
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -74,31 +75,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.cv_jobmatcher.domain.model.MatchLevel
 import com.example.cv_jobmatcher.domain.model.ResumeData
 import com.example.cv_jobmatcher.ui.components.ResumePreviewWebView
 import com.example.cv_jobmatcher.ui.components.ScoreRingChart
-import com.example.cv_jobmatcher.ui.theme.MatchGreen
-import com.example.cv_jobmatcher.ui.theme.MissRed
 
 // ── Brand colors ────────────────────────────────────────────
 private val BrandBlue = Color(0xFF2563EB)
 private val BrandBlueLight = Color(0xFFEFF6FF)
 private val SuccessGreen = Color(0xFF16A34A)
-private val WarningAmber = Color(0xFFD97706)
 private val DangerRed = Color(0xFFDC2626)
 private val TextPrimary = Color(0xFF111827)
 private val TextSecondary = Color(0xFF4B5563)
@@ -107,21 +99,11 @@ private val BorderLight = Color(0xFFE5E7EB)
 private val BgWhite = Color(0xFFFFFFFF)
 private val BgSurface = Color(0xFFF9FAFB)
 
-// ── Quick polish items ──────────────────────────────────────
-private data class QuickPolishItem(val label: String, val fillText: String)
-
-private val quickPolishItems = listOf(
-    QuickPolishItem("增加量化成果", "请在工作经历中增加具体的量化成果，例如提升了百分之多少的性能、节省了多少成本"),
-    QuickPolishItem("STAR法则重写", "请用STAR法则（情境-任务-行动-结果）重写项目经历"),
-    QuickPolishItem("精简冗余", "请删除重复和冗余的描述，让简历更加简洁有力"),
-    QuickPolishItem("强化技术关键词", "请突出与JD匹配的技术栈关键词，补充JD要求但简历中缺失的技能"),
-)
-
 // ═══════════════════════════════════════════════════════════════
 //  MAIN SCREEN
 // ═══════════════════════════════════════════════════════════════
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResultScreen(
     onNavigateBack: () -> Unit,
@@ -129,19 +111,9 @@ fun ResultScreen(
     viewModel: ResultViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
-    // ── UI-local state ─────────────────────────────────────
-    var expandedTag by rememberSaveable { mutableStateOf<String?>(null) }
-    var sidebarExpanded by rememberSaveable { mutableStateOf(false) }
-    var activeSidebarTab by rememberSaveable { mutableStateOf("ai") }
-    var selectedSegment by rememberSaveable { mutableStateOf("polished") }
-    var selectedModuleId by rememberSaveable { mutableStateOf<String?>(null) }
+    // Full-screen preview dialog
     var showFullScreenPreview by rememberSaveable { mutableStateOf(false) }
-    var iterativeInstruction by rememberSaveable { mutableStateOf("") }
-    var manualEditText by rememberSaveable(state.polishedResume) { mutableStateOf(state.polishedResume) }
-
-    // ── Full-screen Dialog ─────────────────────────────────
     if (showFullScreenPreview && state.resumeData != null) {
         Dialog(
             onDismissRequest = { showFullScreenPreview = false },
@@ -190,27 +162,6 @@ fun ResultScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BgWhite)
             )
         },
-        bottomBar = {
-            BottomActionBar(
-                selectedModuleId = selectedModuleId,
-                selectedSegment = selectedSegment,
-                isExporting = state.isExporting,
-                isIterativePolishing = state.isIterativePolishing,
-                iterativeInstruction = iterativeInstruction,
-                onIterativeInstructionChange = { iterativeInstruction = it },
-                onIterativePolish = {
-                    viewModel.iterativePolish(iterativeInstruction)
-                    iterativeInstruction = ""
-                },
-                onExportPdf = viewModel::exportPdf,
-                onShare = { state.exportFile?.let { viewModel.shareFile(context) } },
-                hasExportFile = state.exportFile != null,
-                polishMode = state.polishMode,
-                onTogglePolishMode = { viewModel.setPolishMode(if (state.polishMode == "ai") "manual" else "ai") },
-                quickPolishItems = quickPolishItems,
-                onQuickFill = { iterativeInstruction = it }
-            )
-        },
         containerColor = BgWhite
     ) { padding ->
         when {
@@ -221,10 +172,14 @@ fun ResultScreen(
                 com.example.cv_jobmatcher.ui.components.ErrorBanner(message = state.error!!)
             }
             else -> {
+                // ── UI-local sidebar state ─────────────────
+                var sidebarExpanded by rememberSaveable { mutableStateOf(false) }
+                var activeSidebarTab by rememberSaveable { mutableStateOf("ai") }
+
                 Row(
                     Modifier.fillMaxSize().padding(padding)
                 ) {
-                    // ── Left Smart Sidebar ────────────────────
+                    // ── Left Smart Sidebar ────────────────
                     SmartSidebar(
                         expanded = sidebarExpanded,
                         activeTab = activeSidebarTab,
@@ -246,64 +201,31 @@ fun ResultScreen(
                         jdTitle = state.jdTitle
                     )
 
-                    // ── Main Canvas ──────────────────────────
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    ) {
-                        // Expandable tags row
-                        ExpandableTagRow(
-                            expandedTag = expandedTag,
-                            onToggleTag = { tag -> expandedTag = if (expandedTag == tag) null else tag },
-                            matchScore = state.matchScore,
-                            matchLevel = state.matchLevel,
-                            matchedKeywords = state.matchedKeywords,
-                            missingKeywords = state.missingKeywords,
-                            suggestions = state.suggestions,
-                            useVibeTemplate = state.useVibeTemplate,
-                            onToggleVibe = viewModel::toggleVibeTemplate
-                        )
-
-                        Spacer(Modifier.height(4.dp))
-
-                        // Segmented control + Canvas
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp)
-                        ) {
-                            // Segmented control
-                            SegmentControl(
-                                selected = selectedSegment,
-                                onSelect = { selectedSegment = it }
-                            )
-
-                            Spacer(Modifier.height(12.dp))
-
-                            // Content area
-                            when (selectedSegment) {
-                                "original" -> OriginalResumeView(state.originalResume)
-                                "diff" -> DiffResumeView(state.originalResume, state.polishedResume)
-                                else -> PolishedResumeView(
-                                    resumeData = state.resumeData,
-                                    polishedText = state.polishedResume,
-                                    useVibeTemplate = state.useVibeTemplate,
-                                    polishMode = state.polishMode,
-                                    manualEditText = manualEditText,
-                                    onManualEditChange = { manualEditText = it },
-                                    selectedModuleId = selectedModuleId,
-                                    onSelectModule = { selectedModuleId = it },
-                                    onFullScreen = { showFullScreenPreview = true },
-                                    onUpdatePolished = viewModel::updatePolishedResume
-                                )
-                            }
-
-                            Spacer(Modifier.height(80.dp)) // bottom bar clearance
-                        }
-                    }
+                    // ── Main content: 内容编辑 ────────────
+                    ContentEditTab(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        resumeData = state.resumeData,
+                        useVibeTemplate = state.useVibeTemplate,
+                        expandedSection = state.expandedSection,
+                        aiChatMessage = state.aiChatMessage,
+                        onToggleSection = { viewModel.setExpandedSection(it) },
+                        onToggleVibe = viewModel::toggleVibeTemplate,
+                        onFullScreen = { showFullScreenPreview = true },
+                        onUpdatePersonalInfo = viewModel::updatePersonalInfo,
+                        onUpdateExperience = viewModel::updateExperience,
+                        onAddExperience = viewModel::addExperience,
+                        onRemoveExperience = viewModel::removeExperience,
+                        onUpdateEducation = viewModel::updateEducation,
+                        onAddEducation = viewModel::addEducation,
+                        onRemoveEducation = viewModel::removeEducation,
+                        onUpdateProject = viewModel::updateProject,
+                        onAddProject = viewModel::addProject,
+                        onRemoveProject = viewModel::removeProject,
+                        onUpdateSkills = viewModel::updateSkills,
+                        onAddSkill = viewModel::addSkill,
+                        onRemoveSkill = viewModel::removeSkill,
+                        onAiChatMessageChange = { viewModel.setAiChatMessage(it) }
+                    )
                 }
             }
         }
@@ -311,209 +233,7 @@ fun ResultScreen(
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  EXPANDABLE TAG ROW
-// ═══════════════════════════════════════════════════════════════
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ExpandableTagRow(
-    expandedTag: String?,
-    onToggleTag: (String) -> Unit,
-    matchScore: Int,
-    matchLevel: MatchLevel,
-    matchedKeywords: List<String>,
-    missingKeywords: List<String>,
-    suggestions: List<String>,
-    useVibeTemplate: Boolean,
-    onToggleVibe: (Boolean) -> Unit
-) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(BgSurface)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-    ) {
-        // Tag chips row
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Skills tag
-            TagChip(
-                label = "技能匹配 $matchScore/100",
-                isExpanded = expandedTag == "skills",
-                color = when (matchLevel) {
-                    MatchLevel.HIGH -> SuccessGreen
-                    MatchLevel.MEDIUM -> WarningAmber
-                    MatchLevel.LOW -> DangerRed
-                },
-                onClick = { onToggleTag("skills") }
-            )
-
-            // Suggestions tag
-            if (suggestions.isNotEmpty()) {
-                TagChip(
-                    label = "改进建议 ${suggestions.size}条",
-                    isExpanded = expandedTag == "suggestions",
-                    color = BrandBlue,
-                    onClick = { onToggleTag("suggestions") }
-                )
-            }
-
-            // Style tag
-            TagChip(
-                label = if (useVibeTemplate) "风格 Vibe" else "风格 经典",
-                isExpanded = expandedTag == "style",
-                color = TextSecondary,
-                onClick = { onToggleTag("style") }
-            )
-        }
-
-        // Expanded content
-        AnimatedVisibility(
-            visible = expandedTag == "skills",
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            SkillsTagDetail(matchScore, matchLevel, matchedKeywords, missingKeywords)
-        }
-
-        AnimatedVisibility(
-            visible = expandedTag == "suggestions",
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            SuggestionsTagDetail(suggestions)
-        }
-
-        AnimatedVisibility(
-            visible = expandedTag == "style",
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            StyleTagDetail(useVibeTemplate, onToggleVibe)
-        }
-    }
-}
-
-@Composable
-private fun TagChip(label: String, isExpanded: Boolean, color: Color, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        color = if (isExpanded) color.copy(alpha = 0.1f) else BgWhite,
-        border = if (isExpanded) androidx.compose.foundation.BorderStroke(1.dp, color)
-        else androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
-    ) {
-        Row(
-            Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = if (isExpanded) color else TextSecondary)
-        }
-    }
-}
-
-@Composable
-private fun SkillsTagDetail(score: Int, level: MatchLevel, matched: List<String>, missing: List<String>) {
-    Card(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = BgWhite),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ScoreRingChart(score = score, level = level, size = 48.dp)
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    // Horizontal score bar
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(BorderLight)
-                    ) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth(score / 100f)
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    when (level) {
-                                        MatchLevel.HIGH -> SuccessGreen
-                                        MatchLevel.MEDIUM -> WarningAmber
-                                        MatchLevel.LOW -> DangerRed
-                                    }
-                                )
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text("匹配度 $score%", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                }
-            }
-            if (missing.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Text("未匹配关键词：", style = MaterialTheme.typography.labelSmall, color = DangerRed)
-                Spacer(Modifier.height(4.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    missing.forEach { kw ->
-                        Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFFFEE2E2)) {
-                            Text(kw, Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = DangerRed)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SuggestionsTagDetail(suggestions: List<String>) {
-    Card(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = BgWhite),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            suggestions.forEachIndexed { i, s ->
-                Row(Modifier.padding(vertical = 4.dp)) {
-                    Icon(Icons.Default.Lightbulb, null, Modifier.size(16.dp), tint = BrandBlue)
-                    Spacer(Modifier.width(8.dp))
-                    Text(s, style = MaterialTheme.typography.bodySmall, color = TextPrimary)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StyleTagDetail(useVibe: Boolean, onToggle: (Boolean) -> Unit) {
-    Card(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = BgWhite),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(if (useVibe) "Vibe 现代风格" else "经典风格", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                Text(if (useVibe) "设计感布局，适合创意岗位" else "传统布局，适合大多数场景", style = MaterialTheme.typography.labelSmall, color = TextTertiary)
-            }
-            Switch(checked = useVibe, onCheckedChange = onToggle)
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  SMART SIDEBAR
+//  SMART SIDEBAR (左侧可折叠栏)
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
@@ -523,7 +243,7 @@ private fun SmartSidebar(
     onToggleExpanded: () -> Unit,
     onSelectTab: (String) -> Unit,
     matchScore: Int,
-    matchLevel: MatchLevel,
+    matchLevel: com.example.cv_jobmatcher.domain.model.MatchLevel,
     matchedKeywords: List<String>,
     missingKeywords: List<String>,
     suggestions: List<String>,
@@ -536,12 +256,10 @@ private fun SmartSidebar(
             .background(BgSurface)
             .border(1.dp, BorderLight)
             .animateContentSize()
-            .widthIn(min = 44.dp, max = if (expanded) 280.dp else 44.dp)
+            .widthIn(min = 44.dp, max = if (expanded) 260.dp else 44.dp)
     ) {
         if (expanded) {
-            // Expanded panel
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
-                // Header
                 Row(
                     Modifier.fillMaxWidth().padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -558,12 +276,11 @@ private fun SmartSidebar(
                         fontSize = 14.sp
                     )
                     IconButton(onClick = onToggleExpanded, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.MenuOpen, "收起", Modifier.size(16.dp))
+                        Icon(Icons.Default.Close, "收起", Modifier.size(16.dp))
                     }
                 }
-                HorizontalDivider(color = BorderLight)
+                androidx.compose.material3.HorizontalDivider(color = BorderLight)
 
-                // Panel content
                 when (activeTab) {
                     "ai" -> AiSuggestionsPanel(suggestions, matchedKeywords, missingKeywords, jdTitle)
                     "keywords" -> KeywordsDetailPanel(matchScore, matchLevel, matchedKeywords, missingKeywords)
@@ -571,17 +288,15 @@ private fun SmartSidebar(
                 }
             }
         } else {
-            // Collapsed: icon strip
             Column(
                 Modifier.fillMaxWidth().padding(top = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 SidebarIcon(Icons.Default.AutoAwesome, "AI", activeTab == "ai") { onSelectTab("ai") }
-                SidebarIcon(Icons.Default.Search, "关键词", activeTab == "keywords") { onSelectTab("keywords") }
+                SidebarIcon(Icons.Default.Fullscreen, "关键词", activeTab == "keywords") { onSelectTab("keywords") }
                 SidebarIcon(Icons.Default.History, "历史", activeTab == "history") { onSelectTab("history") }
                 Spacer(Modifier.weight(1f))
-                SidebarIcon(Icons.Default.Tune, "设置", activeTab == "settings") { onSelectTab("settings") }
                 Spacer(Modifier.height(8.dp))
             }
         }
@@ -589,7 +304,12 @@ private fun SmartSidebar(
 }
 
 @Composable
-private fun SidebarIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+private fun SidebarIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
     Column(
         Modifier
             .width(36.dp)
@@ -604,9 +324,13 @@ private fun SidebarIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, l
 }
 
 @Composable
-private fun AiSuggestionsPanel(suggestions: List<String>, matched: List<String>, missing: List<String>, jdTitle: String) {
+private fun AiSuggestionsPanel(
+    suggestions: List<String>,
+    matched: List<String>,
+    missing: List<String>,
+    jdTitle: String
+) {
     Column(Modifier.padding(8.dp)) {
-        // Missing skills card
         if (missing.isNotEmpty()) {
             Card(
                 Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -615,7 +339,7 @@ private fun AiSuggestionsPanel(suggestions: List<String>, matched: List<String>,
             ) {
                 Column(Modifier.padding(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, null, Modifier.size(14.dp), tint = DangerRed)
+                        Icon(Icons.Default.Close, null, Modifier.size(14.dp), tint = DangerRed)
                         Spacer(Modifier.width(4.dp))
                         Text("技能缺失", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = DangerRed)
                     }
@@ -630,7 +354,6 @@ private fun AiSuggestionsPanel(suggestions: List<String>, matched: List<String>,
             }
         }
 
-        // AI improvement cards
         suggestions.take(3).forEachIndexed { i, s ->
             Card(
                 Modifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -639,7 +362,7 @@ private fun AiSuggestionsPanel(suggestions: List<String>, matched: List<String>,
             ) {
                 Column(Modifier.padding(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Lightbulb, null, Modifier.size(14.dp), tint = BrandBlue)
+                        Icon(Icons.Default.AutoAwesome, null, Modifier.size(14.dp), tint = BrandBlue)
                         Spacer(Modifier.width(4.dp))
                         Text("建议 ${i + 1}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = BrandBlue)
                     }
@@ -653,15 +376,25 @@ private fun AiSuggestionsPanel(suggestions: List<String>, matched: List<String>,
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun KeywordsDetailPanel(score: Int, level: MatchLevel, matched: List<String>, missing: List<String>) {
+private fun KeywordsDetailPanel(
+    score: Int,
+    level: com.example.cv_jobmatcher.domain.model.MatchLevel,
+    matched: List<String>,
+    missing: List<String>
+) {
     Column(Modifier.padding(8.dp)) {
-        // Progress bar
         Text("匹配度 $score%", fontSize = 14.sp, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(6.dp))
         Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(BorderLight)) {
             Box(
                 Modifier.fillMaxWidth(score / 100f).height(6.dp).clip(RoundedCornerShape(3.dp))
-                    .background(when (level) { MatchLevel.HIGH -> SuccessGreen; MatchLevel.MEDIUM -> WarningAmber; MatchLevel.LOW -> DangerRed })
+                    .background(
+                        when (level) {
+                            com.example.cv_jobmatcher.domain.model.MatchLevel.HIGH -> SuccessGreen
+                            com.example.cv_jobmatcher.domain.model.MatchLevel.MEDIUM -> Color(0xFFD97706)
+                            com.example.cv_jobmatcher.domain.model.MatchLevel.LOW -> DangerRed
+                        }
+                    )
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -707,7 +440,11 @@ private fun HistoryPanel(history: List<String>) {
                     Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("v${history.size - i}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BrandBlue)
                         Spacer(Modifier.width(8.dp))
-                        Text(h.removePrefix("→ "), fontSize = 11.sp, color = TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            h.removePrefix("→ "),
+                            fontSize = 11.sp, color = TextSecondary,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -716,516 +453,775 @@ private fun HistoryPanel(history: List<String>) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SEGMENT CONTROL
+//  内容编辑 TAB (主区域)
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
-private fun SegmentControl(selected: String, onSelect: (String) -> Unit) {
-    val segments = listOf(
-        "original" to "原始",
-        "polished" to "润色后",
-        "diff" to "对比"
-    )
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(BgSurface).border(1.dp, BorderLight, RoundedCornerShape(8.dp)),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        segments.forEach { (key, label) ->
-            Box(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (selected == key) BrandBlue else Color.Transparent)
-                    .clickable { onSelect(key) }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    label,
-                    fontSize = 13.sp,
-                    fontWeight = if (selected == key) FontWeight.Medium else FontWeight.Normal,
-                    color = if (selected == key) Color.White else TextSecondary
-                )
-            }
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  RESUME CONTENT VIEWS
-// ═══════════════════════════════════════════════════════════════
-
-@Composable
-private fun OriginalResumeView(text: String) {
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = BgWhite),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
-    ) {
-        Text(
-            text.ifBlank { "（暂无原始简历）" },
-            Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary,
-            lineHeight = 24.sp
-        )
-    }
-}
-
-@Composable
-private fun PolishedResumeView(
+private fun ContentEditTab(
+    modifier: Modifier = Modifier,
     resumeData: ResumeData?,
-    polishedText: String,
     useVibeTemplate: Boolean,
-    polishMode: String,
-    manualEditText: String,
-    onManualEditChange: (String) -> Unit,
-    selectedModuleId: String?,
-    onSelectModule: (String?) -> Unit,
+    expandedSection: String?,
+    aiChatMessage: String,
+    onToggleSection: (String?) -> Unit,
+    onToggleVibe: (Boolean) -> Unit,
     onFullScreen: () -> Unit,
-    onUpdatePolished: (String) -> Unit
+    onUpdatePersonalInfo: (String?, String?, String?, String?, String?) -> Unit,
+    onUpdateExperience: (Int, ResumeData.Experience) -> Unit,
+    onAddExperience: () -> Unit,
+    onRemoveExperience: (Int) -> Unit,
+    onUpdateEducation: (Int, ResumeData.Education) -> Unit,
+    onAddEducation: () -> Unit,
+    onRemoveEducation: (Int) -> Unit,
+    onUpdateProject: (Int, ResumeData.Project) -> Unit,
+    onAddProject: () -> Unit,
+    onRemoveProject: (Int) -> Unit,
+    onUpdateSkills: (List<String>) -> Unit,
+    onAddSkill: (String) -> Unit,
+    onRemoveSkill: (String) -> Unit,
+    onAiChatMessageChange: (String) -> Unit
 ) {
-    // HTML Preview with fullscreen
-    Card(
-        Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = BgWhite),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier
     ) {
-        Column {
-            Row(
-                Modifier.fillMaxWidth().background(BgSurface).padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("HTML 预览", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
-                IconButton(onClick = onFullScreen, modifier = Modifier.size(32.dp), enabled = resumeData != null) {
-                    Icon(Icons.Default.Fullscreen, "全屏", Modifier.size(18.dp), tint = BrandBlue)
-                }
-            }
-            if (resumeData != null) {
-                ResumePreviewWebView(
-                    resumeData = resumeData,
-                    useVibeTemplate = useVibeTemplate,
-                    modifier = Modifier.height(280.dp)
-                )
-            } else {
-                Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
-                    Text("（简历数据不可用）", color = TextTertiary, fontSize = 13.sp)
-                }
-            }
-        }
-    }
-
-    // Manual edit or module view
-    if (polishMode == "manual") {
-        OutlinedTextField(
-            value = manualEditText,
-            onValueChange = {
-                onManualEditChange(it)
-                onUpdatePolished(it)
-            },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp),
-            label = { Text("直接编辑简历文本") },
-            textStyle = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp)
-        )
-    } else {
-        // Module-based display
-        resumeData?.let { data ->
-            ResumeModuleList(data, selectedModuleId, onSelectModule)
-        } ?: Text(
-            polishedText.ifBlank { "（暂无内容）" },
-            Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
-        )
-    }
-}
-
-@Composable
-private fun ResumeModuleList(data: ResumeData, selectedId: String?, onSelect: (String?) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Personal info module
-        ResumeModule(
-            id = "header",
-            title = data.name.ifBlank { "个人信息" },
-            subtitle = data.targetPosition,
-            isSelected = selectedId == "header",
-            onClick = { onSelect(if (selectedId == "header") null else "header") }
+        // Scrollable content
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp)
         ) {
-            if (data.contact.isNotBlank()) Text(data.contact, fontSize = 13.sp, color = TextSecondary)
-            if (data.summary.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(data.summary, fontSize = 13.sp, color = TextPrimary, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            }
-        }
-
-        // Experience modules
-        data.experiences.forEachIndexed { i, exp ->
-            ResumeModule(
-                id = "exp_$i",
-                title = exp.title,
-                subtitle = "${exp.company} · ${exp.period}",
-                isSelected = selectedId == "exp_$i",
-                onClick = { onSelect(if (selectedId == "exp_$i") null else "exp_$i") }
-            ) {
-                if (exp.description.isNotBlank()) {
-                    Text(exp.description, fontSize = 13.sp, color = TextPrimary, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
-
-        // Education modules
-        data.education.forEachIndexed { i, edu ->
-            ResumeModule(
-                id = "edu_$i",
-                title = edu.degree,
-                subtitle = "${edu.school} · ${edu.period}",
-                isSelected = selectedId == "edu_$i",
-                onClick = { onSelect(if (selectedId == "edu_$i") null else "edu_$i") }
-            )
-        }
-
-        // Projects modules
-        data.projects.forEachIndexed { i, proj ->
-            ResumeModule(
-                id = "proj_$i",
-                title = proj.name,
-                subtitle = proj.period,
-                isSelected = selectedId == "proj_$i",
-                onClick = { onSelect(if (selectedId == "proj_$i") null else "proj_$i") }
-            ) {
-                if (proj.description.isNotBlank()) {
-                    Text(proj.description, fontSize = 13.sp, color = TextPrimary, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                }
-                if (proj.technologies.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text("技术栈: ${proj.technologies.joinToString(" · ")}", fontSize = 11.sp, color = TextTertiary)
-                }
-            }
-        }
-
-        // Skills module
-        if (data.skills.isNotEmpty()) {
-            ResumeModule(
-                id = "skills",
-                title = "专业技能",
-                subtitle = "${data.skills.size} 项技能",
-                isSelected = selectedId == "skills",
-                onClick = { onSelect(if (selectedId == "skills") null else "skills") }
-            ) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    data.skills.forEach { skill ->
-                        Surface(shape = RoundedCornerShape(4.dp), color = BrandBlueLight) {
-                            Text(skill, Modifier.padding(horizontal = 8.dp, vertical = 3.dp), fontSize = 11.sp, color = BrandBlue)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResumeModule(
-    id: String,
-    title: String,
-    subtitle: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    content: @Composable (() -> Unit)? = null
-) {
-    Card(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) BrandBlueLight else BgWhite
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (isSelected) BrandBlue.copy(alpha = 0.3f) else BorderLight
-        )
-    ) {
-        Row(Modifier.padding(12.dp)) {
-            // Brand color vertical bar
-            Box(
-                Modifier
-                    .width(4.dp)
-                    .height(if (content != null) 48.dp else 24.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(if (isSelected) BrandBlue else BrandBlue.copy(alpha = 0.3f))
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                if (subtitle.isNotBlank()) {
-                    Text(subtitle, fontSize = 12.sp, color = TextTertiary)
-                }
-                if (content != null) {
-                    Spacer(Modifier.height(6.dp))
-                    content()
-                }
-            }
-            // Edit hint when selected
-            if (isSelected) {
-                Icon(Icons.Default.Edit, "编辑", Modifier.size(16.dp).padding(top = 2.dp), tint = BrandBlue)
-            }
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  DIFF VIEW
-// ═══════════════════════════════════════════════════════════════
-
-@Composable
-private fun DiffResumeView(original: String, polished: String) {
-    val originalLines = original.split("\n").filter { it.isNotBlank() }
-    val polishedLines = polished.split("\n").filter { it.isNotBlank() }
-
-    // Simple diff: show original with removed lines, polished with added lines
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = BgWhite),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text("变更对比", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-            Spacer(Modifier.height(4.dp))
-            Text("绿色 = 新增内容 · 红色 = 删除内容", fontSize = 11.sp, color = TextTertiary)
             Spacer(Modifier.height(8.dp))
 
-            // Show polished version with diff annotations
-            val annotated = buildAnnotatedString {
-                // Mark lines unique to polished (additions) in green
-                val origSet = originalLines.toSet()
-                polishedLines.forEach { line ->
-                    if (line !in origSet) {
-                        withStyle(SpanStyle(background = Color(0xFFDCFCE7), color = SuccessGreen)) {
-                            append("+ $line\n")
-                        }
-                    } else {
-                        append("  $line\n")
-                    }
-                }
-            }
-            Text(annotated, fontSize = 13.sp, lineHeight = 22.sp)
+            // ── HTML Preview (collapsible) ──────────────────
+            HtmlPreviewCard(
+                resumeData = resumeData,
+                useVibeTemplate = useVibeTemplate,
+                onToggleVibe = onToggleVibe,
+                onFullScreen = onFullScreen
+            )
 
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = BorderLight)
-            Spacer(Modifier.height(8.dp))
 
-            // Show removed lines
-            val polishedSet = polishedLines.toSet()
-            val removed = originalLines.filter { it !in polishedSet }
-            if (removed.isNotEmpty()) {
-                Text("已删除内容:", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = DangerRed)
-                Spacer(Modifier.height(4.dp))
-                removed.forEach { line ->
+            if (resumeData != null) {
+                // ── 个人信息 ─────────────────────────────────
+                PersonalInfoEditCard(
+                    data = resumeData,
+                    isExpanded = expandedSection == "personal",
+                    onToggle = { onToggleSection(if (expandedSection == "personal") null else "personal") },
+                    onSave = { name, pos, phone, email, summary ->
+                        onUpdatePersonalInfo(name, pos, phone, email, summary)
+                    }
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── 项目经历 ─────────────────────────────────
+                ProjectEditCard(
+                    projects = resumeData.projects,
+                    isExpanded = expandedSection == "projects",
+                    onToggle = { onToggleSection(if (expandedSection == "projects") null else "projects") },
+                    onUpdate = onUpdateProject,
+                    onAdd = onAddProject,
+                    onRemove = onRemoveProject
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── 教育背景 ─────────────────────────────────
+                EducationEditCard(
+                    education = resumeData.education,
+                    isExpanded = expandedSection == "education",
+                    onToggle = { onToggleSection(if (expandedSection == "education") null else "education") },
+                    onUpdate = onUpdateEducation,
+                    onAdd = onAddEducation,
+                    onRemove = onRemoveEducation
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── 实习工作经历 ─────────────────────────────
+                ExperienceEditCard(
+                    experiences = resumeData.experiences,
+                    isExpanded = expandedSection == "experience",
+                    onToggle = { onToggleSection(if (expandedSection == "experience") null else "experience") },
+                    onUpdate = onUpdateExperience,
+                    onAdd = onAddExperience,
+                    onRemove = onRemoveExperience
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── 专业技能 ─────────────────────────────────
+                SkillsEditCard(
+                    skills = resumeData.skills,
+                    isExpanded = expandedSection == "skills",
+                    onToggle = { onToggleSection(if (expandedSection == "skills") null else "skills") },
+                    onUpdate = onUpdateSkills,
+                    onAdd = onAddSkill,
+                    onRemove = onRemoveSkill
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+        }
+
+        // ── Bottom: AI chat input ──────────────────────────
+        AiChatInputBar(
+            message = aiChatMessage,
+            onMessageChange = onAiChatMessageChange
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  1. HTML PREVIEW CARD
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun HtmlPreviewCard(
+    resumeData: ResumeData?,
+    useVibeTemplate: Boolean,
+    onToggleVibe: (Boolean) -> Unit,
+    onFullScreen: () -> Unit
+) {
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = BgWhite),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().background(BgSurface).padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("📄 HTML 预览", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+                Spacer(Modifier.width(12.dp))
+                TextButton(onClick = { onToggleVibe(!useVibeTemplate) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
                     Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(color = DangerRed, textDecoration = TextDecoration.LineThrough)) {
-                                append(line)
-                            }
-                        },
-                        fontSize = 13.sp, lineHeight = 20.sp
+                        if (useVibeTemplate) "Vibe 风格" else "经典风格",
+                        fontSize = 11.sp,
+                        color = if (useVibeTemplate) BrandBlue else TextTertiary
                     )
                 }
             }
+            IconButton(onClick = onFullScreen, modifier = Modifier.size(28.dp), enabled = resumeData != null) {
+                Icon(Icons.Default.Fullscreen, "全屏", Modifier.size(16.dp), tint = BrandBlue)
+            }
+        }
+        if (resumeData != null) {
+            ResumePreviewWebView(
+                resumeData = resumeData,
+                useVibeTemplate = useVibeTemplate,
+                modifier = Modifier.height(240.dp)
+            )
+        } else {
+            Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
+                Text("（简历数据不可用）", color = TextTertiary, fontSize = 13.sp)
+            }
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  BOTTOM ACTION BAR
+//  2. 个人信息编辑卡片
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun PersonalInfoEditCard(
+    data: ResumeData,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    onSave: (name: String, position: String, phone: String, email: String, summary: String) -> Unit
+) {
+    // Extract phone & email from contact string
+    val existingPhone = Regex("""[\d\-\s()]{7,}""").find(data.contact)?.value?.trim() ?: ""
+    val existingEmail = Regex("""[\w.\-]+@[\w.\-]+\.\w+""").find(data.contact)?.value?.trim() ?: ""
+
+    var editName by rememberSaveable { mutableStateOf(data.name) }
+    var editPosition by rememberSaveable { mutableStateOf(data.targetPosition) }
+    var editPhone by rememberSaveable { mutableStateOf(existingPhone) }
+    var editEmail by rememberSaveable { mutableStateOf(existingEmail) }
+    var editSummary by rememberSaveable { mutableStateOf(data.summary) }
+    var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri -> photoUri = uri }
+
+    ExpandableSectionCard(
+        icon = "👤",
+        title = "个人信息",
+        summary = buildString {
+            if (data.name.isNotBlank()) append(data.name)
+            if (data.targetPosition.isNotBlank()) {
+                if (isNotEmpty()) append(" · ")
+                append(data.targetPosition)
+            }
+            if (isEmpty()) append("未填写")
+        },
+        isExpanded = isExpanded,
+        onToggle = onToggle
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Photo upload
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(64.dp).clip(CircleShape).background(if (photoUri != null) BrandBlueLight else BgSurface).border(1.dp, if (photoUri != null) BrandBlue.copy(alpha = 0.5f) else BorderLight, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (photoUri != null) {
+                        Icon(Icons.Default.Check, "已选择", Modifier.size(28.dp), tint = BrandBlue)
+                    } else {
+                        Icon(Icons.Default.CameraAlt, "上传照片", Modifier.size(28.dp), tint = TextTertiary)
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("个人照片", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                    TextButton(
+                        onClick = { photoPicker.launch("image/*") },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                    ) {
+                        Text(if (photoUri != null) "重新选择" else "上传照片", fontSize = 12.sp, color = BrandBlue)
+                    }
+                }
+            }
+
+            OutlinedTextField(value = editName, onValueChange = { editName = it }, label = { Text("姓名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = editPosition, onValueChange = { editPosition = it }, label = { Text("应聘职位") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = editPhone, onValueChange = { editPhone = it }, label = { Text("电话") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(value = editEmail, onValueChange = { editEmail = it }, label = { Text("邮箱") }, singleLine = true, modifier = Modifier.weight(1f))
+            }
+            OutlinedTextField(
+                value = editSummary,
+                onValueChange = { editSummary = it },
+                label = { Text("个人总结") },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
+                maxLines = 4
+            )
+
+            // Action row
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onToggle) { Text("取消", color = TextSecondary) }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        onSave(editName, editPosition, editPhone, editEmail, editSummary)
+                        onToggle()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("保存")
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  3. 项目经历编辑卡片
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun ProjectEditCard(
+    projects: List<ResumeData.Project>,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (Int, ResumeData.Project) -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (Int) -> Unit
+) {
+    val count = projects.size
+    ExpandableSectionCard(
+        icon = "📁",
+        title = "项目经历",
+        summary = if (count > 0) "${count}项 · ${projects.take(2).joinToString(", ") { it.name.take(12) }}" else "暂无",
+        isExpanded = isExpanded,
+        onToggle = onToggle
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            projects.forEachIndexed { index, proj ->
+                ProjectItemEditor(
+                    project = proj,
+                    index = index,
+                    onUpdate = { onUpdate(index, it) },
+                    onRemove = { onRemove(index) }
+                )
+            }
+            OutlinedButton(
+                onClick = onAdd,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("添加项目")
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(
+                    onClick = onToggle,
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("完成") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectItemEditor(
+    project: ResumeData.Project,
+    index: Int,
+    onUpdate: (ResumeData.Project) -> Unit,
+    onRemove: () -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf(project.name) }
+    var period by rememberSaveable { mutableStateOf(project.period) }
+    var desc by rememberSaveable { mutableStateOf(project.description) }
+    var tech by rememberSaveable { mutableStateOf(project.technologies.joinToString(", ")) }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = BgSurface),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderLight)
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("项目 ${index + 1}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextTertiary)
+                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Delete, "删除", Modifier.size(14.dp), tint = DangerRed)
+                }
+            }
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it; onUpdate(project.copy(name = name, period = period, description = desc, technologies = tech.split(",", "，").map { it.trim() }.filter { it.isNotBlank() })) },
+                label = { Text("项目名称") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = period,
+                onValueChange = { period = it; onUpdate(project.copy(name = name, period = period, description = desc, technologies = tech.split(",", "，").map { it.trim() }.filter { it.isNotBlank() })) },
+                label = { Text("时间") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = desc,
+                onValueChange = { desc = it; onUpdate(project.copy(name = name, period = period, description = desc, technologies = tech.split(",", "，").map { it.trim() }.filter { it.isNotBlank() })) },
+                label = { Text("项目描述") },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
+                maxLines = 4,
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = tech,
+                onValueChange = { tech = it; onUpdate(project.copy(name = name, period = period, description = desc, technologies = tech.split(",", "，").map { it.trim() }.filter { it.isNotBlank() })) },
+                label = { Text("技术栈（逗号分隔）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  4. 教育背景编辑卡片
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun EducationEditCard(
+    education: List<ResumeData.Education>,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (Int, ResumeData.Education) -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (Int) -> Unit
+) {
+    val count = education.size
+    ExpandableSectionCard(
+        icon = "🎓",
+        title = "教育背景",
+        summary = if (count > 0) "${count}项 · ${education.take(2).joinToString(", ") { it.school.take(10) }}" else "暂无",
+        isExpanded = isExpanded,
+        onToggle = onToggle
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            education.forEachIndexed { index, edu ->
+                EducationItemEditor(
+                    education = edu,
+                    index = index,
+                    onUpdate = { onUpdate(index, it) },
+                    onRemove = { onRemove(index) }
+                )
+            }
+            OutlinedButton(
+                onClick = onAdd,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("添加教育经历")
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(
+                    onClick = onToggle,
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("完成") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EducationItemEditor(
+    education: ResumeData.Education,
+    index: Int,
+    onUpdate: (ResumeData.Education) -> Unit,
+    onRemove: () -> Unit
+) {
+    var school by rememberSaveable { mutableStateOf(education.school) }
+    var degree by rememberSaveable { mutableStateOf(education.degree) }
+    var period by rememberSaveable { mutableStateOf(education.period) }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = BgSurface),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderLight)
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("教育经历 ${index + 1}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextTertiary)
+                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Delete, "删除", Modifier.size(14.dp), tint = DangerRed)
+                }
+            }
+            OutlinedTextField(
+                value = school, onValueChange = { school = it; onUpdate(education.copy(school = school, degree = degree, period = period)) },
+                label = { Text("学校") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = degree, onValueChange = { degree = it; onUpdate(education.copy(school = school, degree = degree, period = period)) },
+                label = { Text("专业 / 学位") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = period, onValueChange = { period = it; onUpdate(education.copy(school = school, degree = degree, period = period)) },
+                label = { Text("时间") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  5. 实习工作经历编辑卡片
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun ExperienceEditCard(
+    experiences: List<ResumeData.Experience>,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (Int, ResumeData.Experience) -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (Int) -> Unit
+) {
+    val count = experiences.size
+    ExpandableSectionCard(
+        icon = "💼",
+        title = "实习工作经历",
+        summary = if (count > 0) "${count}项 · ${experiences.take(2).joinToString(", ") { it.company.take(10) }}" else "暂无",
+        isExpanded = isExpanded,
+        onToggle = onToggle
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            experiences.forEachIndexed { index, exp ->
+                ExperienceItemEditor(
+                    experience = exp,
+                    index = index,
+                    onUpdate = { onUpdate(index, it) },
+                    onRemove = { onRemove(index) }
+                )
+            }
+            OutlinedButton(
+                onClick = onAdd,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("添加经历")
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(
+                    onClick = onToggle,
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("完成") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExperienceItemEditor(
+    experience: ResumeData.Experience,
+    index: Int,
+    onUpdate: (ResumeData.Experience) -> Unit,
+    onRemove: () -> Unit
+) {
+    var company by rememberSaveable { mutableStateOf(experience.company) }
+    var title by rememberSaveable { mutableStateOf(experience.title) }
+    var period by rememberSaveable { mutableStateOf(experience.period) }
+    var desc by rememberSaveable { mutableStateOf(experience.description) }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = BgSurface),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderLight)
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("经历 ${index + 1}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextTertiary)
+                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Delete, "删除", Modifier.size(14.dp), tint = DangerRed)
+                }
+            }
+            OutlinedTextField(
+                value = company, onValueChange = { company = it; onUpdate(experience.copy(company = company, title = title, period = period, description = desc)) },
+                label = { Text("公司") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = title, onValueChange = { title = it; onUpdate(experience.copy(company = company, title = title, period = period, description = desc)) },
+                label = { Text("职位") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = period, onValueChange = { period = it; onUpdate(experience.copy(company = company, title = title, period = period, description = desc)) },
+                label = { Text("时间") }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(
+                value = desc, onValueChange = { desc = it; onUpdate(experience.copy(company = company, title = title, period = period, description = desc)) },
+                label = { Text("工作描述") }, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp), maxLines = 4, textStyle = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  6. 专业技能编辑卡片
 // ═══════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun BottomActionBar(
-    selectedModuleId: String?,
-    selectedSegment: String,
-    isExporting: Boolean,
-    isIterativePolishing: Boolean,
-    iterativeInstruction: String,
-    onIterativeInstructionChange: (String) -> Unit,
-    onIterativePolish: () -> Unit,
-    onExportPdf: () -> Unit,
-    onShare: () -> Unit,
-    hasExportFile: Boolean,
-    polishMode: String,
-    onTogglePolishMode: () -> Unit,
-    quickPolishItems: List<QuickPolishItem>,
-    onQuickFill: (String) -> Unit
+private fun SkillsEditCard(
+    skills: List<String>,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (List<String>) -> Unit,
+    onAdd: (String) -> Unit,
+    onRemove: (String) -> Unit
+) {
+    ExpandableSectionCard(
+        icon = "🛠️",
+        title = "专业技能",
+        summary = if (skills.isNotEmpty()) "${skills.size}项 · ${skills.take(4).joinToString(", ") { it.take(8) }}" else "暂无",
+        isExpanded = isExpanded,
+        onToggle = onToggle
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Editable chips
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                skills.forEach { skill ->
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = BrandBlueLight,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BrandBlue.copy(alpha = 0.2f))
+                    ) {
+                        Row(
+                            Modifier.padding(start = 10.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(skill, fontSize = 12.sp, color = BrandBlue)
+                            Spacer(Modifier.width(2.dp))
+                            Icon(
+                                Icons.Default.Close, "删除$skill",
+                                Modifier.size(16.dp).clickable { onRemove(skill) },
+                                tint = BrandBlue.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Add new skill
+            var newSkill by rememberSaveable { mutableStateOf("") }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = newSkill,
+                    onValueChange = { newSkill = it },
+                    label = { Text("新技能") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+                Button(
+                    onClick = {
+                        if (newSkill.isNotBlank()) {
+                            onAdd(newSkill.trim())
+                            newSkill = ""
+                        }
+                    },
+                    enabled = newSkill.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(52.dp)
+                ) {
+                    Text("添加", fontSize = 13.sp)
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(
+                    onClick = onToggle,
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("完成") }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  可展开卡片容器
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun ExpandableSectionCard(
+    icon: String,
+    title: String,
+    summary: String,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isExpanded) BrandBlueLight.copy(alpha = 0.3f) else BgWhite
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isExpanded) BrandBlue.copy(alpha = 0.3f) else BorderLight
+        )
+    ) {
+        Column {
+            // Header (always visible, clickable)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(icon, fontSize = 20.sp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Text(summary, fontSize = 12.sp, color = TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                // Expand/collapse indicator
+                Icon(
+                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.Edit,
+                    contentDescription = if (isExpanded) "收起" else "编辑",
+                    Modifier.size(20.dp),
+                    tint = if (isExpanded) BrandBlue else TextTertiary
+                )
+            }
+
+            // Expanded content
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
+                    content()
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AI 对话框 (底部)
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun AiChatInputBar(
+    message: String,
+    onMessageChange: (String) -> Unit
 ) {
     Surface(
         Modifier.fillMaxWidth(),
         color = BgWhite,
-        shadowElevation = 2.dp,
+        shadowElevation = 4.dp,
         border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderLight)
     ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-            // Mode toggle + quick fill row (only when no module selected)
-            if (selectedModuleId == null && selectedSegment == "polished") {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // AI / Manual toggle
-                    OutlinedButton(
-                        onClick = onTogglePolishMode,
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Icon(
-                            if (polishMode == "ai") Icons.Default.AutoAwesome else Icons.Default.Edit,
-                            null, Modifier.size(14.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            if (polishMode == "ai") "AI优化" else "手动编辑",
-                            fontSize = 11.sp
-                        )
-                    }
-
-                    // Quick fill chips (scrollable)
-                    if (polishMode == "ai") {
-                        Row(
-                            Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                                quickPolishItems.forEach { item ->
-                                    Surface(
-                                        onClick = { onQuickFill(item.fillText) },
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (iterativeInstruction == item.fillText) BrandBlue.copy(alpha = 0.1f) else BgSurface,
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            if (iterativeInstruction == item.fillText) BrandBlue.copy(alpha = 0.3f) else BorderLight
-                                        )
-                                    ) {
-                                        Text(
-                                            item.label,
-                                            Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            fontSize = 10.sp,
-                                            color = if (iterativeInstruction == item.fillText) BrandBlue else TextSecondary
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-            }
-
-            // Module-specific actions
-            if (selectedModuleId != null) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    when {
-                        selectedModuleId.startsWith("exp_") -> {
-                            ModuleActionButton("增加量化", Icons.Default.AutoAwesome) {}
-                            ModuleActionButton("STAR重写", Icons.Default.AutoAwesome) {}
-                            ModuleActionButton("精简冗余", Icons.Default.AutoAwesome) {}
-                            ModuleActionButton("强化技术词", Icons.Default.AutoAwesome) {}
-                        }
-                        selectedModuleId == "skills" -> {
-                            ModuleActionButton("重新排序", Icons.Default.Tune) {}
-                            ModuleActionButton("补充JD关键词", Icons.Default.Search) {}
-                            ModuleActionButton("合并同类", Icons.Default.AutoAwesome) {}
-                        }
-                        else -> {
-                            ModuleActionButton("优化措辞", Icons.Default.AutoAwesome) {}
-                            ModuleActionButton("扩写内容", Icons.Default.Edit) {}
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            // Main action buttons row
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                Icons.Default.AutoAwesome, null,
+                Modifier.size(20.dp), tint = BrandBlue
+            )
+            OutlinedTextField(
+                value = message,
+                onValueChange = onMessageChange,
+                modifier = Modifier.weight(1f).height(44.dp),
+                placeholder = { Text("AI 助手：有什么可以帮你的？", fontSize = 13.sp) },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall,
+                shape = RoundedCornerShape(20.dp)
+            )
+            IconButton(
+                onClick = { /* TODO: Flow Agent send */ },
+                modifier = Modifier.size(40.dp),
+                enabled = message.isNotBlank()
             ) {
-                // Continue polish or edit (contextual)
-                if (polishMode == "ai" && selectedModuleId == null) {
-                    OutlinedTextField(
-                        value = iterativeInstruction,
-                        onValueChange = onIterativeInstructionChange,
-                        modifier = Modifier.weight(1f).height(40.dp),
-                        placeholder = { Text("继续优化...", fontSize = 12.sp) },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodySmall
-                    )
-                    IconButton(
-                        onClick = onIterativePolish,
-                        enabled = !isIterativePolishing && iterativeInstruction.isNotBlank(),
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        if (isIterativePolishing) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.AutoMirrored.Filled.Send, "发送", Modifier.size(20.dp),
-                                tint = if (iterativeInstruction.isNotBlank()) BrandBlue else TextTertiary)
-                        }
-                    }
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
-
-                // Export button
-                Button(
-                    onClick = onExportPdf,
-                    enabled = !isExporting,
-                    modifier = Modifier.height(40.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    if (isExporting) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
-                    } else {
-                        Text("导出PDF", fontSize = 13.sp)
-                    }
-                }
-
-                // Share button
-                if (hasExportFile) {
-                    OutlinedButton(
-                        onClick = onShare,
-                        modifier = Modifier.height(40.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.Share, null, Modifier.size(16.dp))
-                    }
-                }
+                Icon(
+                    Icons.AutoMirrored.Filled.Send, "发送",
+                    Modifier.size(20.dp),
+                    tint = if (message.isNotBlank()) BrandBlue else TextTertiary
+                )
             }
         }
     }
 }
 
-@Composable
-private fun ModuleActionButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(6.dp),
-        color = BrandBlueLight,
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, BrandBlue.copy(alpha = 0.2f))
-    ) {
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, Modifier.size(12.dp), tint = BrandBlue)
-            Spacer(Modifier.width(4.dp))
-            Text(label, fontSize = 10.sp, color = BrandBlue)
-        }
-    }
-}

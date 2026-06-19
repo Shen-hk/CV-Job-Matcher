@@ -34,6 +34,16 @@ object Routes {
     const val HISTORY = "history"
     const val SETTINGS = "settings"
 
+    // ── JD优化 flow ──
+    const val JD_OPTIMIZE_JD_INPUT = "jd_optimize_jd_input"
+    const val JD_OPTIMIZE_RESUME_INPUT = "jd_optimize_resume_input/{jdRawText}/{jdStructuredJson}"
+
+    fun jdOptimizeResumeInput(jdRawText: String, jdStructuredJson: String): String {
+        val encodedJd = URLEncoder.encode(jdRawText, "UTF-8")
+        val encodedJson = URLEncoder.encode(jdStructuredJson, "UTF-8")
+        return "jd_optimize_resume_input/$encodedJd/$encodedJson"
+    }
+
     fun resumeInput(jdRawText: String, jdStructuredJson: String): String {
         val encodedJd = URLEncoder.encode(jdRawText, "UTF-8")
         val encodedJson = URLEncoder.encode(jdStructuredJson, "UTF-8")
@@ -72,6 +82,9 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToJdInput = {
                     navController.navigate(Routes.JD_INPUT)
+                },
+                onNavigateToJdOptimize = {
+                    navController.navigate(Routes.JD_OPTIMIZE_JD_INPUT)
                 }
             )
         }
@@ -85,6 +98,9 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToJdInput = {
                     navController.navigate(Routes.JD_INPUT)
+                },
+                onNavigateToPolish = { resumeText, jdRawText, jdJson, tp, st, fp ->
+                    navController.navigate(Routes.polish(resumeText, jdRawText, jdJson, tp, st, fp))
                 }
             )
         }
@@ -112,6 +128,41 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToJdInput = {
                     navController.navigate(Routes.JD_INPUT)
                 }
+            )
+        }
+
+        // ── JD优化: JD Input ─────────────────────────────
+        composable(Routes.JD_OPTIMIZE_JD_INPUT) {
+            val globalJdVm = LocalGlobalJdViewModel.current
+            JdInputScreen(
+                onNavigateToSettings = {
+                    navController.navigate(Routes.SETTINGS)
+                },
+                onJdSubmitted = { jdRawText, jdStructuredJson ->
+                    globalJdVm.setJd(jdRawText, jdStructuredJson)
+                    navController.navigate(
+                        Routes.jdOptimizeResumeInput(jdRawText, jdStructuredJson)
+                    )
+                }
+            )
+        }
+
+        // ── JD优化: Resume Input (含历史版本+匹配确认) ────
+        composable(
+            route = Routes.JD_OPTIMIZE_RESUME_INPUT,
+            arguments = listOf(
+                navArgument("jdRawText") { type = NavType.StringType },
+                navArgument("jdStructuredJson") { type = NavType.StringType }
+            )
+        ) {
+            ResumeInputScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onResumeSubmitted = { resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish ->
+                    navController.navigate(
+                        Routes.polish(resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish)
+                    )
+                },
+                flowMode = "jd_optimize"
             )
         }
 

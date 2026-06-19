@@ -61,7 +61,11 @@ data class ResultUiState(
     // State
     val isLoading: Boolean = true,
     val error: String? = null,
-    val currentSessionId: Long = -1L
+    val currentSessionId: Long = -1L,
+    // ── 内容编辑 ──
+    val selectedTab: String = "edit",   // "edit" | "flow_agent"
+    val expandedSection: String? = null, // "personal" | "projects" | "education" | "experience" | "skills"
+    val aiChatMessage: String = ""
 )
 
 @HiltViewModel
@@ -334,4 +338,184 @@ class ResultViewModel @Inject constructor(
             Toast.makeText(context, "分享失败: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
     }
+
+    // ═══════════════════════════════════════════════════════
+    //  内容编辑 — UI 控制
+    // ═══════════════════════════════════════════════════════
+
+    fun setSelectedTab(tab: String) {
+        _uiState.update { it.copy(selectedTab = tab) }
+    }
+
+    fun setExpandedSection(section: String?) {
+        _uiState.update { it.copy(expandedSection = section) }
+    }
+
+    fun setAiChatMessage(msg: String) {
+        _uiState.update { it.copy(aiChatMessage = msg) }
+    }
+
+    /** 整体替换 ResumeData（用于字段级编辑后提交） */
+    fun updateResumeData(newData: ResumeData) {
+        _uiState.update { it.copy(resumeData = newData) }
+    }
+
+    /** 更新个人信息字段 */
+    fun updatePersonalInfo(
+        name: String? = null,
+        position: String? = null,
+        phone: String? = null,
+        email: String? = null,
+        summary: String? = null
+    ) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(
+                resumeData = current.copy(
+                    name = name ?: current.name,
+                    targetPosition = position ?: current.targetPosition,
+                    contact = buildContactString(current.contact, phone, email),
+                    summary = summary ?: current.summary
+                )
+            )
+        }
+    }
+
+    /** 更新某条工作经历 */
+    fun updateExperience(index: Int, exp: ResumeData.Experience) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            val list = current.experiences.toMutableList()
+            if (index in list.indices) list[index] = exp
+            state.copy(resumeData = current.copy(experiences = list))
+        }
+    }
+
+    fun addExperience() {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(
+                experiences = current.experiences + ResumeData.Experience("", "", "", "")
+            ))
+        }
+    }
+
+    fun removeExperience(index: Int) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(
+                experiences = current.experiences.toMutableList().also { if (index in it.indices) it.removeAt(index) }
+            ))
+        }
+    }
+
+    /** 更新某条教育经历 */
+    fun updateEducation(index: Int, edu: ResumeData.Education) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            val list = current.education.toMutableList()
+            if (index in list.indices) list[index] = edu
+            state.copy(resumeData = current.copy(education = list))
+        }
+    }
+
+    fun addEducation() {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(
+                education = current.education + ResumeData.Education("", "", "")
+            ))
+        }
+    }
+
+    fun removeEducation(index: Int) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(
+                education = current.education.toMutableList().also { if (index in it.indices) it.removeAt(index) }
+            ))
+        }
+    }
+
+    /** 更新某条项目经历 */
+    fun updateProject(index: Int, proj: ResumeData.Project) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            val list = current.projects.toMutableList()
+            if (index in list.indices) list[index] = proj
+            state.copy(resumeData = current.copy(projects = list))
+        }
+    }
+
+    fun addProject() {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(
+                projects = current.projects + ResumeData.Project("", "", "", emptyList())
+            ))
+        }
+    }
+
+    fun removeProject(index: Int) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(
+                projects = current.projects.toMutableList().also { if (index in it.indices) it.removeAt(index) }
+            ))
+        }
+    }
+
+    /** 整体替换技能列表 */
+    fun updateSkills(skills: List<String>) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(skills = skills))
+        }
+    }
+
+    fun addSkill(skill: String) {
+        if (skill.isBlank()) return
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            if (current.skills.contains(skill)) return@update state
+            state.copy(resumeData = current.copy(skills = current.skills + skill))
+        }
+    }
+
+    fun removeSkill(skill: String) {
+        _uiState.update { state ->
+            val current = state.resumeData ?: return@update state
+            state.copy(resumeData = current.copy(skills = current.skills - skill))
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  辅助函数
+// ═══════════════════════════════════════════════════════════
+
+/** 从现有 contact 字符串中提取并更新 phone / email */
+private fun buildContactString(currentContact: String, phone: String?, email: String?): String {
+    val parts = mutableListOf<String>()
+    if (phone != null) parts.add(phone)
+    else {
+        val existingPhone = extractPhone(currentContact)
+        if (existingPhone != null) parts.add(existingPhone)
+    }
+    if (email != null) parts.add(email)
+    else {
+        val existingEmail = extractEmail(currentContact)
+        if (existingEmail != null) parts.add(existingEmail)
+    }
+    return parts.joinToString(" | ")
+}
+
+private fun extractPhone(text: String): String? {
+    val match = Regex("""[\d\-\s()]{7,}""").find(text)
+    return match?.value?.trim()
+}
+
+private fun extractEmail(text: String): String? {
+    val match = Regex("""[\w.\-]+@[\w.\-]+\.\w+""").find(text)
+    return match?.value?.trim()
 }

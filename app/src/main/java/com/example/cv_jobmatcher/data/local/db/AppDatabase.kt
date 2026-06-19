@@ -22,7 +22,7 @@ import com.example.cv_jobmatcher.data.local.db.entity.TrackingEntity
         InterviewSessionEntity::class,
         InterviewMessageEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

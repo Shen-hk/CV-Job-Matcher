@@ -1,5 +1,9 @@
 package com.example.cv_jobmatcher.ui.resumeoptimize
 
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,13 +62,33 @@ fun ResumeOptimizeScreen(
     onNavigateBack: () -> Unit,
     onNavigateToInterview: () -> Unit,
     onNavigateToJdInput: () -> Unit,
+    onNavigateToPolish: (resumeText: String, jdRawText: String, jdStructuredJson: String,
+                          templatePath: String?, sourceType: String, fullPolish: Boolean) -> Unit = { _, _, _, _, _, _ -> },
     viewModel: ResumeOptimizeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val globalJdVm = LocalGlobalJdViewModel.current
     val jdState by globalJdVm.state.collectAsState()
+    val context = LocalContext.current
     var versionNameDialog by remember { mutableStateOf(false) }
     var newVersionName by remember { mutableStateOf("") }
+
+    // File upload launcher
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            val mimeType = context.contentResolver.getType(it)
+            var fileName = "文件"
+            context.contentResolver.query(it, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && nameIndex >= 0) {
+                    fileName = cursor.getString(nameIndex)
+                }
+            }
+            viewModel.processFile(context, it, mimeType, fileName)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -154,6 +180,38 @@ fun ResumeOptimizeScreen(
             // ── Resume Input ────────────────────────────────
             Text("简历内容", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
+
+            // File upload button
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { filePickerLauncher.launch(arrayOf(
+                        "application/pdf",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )) },
+                    enabled = !state.isFileProcessing,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (state.isFileProcessing) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("解析中...")
+                    } else {
+                        Icon(Icons.Default.PictureAsPdf, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("上传简历文件")
+                    }
+                }
+                if (state.resumeText.isNotBlank()) {
+                    OutlinedButton(onClick = viewModel::clearResume) { Text("清空") }
+                }
+            }
+            state.fileName?.let { name ->
+                Spacer(Modifier.height(4.dp))
+                Text("已加载: $name", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             OutlinedTextField(
                 value = state.resumeText,
                 onValueChange = viewModel::updateResumeText,
@@ -170,19 +228,19 @@ fun ResumeOptimizeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        viewModel.polishResume(jdState.rawText, jdState.structuredJson, fullPolish = true)
+                        onNavigateToPolish(
+                            state.resumeText,
+                            jdState.rawText,
+                            jdState.structuredJson,
+                            null,
+                            state.sourceType,
+                            true
+                        )
                     },
-                    enabled = !state.isProcessing && state.resumeText.isNotBlank() && jdState.isSet,
+                    enabled = state.resumeText.isNotBlank(),
                     modifier = Modifier.weight(1f)
                 ) {
-                    if (state.isProcessing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("AI 深度润色")
                 }
