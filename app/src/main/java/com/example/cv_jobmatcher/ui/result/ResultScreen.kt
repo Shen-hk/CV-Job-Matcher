@@ -1,5 +1,6 @@
 package com.example.cv_jobmatcher.ui.result
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +18,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -63,6 +65,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -80,6 +84,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -90,8 +95,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -530,7 +538,7 @@ private fun ContentEditTab(
     onToggleSection: (String?) -> Unit,
     onToggleVibe: (Boolean) -> Unit,
     onFullScreen: () -> Unit,
-    onUpdatePersonalInfo: (String?, String?, String?, String?, String?) -> Unit,
+    onUpdatePersonalInfo: (String?, String?, String?, String?, Uri?, List<ResumeData.SocialLink>) -> Unit,
     onUpdateExperience: (Int, ResumeData.Experience) -> Unit,
     onAddExperience: () -> Unit,
     onRemoveExperience: (Int) -> Unit,
@@ -574,8 +582,8 @@ private fun ContentEditTab(
                     data = resumeData,
                     isExpanded = expandedSection == "personal",
                     onToggle = { onToggleSection(if (expandedSection == "personal") null else "personal") },
-                    onSave = { name, pos, phone, email, summary ->
-                        onUpdatePersonalInfo(name, pos, phone, email, summary)
+                    onSave = { name, pos, phone, email, photoUri, links ->
+                        onUpdatePersonalInfo(name, pos, phone, email, photoUri, links)
                     }
                 )
 
@@ -693,7 +701,7 @@ private fun PersonalInfoEditCard(
     data: ResumeData,
     isExpanded: Boolean,
     onToggle: () -> Unit,
-    onSave: (name: String, position: String, phone: String, email: String, summary: String) -> Unit
+    onSave: (name: String, position: String, phone: String, email: String, photoUri: Uri?, links: List<ResumeData.SocialLink>) -> Unit
 ) {
     // Extract phone & email from contact string
     val existingPhone = Regex("""[\d\-\s()]{7,}""").find(data.contact)?.value?.trim() ?: ""
@@ -703,12 +711,50 @@ private fun PersonalInfoEditCard(
     var editPosition by rememberSaveable { mutableStateOf(data.targetPosition) }
     var editPhone by rememberSaveable { mutableStateOf(existingPhone) }
     var editEmail by rememberSaveable { mutableStateOf(existingEmail) }
-    var editSummary by rememberSaveable { mutableStateOf(data.summary) }
     var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var photoBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    val context = LocalContext.current
+
+    // 社交链接列表（本地编辑副本）
+    val editLinks = remember(data.links, isExpanded) {
+        mutableStateListOf<ResumeData.SocialLink>().also { list ->
+            list.addAll(data.links.map { it.copy() })
+            // 如果原来为空，给一个空位让用户填写
+            if (list.isEmpty()) {
+                list.add(ResumeData.SocialLink("", ""))
+            }
+        }
+    }
 
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri -> photoUri = uri }
+    ) { uri ->
+        photoUri = uri
+        if (uri != null) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
+                photoBitmap = BitmapFactory.decodeStream(inputStream, null, opts)
+                inputStream?.close()
+            } catch (_: Exception) { photoBitmap = null }
+        } else {
+            photoBitmap = null
+        }
+    }
+
+    // 加载已保存的照片缩略图
+    LaunchedEffect(data.photoBase64, isExpanded) {
+        if (isExpanded && photoUri == null && data.photoBase64.isNotBlank()) {
+            try {
+                val bytes = android.util.Base64.decode(data.photoBase64, android.util.Base64.DEFAULT)
+                val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+                photoBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+            } catch (_: Exception) { photoBitmap = null }
+        }
+    }
+
+    // 链接标签预设
+    val linkPresets = listOf("GitHub", "博客", "LinkedIn", "个人网站", "其他")
 
     ExpandableSectionCard(
         icon = "👤",
@@ -728,11 +774,16 @@ private fun PersonalInfoEditCard(
             // Photo upload
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(64.dp).clip(CircleShape).background(if (photoUri != null) BrandBlueLight else BgSurface).border(1.dp, if (photoUri != null) BrandBlue.copy(alpha = 0.5f) else BorderLight, CircleShape),
+                    Modifier.size(64.dp).clip(CircleShape).background(if (photoBitmap != null) Color.Transparent else BgSurface).border(1.dp, if (photoBitmap != null) BrandBlue.copy(alpha = 0.5f) else BorderLight, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (photoUri != null) {
-                        Icon(Icons.Default.Check, "已选择", Modifier.size(28.dp), tint = BrandBlue)
+                    if (photoBitmap != null) {
+                        Image(
+                            bitmap = photoBitmap!!.asImageBitmap(),
+                            contentDescription = "个人照片",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
                     } else {
                         Icon(Icons.Default.CameraAlt, "上传照片", Modifier.size(28.dp), tint = TextTertiary)
                     }
@@ -755,13 +806,78 @@ private fun PersonalInfoEditCard(
                 OutlinedTextField(value = editPhone, onValueChange = { editPhone = it }, label = { Text("电话") }, singleLine = true, modifier = Modifier.weight(1f))
                 OutlinedTextField(value = editEmail, onValueChange = { editEmail = it }, label = { Text("邮箱") }, singleLine = true, modifier = Modifier.weight(1f))
             }
-            OutlinedTextField(
-                value = editSummary,
-                onValueChange = { editSummary = it },
-                label = { Text("个人总结") },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
-                maxLines = 4
-            )
+
+            // ── 社交链接 ──
+            HorizontalDivider(color = BorderLight)
+            Text("社交链接", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+
+            editLinks.forEachIndexed { index, link ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // 标签下拉
+                    var labelExpanded by remember { mutableStateOf(false) }
+                    Box(Modifier.width(100.dp)) {
+                        OutlinedTextField(
+                            value = if (linkPresets.contains(link.label)) link.label else link.label.ifBlank { "" },
+                            onValueChange = { newVal ->
+                                editLinks[index] = link.copy(label = newVal)
+                            },
+                            label = { Text("标签") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            readOnly = false
+                        )
+                        // 预设快捷选择
+                        TextButton(
+                            onClick = { labelExpanded = true },
+                            modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) {
+                            Text("▾", fontSize = 10.sp, color = TextTertiary)
+                        }
+                        DropdownMenu(expanded = labelExpanded, onDismissRequest = { labelExpanded = false }) {
+                            linkPresets.forEach { preset ->
+                                DropdownMenuItem(
+                                    text = { Text(preset) },
+                                    onClick = {
+                                        editLinks[index] = link.copy(label = preset)
+                                        labelExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    // URL 输入
+                    OutlinedTextField(
+                        value = link.url,
+                        onValueChange = { newUrl ->
+                            editLinks[index] = link.copy(url = newUrl)
+                        },
+                        label = { Text("URL") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // 删除按钮
+                    if (editLinks.size > 1) {
+                        IconButton(onClick = { editLinks.removeAt(index) }) {
+                            Icon(Icons.Default.Close, "删除", Modifier.size(18.dp), tint = TextTertiary)
+                        }
+                    }
+                }
+            }
+
+            // 添加链接按钮
+            TextButton(
+                onClick = { editLinks.add(ResumeData.SocialLink("", "")) },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+            ) {
+                Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("添加链接", fontSize = 12.sp, color = BrandBlue)
+            }
 
             // Action row
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -769,7 +885,9 @@ private fun PersonalInfoEditCard(
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        onSave(editName, editPosition, editPhone, editEmail, editSummary)
+                        // 过滤掉空链接
+                        val validLinks = editLinks.filter { it.label.isNotBlank() && it.url.isNotBlank() }
+                        onSave(editName, editPosition, editPhone, editEmail, photoUri, validLinks)
                         onToggle()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),

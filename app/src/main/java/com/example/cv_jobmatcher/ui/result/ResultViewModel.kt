@@ -3,6 +3,10 @@ package com.example.cv_jobmatcher.ui.result
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -28,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
 
@@ -122,11 +127,11 @@ class ResultViewModel @Inject constructor(
 
                 Log.i(TAG, "loadResult: score=${e.matchScore}, level=$level, matched=${matched.size}, missing=${missing.size}")
 
-                val resumeData = if (e.resumeJson.isNotBlank()) {
+                val resumeData = (if (e.resumeJson.isNotBlank()) {
                     ResumeData.fromJsonString(e.resumeJson)
                 } else {
                     null
-                }
+                })?.withAutoDetectedLinks()
 
                 _uiState.update {
                     it.copy(
@@ -174,11 +179,15 @@ class ResultViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { rawOutput ->
                         val polishResult = PolishResult.fromLlmOutput(rawOutput)
-                        val newResumeData = if (polishResult.resumeJson.isNotBlank()) {
+                        val newResumeData = (if (polishResult.resumeJson.isNotBlank()) {
                             ResumeData.fromJsonString(polishResult.resumeJson)
                         } else {
                             ResumeData.fromPolishedText(polishResult.polishedResume)
-                        }
+                        })?.withAutoDetectedLinks()
+                        // 如果 AI 没返回链接，保留用户之前手动填的
+                        val mergedData = if (newResumeData?.links.isNullOrEmpty() && state.resumeData?.links?.isNotEmpty() == true) {
+                            newResumeData?.copy(links = state.resumeData!!.links)
+                        } else newResumeData
 
                         val matchResult = SemanticMatcher.analyze(
                             jdText = state.jdRawText,
@@ -222,7 +231,7 @@ class ResultViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 polishedResume = polishResult.polishedResume,
-                                resumeData = newResumeData,
+                                resumeData = mergedData,
                                 optimizationNote = polishResult.optimizationNote,
                                 matchScore = ma.score,
                                 matchLevel = level,
@@ -387,11 +396,15 @@ class ResultViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { rawOutput ->
                         val polishResult = PolishResult.fromLlmOutput(rawOutput)
-                        val newResumeData = if (polishResult.resumeJson.isNotBlank()) {
+                        val newResumeData = (if (polishResult.resumeJson.isNotBlank()) {
                             ResumeData.fromJsonString(polishResult.resumeJson)
                         } else {
                             ResumeData.fromPolishedText(polishResult.polishedResume)
-                        }
+                        })?.withAutoDetectedLinks()
+                        // 如果 AI 没返回链接，保留用户之前手动填的
+                        val mergedData = if (newResumeData?.links.isNullOrEmpty() && state.resumeData?.links?.isNotEmpty() == true) {
+                            newResumeData?.copy(links = state.resumeData!!.links)
+                        } else newResumeData
 
                         val replyContent = polishResult.optimizationNote.ifBlank {
                             "已根据你的需求完成修改 ✅"
@@ -400,7 +413,7 @@ class ResultViewModel @Inject constructor(
 
                         _uiState.update {
                             it.copy(
-                                resumeData = newResumeData,
+                                resumeData = mergedData,
                                 polishedResume = polishResult.polishedResume,
                                 aiChatMessages = it.aiChatMessages + assistantMsg,
                                 isAiProcessing = false,
@@ -448,14 +461,20 @@ class ResultViewModel @Inject constructor(
         _uiState.update { it.copy(resumeData = newData) }
     }
 
-    /** 更新个人信息字段 */
+    /** 更新个人信息字段（含照片 + 社交链接） */
     fun updatePersonalInfo(
         name: String? = null,
         position: String? = null,
         phone: String? = null,
         email: String? = null,
-        summary: String? = null
+        photoUri: Uri? = null,
+        links: List<ResumeData.SocialLink>? = null
     ) {
+        // 如果提供了新照片，先转换成 Base64
+        val newPhotoBase64 = if (photoUri != null) {
+            uriToBase64(photoUri)
+        } else null  // null = 保持原值
+
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
             state.copy(
@@ -463,9 +482,43 @@ class ResultViewModel @Inject constructor(
                     name = name ?: current.name,
                     targetPosition = position ?: current.targetPosition,
                     contact = buildContactString(current.contact, phone, email),
-                    summary = summary ?: current.summary
+                    photoBase64 = newPhotoBase64 ?: current.photoBase64,
+                    links = links ?: current.links
                 )
             )
+        }
+    }
+
+    /** 将 content:// URI 转为 JPEG Base64 字符串（已压缩到 300px 宽） */
+    private fun uriToBase64(uri: Uri): String? {
+        return try {
+            val inputStream = application.contentResolver.openInputStream(uri)
+                ?: return null
+            val sourceBitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+
+            if (sourceBitmap == null) return null
+
+            // 缩放到最大 300px 宽，保持比例
+            val maxWidth = 300
+            val bitmap = if (sourceBitmap.width > maxWidth) {
+                val ratio = maxWidth.toFloat() / sourceBitmap.width
+                val newHeight = (sourceBitmap.height * ratio).toInt()
+                Bitmap.createScaledBitmap(sourceBitmap, maxWidth, newHeight, true)
+            } else sourceBitmap
+
+            val outputStream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+            val bytes = outputStream.toByteArray()
+            outputStream.close()
+
+            if (bitmap !== sourceBitmap) bitmap.recycle()
+            sourceBitmap.recycle()
+
+            Base64.encodeToString(bytes, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            Log.e(TAG, "照片转换失败: ${e.message}", e)
+            null
         }
     }
 

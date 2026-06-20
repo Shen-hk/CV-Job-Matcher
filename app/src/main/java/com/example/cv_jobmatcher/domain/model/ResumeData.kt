@@ -10,7 +10,9 @@ data class ResumeData(
     val projects: List<Project> = emptyList(),
     val skills: List<String> = emptyList(),
     val certifications: List<String> = emptyList(),
-    val languages: Map<String, String> = emptyMap()
+    val languages: Map<String, String> = emptyMap(),
+    val photoBase64: String = "",   // JPEG Base64, 用于 HTML 头像
+    val links: List<SocialLink> = emptyList()  // GitHub/博客等可选链接
 ) {
     data class Experience(
         val company: String,
@@ -32,6 +34,39 @@ data class ResumeData(
         val description: String,
         val technologies: List<String> = emptyList()
     )
+
+    data class SocialLink(
+        val label: String = "",
+        val url: String = ""
+    )
+
+    /** 从 contact（个人信息区）自动检测个人链接，跳过项目仓库地址 */
+    fun withAutoDetectedLinks(rawText: String = ""): ResumeData {
+        if (links.isNotEmpty()) return this
+        val detected = mutableListOf<SocialLink>()
+        // 只扫描 contact 字段（个人信息区），不在全文中扫描避免捡到项目链接
+        val urlRegex = Regex("""https?://[^\s,，;；。]+""")
+        for (match in urlRegex.findAll(contact)) {
+            val url = match.value.trimEnd('.', '。', '，', ',', ';', '；')
+            if (url.contains("@")) continue
+            // 跳过 GitHub 仓库地址 (github.com/user/repo)，只保留个人主页 (github.com/user)
+            if (url.contains("github.com", ignoreCase = true)) {
+                val path = url.substringAfter("github.com/", "").trimEnd('/')
+                    .substringBefore("?").substringBefore("#")
+                if (path.count { it == '/' } >= 1 || path.isBlank()) continue
+            }
+            val label = when {
+                url.contains("github.com", ignoreCase = true) -> "GitHub"
+                url.contains("linkedin.com", ignoreCase = true) -> "LinkedIn"
+                url.contains("blog", ignoreCase = true) || url.contains("博客") -> "博客"
+                else -> "个人网站"
+            }
+            if (detected.none { it.url == url }) {
+                detected.add(SocialLink(label, url))
+            }
+        }
+        return if (detected.isNotEmpty()) copy(links = detected) else this
+    }
 
     companion object {
         private val moshi = com.squareup.moshi.Moshi.Builder()
@@ -112,8 +147,10 @@ data class ResumeData(
                 experiences = experiences,
                 education = education,
                 projects = projects,
-                skills = skills
-            )
+                skills = skills,
+                photoBase64 = "",
+                links = emptyList()
+            ).withAutoDetectedLinks()
         }
 
         private fun isPositionTitle(text: String): Boolean {

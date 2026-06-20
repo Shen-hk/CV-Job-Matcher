@@ -87,7 +87,7 @@ data class PolishResult(
                     education = education,
                     projects = projects,
                     skills = skills
-                )
+                ).withAutoDetectedLinks()
 
                 val resumeJson = moshi.adapter(ResumeData::class.java).toJson(resumeData)
 

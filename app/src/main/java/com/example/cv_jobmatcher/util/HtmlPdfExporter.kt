@@ -53,7 +53,11 @@ object HtmlPdfExporter {
             return renderFullHtml(resumeData, HtmlConfig(), null)
         }
 
-        val avatarBlock = """<div class="photo-frame"><div class="profile-photo"></div></div>"""
+        val avatarBlock = if (resumeData.photoBase64.isNotBlank()) {
+            """<div class="photo-frame"><img class="profile-photo" src="data:image/jpeg;base64,${resumeData.photoBase64}" alt="照片" /></div>"""
+        } else {
+            """<div class="photo-frame"><div class="profile-photo"></div></div>"""
+        }
 
         val eyebrow = if (resumeData.targetPosition.isNotBlank()) {
             "求职意向: ${escapeHtml(resumeData.targetPosition)}"
@@ -63,9 +67,7 @@ object HtmlPdfExporter {
 
         val contactHtml = buildVibeContact(resumeData)
 
-        val summaryHtml = if (resumeData.summary.isNotBlank()) {
-            """<p class="summary">${escapeHtml(resumeData.summary)}</p>"""
-        } else ""
+        val linksHtml = buildVibeLinks(resumeData)
 
         val educationGridHtml = buildVibeEducationGrid(resumeData)
         val educationInfoHtml = buildVibeEducationInfo(resumeData)
@@ -81,7 +83,8 @@ object HtmlPdfExporter {
             .replace("{{name}}", escapeHtml(resumeData.name))
             .replace("{{identityLine}}", identityLine)
             .replace("{{contact}}", contactHtml)
-            .replace("{{summary}}", summaryHtml)
+            .replace("{{links}}", linksHtml)
+            .replace("{{summary}}", "")   // 已废弃，保留兼容
             .replace("{{educationGrid}}", educationGridHtml)
             .replace("{{educationInfo}}", educationInfoHtml)
             .replace("{{experiences}}", experiencesHtml)
@@ -132,6 +135,27 @@ object HtmlPdfExporter {
                 }
                 else -> {
                     sb.appendLine("""      <a href="#"><svg class="icon"><use href="#icon-link"/></svg>$escaped</a>""")
+                }
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    private fun buildVibeLinks(data: ResumeData): String {
+        if (data.links.isEmpty()) return ""
+        val sb = StringBuilder()
+        for (link in data.links) {
+            val escapedUrl = escapeHtml(link.url)
+            val displayText = escapeHtml(link.url)  // 显示 URL 地址，像电话/邮箱一样
+            when {
+                link.label == "GitHub" || link.url.contains("github.com") -> {
+                    sb.appendLine("""      <a href="$escapedUrl"><svg class="icon"><use href="#icon-github"/></svg>$displayText</a>""")
+                }
+                link.url.contains("@") -> {
+                    sb.appendLine("""      <a href="mailto:$escapedUrl"><svg class="icon"><use href="#icon-mail"/></svg>$displayText</a>""")
+                }
+                else -> {
+                    sb.appendLine("""      <a href="$escapedUrl"><svg class="icon"><use href="#icon-link"/></svg>$displayText</a>""")
                 }
             }
         }
@@ -317,17 +341,22 @@ $body
             sb.appendLine("""  <div class="target">${escapeHtml(data.targetPosition)}</div>""")
         }
         val contactItems = data.contact.split(",", "，", " ", "|").filter { it.isNotBlank() }
-        if (contactItems.isNotEmpty()) {
-            sb.appendLine("""  <div class="contact">${contactItems.joinToString("") { "<span>${escapeHtml(it.trim())}</span>" }}</div>""")
+        // 把 links 也并入联系方式行
+        val linkItems = data.links.map { link ->
+            val icon = when {
+                link.label == "GitHub" || link.url.contains("github.com") -> "🐙"
+                link.label == "博客" || link.label == "Blog" -> "📝"
+                link.label == "LinkedIn" -> "💼"
+                link.label == "个人网站" -> "🌐"
+                else -> "🔗"
+            }
+            "$icon ${escapeHtml(link.url)}"
+        }
+        val allContactItems = contactItems.map { escapeHtml(it.trim()) } + linkItems
+        if (allContactItems.isNotEmpty()) {
+            sb.appendLine("""  <div class="contact">${allContactItems.joinToString("") { "<span>${it}</span>" }}</div>""")
         }
         sb.appendLine("""</div>""")
-
-        if (data.summary.isNotBlank()) {
-            sb.appendLine("""<div class="section">""")
-            sb.appendLine("""  <div class="section-title">个人总结</div>""")
-            sb.appendLine("""  <div class="summary">${escapeHtml(data.summary)}</div>""")
-            sb.appendLine("""</div>""")
-        }
 
         if (data.experiences.isNotEmpty()) {
             sb.appendLine("""<div class="section">""")
