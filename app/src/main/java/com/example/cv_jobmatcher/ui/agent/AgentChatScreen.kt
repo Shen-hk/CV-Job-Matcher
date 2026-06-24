@@ -1,7 +1,7 @@
 package com.example.cv_jobmatcher.ui.agent
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,12 +15,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.WorkHistory
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -97,13 +103,21 @@ fun AgentChatScreen(
             )
         },
         bottomBar = {
-            InputArea(
-                text = state.inputText,
-                isStreaming = state.isLoading,
-                onTextChange = { viewModel.updateInputText(it) },
-                onSend = { viewModel.sendMessage() },
-                onCancel = { viewModel.cancelStream() }
-            )
+            Column {
+                // Quick action chips
+                QuickActionsBar(
+                    onResumeOptimize = onNavigateToResumeOptimize,
+                    onMockInterview = onNavigateToMockInterview,
+                    onTracking = onNavigateToTracking
+                )
+                InputArea(
+                    text = state.inputText,
+                    isStreaming = state.isLoading,
+                    onTextChange = { viewModel.updateInputText(it) },
+                    onSend = { viewModel.sendMessage() },
+                    onCancel = { viewModel.cancelStream() }
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -214,6 +228,55 @@ private fun ChatBubble(message: AgentMessage) {
 }
 
 @Composable
+private fun QuickActionsBar(
+    onResumeOptimize: () -> Unit,
+    onMockInterview: () -> Unit,
+    onTracking: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        AssistChip(
+            onClick = onResumeOptimize,
+            label = { Text("📝 简历优化") },
+            leadingIcon = {
+                Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.size(16.dp))
+            },
+            shape = RoundedCornerShape(16.dp),
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
+        )
+        AssistChip(
+            onClick = onMockInterview,
+            label = { Text("🎤 模拟面试") },
+            leadingIcon = {
+                Icon(Icons.Outlined.School, contentDescription = null, modifier = Modifier.size(16.dp))
+            },
+            shape = RoundedCornerShape(16.dp),
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
+        )
+        AssistChip(
+            onClick = onTracking,
+            label = { Text("📋 投递追踪") },
+            leadingIcon = {
+                Icon(Icons.Default.Checklist, contentDescription = null, modifier = Modifier.size(16.dp))
+            },
+            shape = RoundedCornerShape(16.dp),
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
+        )
+    }
+}
+
+@Composable
 private fun InputArea(
     text: String,
     isStreaming: Boolean,
@@ -251,7 +314,7 @@ private fun InputArea(
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
-                    imageVector = if (isStreaming) Icons.Default.Close else Icons.Default.Send,
+                    imageVector = if (isStreaming) Icons.Default.Close else Icons.AutoMirrored.Filled.Send,
                     contentDescription = if (isStreaming) "停止" else "发送",
                     tint = if (isStreaming || text.isNotBlank()) {
                         MaterialTheme.colorScheme.primary
