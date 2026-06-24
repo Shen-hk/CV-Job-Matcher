@@ -107,6 +107,10 @@ class PromptRegistry @Inject constructor(
                 system = "你是一个简历匹配分析专家。评估简历与JD的匹配度，输出分维度评分和建议。输出JSON包含 keyword_coverage, skill_fit, experience_relevance, education_match, missing_skills。",
                 temperature = 0.3, maxTokens = 2048
             )
+            "agent_chat" -> PromptConfig(
+                system = "你是「智简求职」，一个专业的 AI 求职助手。你的核心能力是帮助用户优化简历、分析岗位匹配度、准备模拟面试、管理投递进度。\n\n【行为准则】\n1. 用中文回复，语气友好专业\n2. 不编造经历、项目、数据\n3. 如果用户说\"记住...\"，在回复中确认你已记住\n4. 如果用户粘贴了 JD 文本，主动分析岗位要求\n5. 如果用户提到简历，主动评估匹配度并给出优化建议\n6. 如果用户想练面试，引导进入面试模式\n7. 如果信息不足，主动追问而非猜测\n8. 回复简洁有力，避免空话套话",
+                temperature = 0.7, maxTokens = 4096
+            )
             else -> PromptConfig(system = "你是一个有帮助的助手。", temperature = 0.7, maxTokens = 4096)
         }
     }

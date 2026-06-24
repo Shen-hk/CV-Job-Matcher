@@ -3,6 +3,7 @@ package com.example.cv_jobmatcher.data.remote
 import android.util.Log
 import com.example.cv_jobmatcher.data.local.AppPreferences
 import com.example.cv_jobmatcher.domain.nlp.EmbeddingEngine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -99,6 +100,11 @@ class AiProviderManager @Inject constructor(
         
         throw Exception("所有AI服务都不可用")
     }
+
+    fun chatWithFallbackStream(request: LlmRequest): Flow<StreamEvent> {
+        val provider = getProvider()
+        return provider.chatCompletionStream(request)
+    }
     
     suspend fun smartEmbed(text: String): FloatArray {
         val provider = getProvider()
@@ -121,6 +127,10 @@ class LocalProvider : AiProvider {
     override val providerName: String = "Local"
     
     override suspend fun chatCompletion(request: LlmRequest): LlmResponse {
+        throw UnsupportedOperationException("本地模式不支持Chat功能")
+    }
+
+    override fun chatCompletionStream(request: LlmRequest): Flow<StreamEvent> {
         throw UnsupportedOperationException("本地模式不支持Chat功能")
     }
     

@@ -7,6 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.cv_jobmatcher.ui.agent.AgentChatScreen
 import com.example.cv_jobmatcher.ui.history.HistoryScreen
 import com.example.cv_jobmatcher.ui.home.HomeScreen
 import com.example.cv_jobmatcher.ui.interview.InterviewScreen
@@ -25,6 +26,7 @@ object Routes {
     const val RESUME_OPTIMIZE = "resume_optimize"
     const val MOCK_INTERVIEW = "mock_interview"
     const val TRACKING = "tracking"
+    const val AGENT_CHAT = "agent_chat"
 
     // ── Legacy: Linear flow (kept for backward compat) ──
     const val JD_INPUT = "jd_input"
@@ -63,7 +65,7 @@ object Routes {
 fun NavGraph(navController: NavHostController) {
     NavHost(
         navController = navController,
-        startDestination = Routes.HOME  // New: Home as entry point
+        startDestination = Routes.AGENT_CHAT  // Agent as main entry point
     ) {
         // ── Home ────────────────────────────────────────────
         composable(Routes.HOME) {
@@ -85,7 +87,20 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToJdOptimize = {
                     navController.navigate(Routes.JD_OPTIMIZE_JD_INPUT)
+                },
+                onNavigateToAgentChat = {
+                    navController.navigate(Routes.AGENT_CHAT)
                 }
+            )
+        }
+
+        // ── Agent Chat (new main entry) ────────────────────
+        composable(Routes.AGENT_CHAT) {
+            AgentChatScreen(
+                onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                onNavigateToResumeOptimize = { navController.navigate(Routes.RESUME_OPTIMIZE) },
+                onNavigateToMockInterview = { navController.navigate(Routes.MOCK_INTERVIEW) },
+                onNavigateToTracking = { navController.navigate(Routes.TRACKING) }
             )
         }
 

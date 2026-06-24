@@ -39,6 +39,9 @@ object PrefKeys {
 
     // 面试偏好
     val LAST_INTERVIEW_PERSONA = stringPreferencesKey("last_interview_persona")
+
+    // Agent Context
+    val AGENT_CONTEXT_JSON = stringPreferencesKey("agent_context_json")
 }
 
 @Singleton
@@ -238,6 +241,18 @@ class AppPreferences @Inject constructor(
     suspend fun setLastInterviewPersona(persona: String) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.LAST_INTERVIEW_PERSONA] = persona
+        }
+    }
+
+    // ── Agent Context ───────────────────────────────────────────
+
+    suspend fun getAgentContextJson(): String {
+        return dataStore.data.first()[PrefKeys.AGENT_CONTEXT_JSON] ?: ""
+    }
+
+    suspend fun setAgentContextJson(json: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.AGENT_CONTEXT_JSON] = json
         }
     }
 }

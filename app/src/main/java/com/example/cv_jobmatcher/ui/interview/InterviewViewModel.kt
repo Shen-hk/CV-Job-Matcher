@@ -7,6 +7,7 @@ import com.example.cv_jobmatcher.data.remote.AiProviderManager
 import com.example.cv_jobmatcher.data.remote.InterviewPrompts
 import com.example.cv_jobmatcher.data.remote.LlmRequest
 import com.example.cv_jobmatcher.data.remote.PromptConfig
+import com.example.cv_jobmatcher.data.remote.StreamEvent
 import com.example.cv_jobmatcher.data.remote.dto.Message
 import com.example.cv_jobmatcher.data.repository.InterviewRepository
 import com.example.cv_jobmatcher.data.repository.ResumeVersionRepository
@@ -106,7 +107,7 @@ class InterviewViewModel @Inject constructor(
                     Message(role = "user", content = context)
                 )
 
-                val response = aiProviderManager.chatWithFallback(
+                val streamFlow = aiProviderManager.chatWithFallbackStream(
                     LlmRequest(
                         messages = messages,
                         temperature = promptConfig.temperature,
@@ -114,18 +115,56 @@ class InterviewViewModel @Inject constructor(
                     )
                 )
 
-                // Save interview message to DB
+                var fullContent = ""
+                var streamError: String? = null
+
+                streamFlow.collect { event ->
+                    when (event) {
+                        is StreamEvent.Start -> { }
+                        is StreamEvent.Content -> {
+                            fullContent += event.text
+                            _uiState.update {
+                                val msgs = it.messages.toMutableList()
+                                val lastMsg = msgs.lastOrNull()
+                                if (lastMsg?.role == MessageRole.INTERVIEWER && lastMsg.id == 0L) {
+                                    msgs[msgs.lastIndex] = lastMsg.copy(content = fullContent)
+                                } else {
+                                    msgs.add(InterviewMessage(
+                                        sessionId = sessionId,
+                                        role = MessageRole.INTERVIEWER,
+                                        content = fullContent
+                                    ))
+                                }
+                                it.copy(messages = msgs)
+                            }
+                        }
+                        is StreamEvent.Done -> { }
+                        is StreamEvent.Error -> {
+                            streamError = event.message
+                        }
+                    }
+                }
+
+                if (streamError != null) {
+                    throw Exception(streamError)
+                }
+
                 val interviewerMsg = InterviewMessage(
                     sessionId = sessionId,
                     role = MessageRole.INTERVIEWER,
-                    content = response.content
+                    content = fullContent
                 )
                 interviewRepository.addMessage(interviewerMsg)
 
                 _uiState.update {
+                    val msgs = it.messages.toMutableList()
+                    val lastIdx = msgs.indexOfLast { m -> m.role == MessageRole.INTERVIEWER && m.id == 0L }
+                    if (lastIdx >= 0) {
+                        msgs[lastIdx] = interviewerMsg
+                    }
                     it.copy(
                         isLoading = false,
-                        messages = it.messages + interviewerMsg
+                        messages = msgs
                     )
                 }
             } catch (e: Exception) {
@@ -159,11 +198,10 @@ class InterviewViewModel @Inject constructor(
             try {
                 interviewRepository.addMessage(userMsg)
 
-                // Build conversation history for AI
                 val promptConfig = interviewPrompts.getSystemPrompt(state.persona)
                 val conversationMessages = buildConversationMessages(state, answer, promptConfig)
 
-                val response = aiProviderManager.chatWithFallback(
+                val streamFlow = aiProviderManager.chatWithFallbackStream(
                     LlmRequest(
                         messages = conversationMessages,
                         temperature = promptConfig.temperature,
@@ -171,19 +209,57 @@ class InterviewViewModel @Inject constructor(
                     )
                 )
 
-                // Save interinterviwer response
+                var fullContent = ""
+                var streamError: String? = null
+
+                streamFlow.collect { event ->
+                    when (event) {
+                        is StreamEvent.Start -> { /* streaming started */ }
+                        is StreamEvent.Content -> {
+                            fullContent += event.text
+                            _uiState.update {
+                                val msgs = it.messages.toMutableList()
+                                val lastMsg = msgs.lastOrNull()
+                                if (lastMsg?.role == MessageRole.INTERVIEWER && lastMsg.id == 0L) {
+                                    msgs[msgs.lastIndex] = lastMsg.copy(content = fullContent)
+                                } else {
+                                    msgs.add(InterviewMessage(
+                                        sessionId = state.sessionId,
+                                        role = MessageRole.INTERVIEWER,
+                                        content = fullContent
+                                    ))
+                                }
+                                it.copy(messages = msgs)
+                            }
+                        }
+                        is StreamEvent.Done -> { /* streaming complete */ }
+                        is StreamEvent.Error -> {
+                            streamError = event.message
+                        }
+                    }
+                }
+
+                if (streamError != null) {
+                    throw Exception(streamError)
+                }
+
                 val interviewerMsg = InterviewMessage(
                     sessionId = state.sessionId,
                     role = MessageRole.INTERVIEWER,
-                    content = response.content
+                    content = fullContent
                 )
-                interviewRepository.addMessage(interviewerMsg)
+                val msgId = interviewRepository.addMessage(interviewerMsg)
                 interviewRepository.incrementQuestionCount(state.sessionId)
 
                 _uiState.update {
+                    val msgs = it.messages.toMutableList()
+                    val lastIdx = msgs.indexOfLast { m -> m.role == MessageRole.INTERVIEWER && m.id == 0L }
+                    if (lastIdx >= 0) {
+                        msgs[lastIdx] = interviewerMsg.copy(id = msgId)
+                    }
                     it.copy(
                         isLoading = false,
-                        messages = it.messages + interviewerMsg,
+                        messages = msgs,
                         questionCount = it.questionCount + 1
                     )
                 }

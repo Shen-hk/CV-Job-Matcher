@@ -1,11 +1,12 @@
 package com.example.cv_jobmatcher.data.remote
 
-import com.example.cv_jobmatcher.data.remote.dto.DeepSeekRequest
 import com.example.cv_jobmatcher.data.remote.dto.Message
+import kotlinx.coroutines.flow.Flow
 
 interface AiProvider {
     val providerName: String
     suspend fun chatCompletion(request: LlmRequest): LlmResponse
+    fun chatCompletionStream(request: LlmRequest): Flow<StreamEvent>
     suspend fun embed(text: String): FloatArray?
     fun isAvailable(): Boolean
 }

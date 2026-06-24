@@ -3,6 +3,7 @@ package com.example.cv_jobmatcher.data.remote
 import android.util.Log
 import com.example.cv_jobmatcher.data.local.AppPreferences
 import com.example.cv_jobmatcher.domain.nlp.EmbeddingEngine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -83,6 +84,17 @@ class OllamaProvider constructor(
             Log.e(TAG, "Ollama API调用失败: ${e.message}", e)
             throw e
         }
+    }
+
+    override fun chatCompletionStream(request: LlmRequest): Flow<StreamEvent> {
+        val baseUrl = runBlocking { preferences.getOllamaBaseUrl() }
+        val model = runBlocking { preferences.getOllamaModel() }
+        return StreamingApiService.streamOllamaChat(
+            baseUrl = baseUrl,
+            model = model,
+            messages = request.messages,
+            temperature = request.temperature
+        )
     }
     
     override suspend fun embed(text: String): FloatArray? {

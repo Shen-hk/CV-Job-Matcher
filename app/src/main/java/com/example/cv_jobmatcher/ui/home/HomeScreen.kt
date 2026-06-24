@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Settings
@@ -55,6 +56,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToJdInput: () -> Unit,
     onNavigateToJdOptimize: () -> Unit = {},
+    onNavigateToAgentChat: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val globalJdVm = LocalGlobalJdViewModel.current
@@ -93,7 +95,6 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ── Subtitle ──────────────────────────────────
             Text(
                 text = "AI 求职助手 — 简历优化 · 模拟面试 · 投递管理",
                 style = MaterialTheme.typography.bodyMedium,
@@ -101,9 +102,67 @@ fun HomeScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // ── Three Entry Cards ─────────────────────────
+            // ── Agent Chat Hero Card ──────────────────────
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNavigateToAgentChat),
+                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Chat,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(20.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "和 AI 助手对话",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "粘贴JD、优化简历、练面试、管投递，说就行",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── Quick Access Row ──────────────────────────
+            Text(
+                text = "快捷入口",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -134,7 +193,7 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // ── JD优化 Section ──────────────────────────
             JdOptimizeSection(
@@ -227,7 +286,6 @@ private fun JdOptimizeSection(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            // ── JD status row ─────────────────────────
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -267,7 +325,6 @@ private fun JdOptimizeSection(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // ── CTA button ────────────────────────────
             Button(
                 onClick = onStartOptimize,
                 enabled = isSet,

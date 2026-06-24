@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root {
+    --page-width: 794px;
+    --accent: #2563eb;
+    --accent-soft: #eaf1ff;
+    --rust: #d97757;
+    --ink: #141414;
+    --muted: #667085;
+    --hairline: #dbe2ea;
+    --panel: #f7f9fc;
+    --screen-bg: #eef2f7;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; min-height: 100%; background: #eef2f7; }
+
+  body {
+    color: var(--ink);
+    font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", "Heiti SC", Arial, sans-serif;
+    line-height: 1.35;
+  }
+
+  .icon-sprite { display: none; }
+
+  .icon, .section-icon {
+    display: inline-block; fill: none; flex: 0 0 auto;
+    stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2;
+  }
+
+  .icon { height: 16px; width: 16px; }
+
+  .page {
+    background: #fff; margin: 20px auto; overflow: visible;
+    padding: 32px 44px; width: var(--page-width);
+    box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+  }
+
+  .resume-header {
+    align-items: stretch; background: #fff;
+    border: 0; border-top: 2px solid #111827;
+    display: grid; gap: 14px; grid-template-columns: 60px minmax(0, 1fr);
+    margin-bottom: 16px; padding: 14px 0 14px; text-align: left;
+  }
+
+  .photo-frame {
+    align-items: center; background: #fff; border: 1px solid #cbd5e1;
+    border-radius: 4px; display: flex; justify-content: center;
+    overflow: hidden; padding: 2px;
+  }
+
+  .profile-photo {
+    aspect-ratio: 3 / 4; background: #dbeafe; border-radius: 2px;
+    display: block; height: 72px; object-fit: cover;
+    object-position: 50% 34%; width: 54px;
+  }
+
+  .profile-main {
+    display: flex; flex-direction: column; justify-content: center; min-width: 0;
+  }
+
+
+  .eyebrow {
+    color: #475467; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.4px; line-height: 1.2; margin: 0 0 4px; text-transform: uppercase;
+  }
+
+  .name-row {
+    display: block; margin-bottom: 6px;
+  }
+
+  .resume-header h1 {
+    font-size: 28px; font-weight: 800; letter-spacing: 0;
+    line-height: 1.15; margin: 0;
+  }
+
+  .identity-line { display: block; color: var(--muted); font-size: 13px; font-weight: 700; margin: 3px 0 6px; }
+
+  .contact-line {
+    align-items: flex-start; display: flex; flex-wrap: wrap;
+    font-size: 12px; gap: 10px; justify-content: flex-start;
+    letter-spacing: 0; margin: 0;
+  }
+
+  .contact-line a {
+    align-items: center; border: 0; background: none;
+    color: #1f2937; display: inline-flex; gap: 6px;
+    text-decoration: none;
+  }
+
+  .section { margin-top: 14px; }
+  .section:first-of-type { margin-top: 0; }
+
+  .section h2 {
+    align-items: center; color: #101828; display: flex;
+    font-size: 16px; font-weight: 800; gap: 9px;
+    line-height: 1.05; margin: 0 0 8px; position: relative;
+  }
+
+  .section h2::after {
+    background: linear-gradient(90deg, var(--accent) 0%, rgba(37, 99, 235, 0.12) 100%);
+    content: ""; flex: 1; height: 2px; margin-left: 4px;
+  }
+
+  .section-icon {
+    background: var(--accent-soft); border-radius: 6px;
+    color: var(--accent); height: 20px; padding: 4px; width: 20px;
+  }
+
+  .education-grid {
+    background: var(--panel); border: 1px solid var(--hairline);
+    border-radius: 6px; display: grid; font-size: 13px;
+    grid-template-columns: 1.25fr 1.1fr 1fr; line-height: 1.45;
+    margin-bottom: 10px; padding: 8px 10px; row-gap: 4px;
+  }
+
+  .education-grid div:nth-child(3n) {
+    color: var(--muted); font-weight: 700; text-align: right;
+  }
+
+  .info-line { font-size: 13px; line-height: 1.15; margin: 5px 0 0; }
+  .info-line strong { font-size: 13px; font-weight: 800; }
+
+  .experience {
+    border-left: 3px solid var(--accent-soft); margin-top: 12px;
+    padding-left: 12px; position: relative;
+  }
+
+  .experience::before {
+    background: var(--accent); border: 3px solid #fff;
+    border-radius: 999px; box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+    content: ""; height: 9px; left: -6px; position: absolute;
+    top: 4px; width: 9px;
+  }
+
+  .experience:first-of-type { margin-top: 0; }
+
+  .entry-head {
+    align-items: start; display: grid; font-size: 13px;
+    grid-template-columns: 1.25fr 1.1fr 1fr; line-height: 1.2; margin-bottom: 8px;
+  }
+
+  .entry-head strong { font-weight: 800; }
+
+  .company-title { align-items: center; display: inline-flex; gap: 8px; }
+  .company-logo { display: block; flex: 0 0 auto; height: 24px; object-fit: contain; width: 24px; }
+
+  .entry-head span { color: var(--muted); font-weight: 700; text-align: center; }
+
+  .project-title { align-items: center; display: inline-flex; gap: 8px; }
+  .project-title img { height: 22px; width: 22px; }
+
+  .summary {
+    font-size: 13px; line-height: 1.32; margin: 0 0 4px; text-align: justify;
+  }
+
+  .experience ul {
+    font-size: 13px; line-height: 1.32; list-style-position: outside;
+    margin: 0; padding-left: 18px;
+  }
+
+  .experience li { margin: 5px 0 0; padding-left: 3px; }
+  .experience li::marker { color: var(--accent); font-size: 0.9em; }
+  .experience li strong { font-weight: 800; }
+
+  .skills-section { margin-top: 20px; }
+
+  .skills-list {
+    background: var(--panel); border: 1px solid var(--hairline);
+    border-radius: 6px; columns: 2; column-gap: 28px;
+    font-size: 13px; line-height: 1.4; list-style: none;
+    margin: 0; padding: 8px 10px;
+  }
+
+  .skills-list li {
+    break-inside: avoid; margin-top: 4px; padding-left: 13px; position: relative;
+  }
+
+  .skills-list li::before {
+    background: var(--rust); border-radius: 999px; content: "";
+    height: 5px; left: 0; position: absolute; top: 8px; width: 5px;
+  }
+
+  .cert-list { display: flex; flex-wrap: wrap; gap: 12px; }
+
+  .cert-item {
+    align-items: center; background: var(--panel); border: 1px solid var(--hairline);
+    border-radius: 4px; color: var(--ink); display: inline-flex;
+    font-size: 12px; font-weight: 600; gap: 4px; padding: 4px 8px;
+  }
+
+  .cert-item::before {
+    content: ""; background: var(--accent); border-radius: 999px;
+    display: inline-block; height: 6px; width: 6px;
+  }
+</style>
+</head>
+<body>
+
+<svg aria-hidden="true" class="icon-sprite" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-phone" viewBox="0 0 24 24">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.11 4.18 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.89.66 2.78a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.3-1.22a2 2 0 0 1 2.11-.45c.89.31 1.82.53 2.78.66A2 2 0 0 1 22 16.92z"/>
+  </symbol>
+  <symbol id="icon-mail" viewBox="0 0 24 24">
+    <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+    <path d="m22 6-10 7L2 6"/>
+  </symbol>
+  <symbol id="icon-github" viewBox="0 0 24 24">
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.94-2.64c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.4 3.4 0 0 0 9 18.11V22"/>
+  </symbol>
+  <symbol id="icon-link" viewBox="0 0 24 24">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  </symbol>
+  <symbol id="icon-school" viewBox="0 0 24 24">
+    <path d="M22 10 12 5 2 10l10 5 10-5z"/>
+    <path d="M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5M22 10v6"/>
+  </symbol>
+  <symbol id="icon-briefcase" viewBox="0 0 24 24">
+    <path d="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1"/>
+    <path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h18M9 13v2h6v-2"/>
+  </symbol>
+  <symbol id="icon-code" viewBox="0 0 24 24">
+    <path d="m16 18 6-6-6-6M8 6l-6 6 6 6M14 4l-4 16"/>
+  </symbol>
+  <symbol id="icon-tool" viewBox="0 0 24 24">
+    <path d="M14.7 6.3a4 4 0 0 0 5 5L11 20l-5-5 8.7-8.7z"/>
+    <path d="m7 17-3 3"/>
+  </symbol>
+  <symbol id="icon-user" viewBox="0 0 24 24">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </symbol>
+  <symbol id="icon-award" viewBox="0 0 24 24">
+    <circle cx="12" cy="8" r="7"/>
+    <path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12"/>
+  </symbol>
+</svg>
+
+<main class="page" aria-label="简历">
+  <header class="resume-header">
+    <div class="photo-frame">
+      <div class="profile-photo"></div>
+    </div>
+    <div class="profile-main">
+      <p class="eyebrow">求职意向: 高级Android开发工程师</p>
+      <div class="name-row">
+        <h1>张明远</h1>
+        <p class="identity-line">高级Android开发工程师 · 6段经历 · 硕士</p>
+      </div>
+      <div class="contact-line">
+        <a href="tel:+8613812345678"><svg class="icon"><use href="#icon-phone"/></svg>138-1234-5678</a>
+        <a href="mailto:zhangmingyuan@example.com"><svg class="icon"><use href="#icon-mail"/></svg>zhangmingyuan@example.com</a>
+        <a href="https://github.com/zhangmy"><svg class="icon"><use href="#icon-github"/></svg>github.com/zhangmy</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="section" id="summary-section">
+    <h2><svg class="section-icon"><use href="#icon-user"></use></svg>个人总结</h2>
+    <p class="summary">8年Android开发经验，主导过3款百万级DAU产品的架构设计与性能优化。精通Kotlin、Jetpack Compose、MVVM架构，对Android Framework层有深入理解。具备良好的跨团队协作能力和技术领导力，曾带领5人团队完成核心模块重构。</p>
+  </section>
+
+  <section class="section" id="education-section">
+    <h2><svg class="section-icon"><use href="#icon-school"></use></svg>教育背景</h2>
+    <div class="education-grid">
+      <div><strong>计算机科学与技术 硕士</strong></div>
+      <div>浙江大学</div>
+      <div>2014.09 - 2017.03</div>
+      <div><strong>软件工程 学士</strong></div>
+      <div>华中科技大学</div>
+      <div>2010.09 - 2014.06</div>
+    </div>
+    <p class="info-line"><strong>GPA:</strong> 3.8/4.0 (硕士), 3.7/4.0 (本科)</p>
+  </section>
+
+  <section class="section" id="experience-section">
+    <h2><svg class="section-icon"><use href="#icon-briefcase"></use></svg>工作经历</h2>
+
+    <div class="experience">
+      <div class="entry-head">
+        <div class="company-title"><strong>高级Android开发工程师</strong></div>
+        <span>字节跳动</span>
+        <span>2021.04 - 至今</span>
+      </div>
+      <ul>
+        <li>主导抖音Android端直播模块架构重构，将核心流程启动耗时降低<strong>40%</strong>，Crash率从0.3%降至0.05%</li>
+        <li>设计并实现了基于Kotlin Multiplatform的跨端网络层，覆盖Android/iOS双端，减少30%重复代码</li>
+        <li>推动团队全面迁移至Jetpack Compose，编写Compose组件库文档和最佳实践指南</li>
+        <li>优化视频播放器内存占用，在低端机上将OOM率从1.2%降低到0.1%</li>
+      </ul>
+    </div>
+
+    <div class="experience">
+      <div class="entry-head">
+        <div class="company-title"><strong>Android开发工程师</strong></div>
+        <span>阿里巴巴</span>
+        <span>2019.07 - 2021.03</span>
+      </div>
+      <ul>
+        <li>负责淘宝App首页Feed流的性能优化，滑动帧率从48fps提升至稳定的58fps</li>
+        <li>设计并实现了模块化路由框架，支持动态化加载和A/B实验，覆盖50+业务模块</li>
+        <li>开发Gradle插件自动化组件间依赖分析，在CI阶段拦截循环依赖</li>
+      </ul>
+    </div>
+
+    <div class="experience">
+      <div class="entry-head">
+        <div class="company-title"><strong>初级Android开发工程师</strong></div>
+        <span>网易</span>
+        <span>2017.04 - 2019.06</span>
+      </div>
+      <ul>
+        <li>参与网易云音乐Android端开发，负责播放器UI和歌词展示模块</li>
+        <li>使用RxJava + Retrofit重构网络层，提升请求响应速度和错误处理能力</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="project-section">
+    <h2><svg class="section-icon"><use href="#icon-code"></use></svg>项目经历</h2>
+
+    <div class="experience">
+      <div class="entry-head">
+        <div class="project-title"><strong>Android组件化脚手架</strong></div>
+        <span></span>
+        <span>2022.03 - 2022.12</span>
+      </div>
+      <p class="summary">开源的Android项目快速启动框架，集成模块化路由、网络层封装、日志系统等基础设施。GitHub 2.3k Stars，被多个团队采用。</p>
+      <p class="summary" style="color:var(--muted);font-size:0.9em;">技术栈: Kotlin · Compose · Hilt · KSP · Gradle Plugin</p>
+    </div>
+
+    <div class="experience">
+      <div class="entry-head">
+        <div class="project-title"><strong>性能监控SDK</strong></div>
+        <span></span>
+        <span>2020.06 - 2020.11</span>
+      </div>
+      <p class="summary">面向Android应用的全链路性能监控方案，覆盖启动耗时、页面加载、内存泄漏、卡顿检测等维度，已接入10+业务线。</p>
+      <p class="summary" style="color:var(--muted);font-size:0.9em;">技术栈: Java · ASM字节码插桩 · Matrix · Systrace</p>
+    </div>
+  </section>
+
+  <section class="section skills-section" id="skills-section">
+    <h2><svg class="section-icon"><use href="#icon-tool"></use></svg>专业技能</h2>
+    <ul class="skills-list">
+      <li>Kotlin / Java</li>
+      <li>Jetpack Compose</li>
+      <li>MVVM / MVI 架构</li>
+      <li>Coroutines / Flow</li>
+      <li>Hilt / Dagger 依赖注入</li>
+      <li>Room / DataStore</li>
+      <li>Retrofit / OkHttp</li>
+      <li>Glide / Coil</li>
+      <li>Git / Code Review</li>
+      <li>CI / CD (GitHub Actions)</li>
+      <li>性能优化 / Systrace</li>
+      <li>组件化 / 模块化架构</li>
+      <li>Gradle / AGP</li>
+      <li>单元测试 / UI测试</li>
+    </ul>
+  </section>
+
+  <section class="section" id="cert-section">
+    <h2><svg class="section-icon"><use href="#icon-award"></use></svg>证书与资质</h2>
+    <div class="cert-list">
+      <span class="cert-item">Google Associate Android Developer</span>
+      <span class="cert-item">AWS Certified Developer - Associate</span>
+      <span class="cert-item">CET-6 (600分)</span>
+    </div>
+  </section>
+</main>
+
+</body>
+</html>

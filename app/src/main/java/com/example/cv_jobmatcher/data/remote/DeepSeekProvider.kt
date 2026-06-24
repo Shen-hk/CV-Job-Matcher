@@ -3,6 +3,7 @@ package com.example.cv_jobmatcher.data.remote
 import android.util.Log
 import com.example.cv_jobmatcher.data.local.AppPreferences
 import com.example.cv_jobmatcher.data.remote.dto.DeepSeekRequest
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 
 class DeepSeekProvider constructor(
@@ -36,12 +37,26 @@ class DeepSeekProvider constructor(
             LlmResponse(
                 content = content,
                 model = "deepseek-chat",
-                usage = null  // DeepSeek API当前不返回usage信息
+                usage = null
             )
         } catch (e: Exception) {
             Log.e(TAG, "DeepSeek API调用失败: ${e.message}", e)
             throw e
         }
+    }
+
+    override fun chatCompletionStream(request: LlmRequest): Flow<StreamEvent> {
+        val apiKey = runBlocking { preferences.getApiKey() }
+        val baseUrl = preferences.getBaseUrlSync()
+        val model = runBlocking { preferences.getModel() }
+        return StreamingApiService.streamOpenAiChat(
+            baseUrl = baseUrl,
+            apiKey = apiKey,
+            model = model,
+            messages = request.messages,
+            temperature = request.temperature,
+            maxTokens = request.maxTokens
+        )
     }
     
     override suspend fun embed(text: String): FloatArray? {

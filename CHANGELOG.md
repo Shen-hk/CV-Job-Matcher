@@ -1,5 +1,36 @@
 # 智简求职 — 修改日志
 
+## Sprint 1.5: 增量完善 + Agent 基础设施 (2026-06-24)
+
+### 架构变更
+
+| 变更 | 说明 |
+|------|------|
+| Agent 记忆系统 | 新增 `AgentWorkspace` 基于文件的轻量记忆，三域（简历/JD/面试）独立存储 |
+| 求职信生成 | 新增 `CoverLetterRepository`，支持中英文求职信 AI 生成 |
+| 简历结构化模型 | `ResumeData` 完整实现：JSON 反序列化、文本解析、个人链接自动检测 |
+| 数据库 v5→v6 | `fallbackToDestructiveMigration(true)` 开发阶段容错 |
+| DataStore 扩展 | 新增 `app_language`、`cached_jd_company` 等 PrefKey |
+
+### 新增文件
+
+**Util 层：**
+- `util/AgentWorkspace.kt` — Agent 记忆系统（文件持久化 + 自然语言提取 + 去重写入）
+
+**Data 层：**
+- `data/repository/CoverLetterRepository.kt` — 求职信生成（中/英文 + 模板建议）
+
+### 修改文件
+
+| 文件 | 修改内容 |
+|------|----------|
+| `domain/model/ResumeData.kt` | 完整结构化模型：Experience/Education/Project/SocialLink + fromPolishedText() + fromJsonString() + withAutoDetectedLinks() |
+| `data/local/db/AppDatabase.kt` | version 5→6 |
+| `data/local/AppPreferences.kt` | 新增 app_language、cached_jd_company PrefKey |
+| `util/HtmlPdfExporter.kt` | 新增 buildVibeHtml() Vibe 模板导出支持 |
+
+---
+
 ## Sprint 1: 基础架构 + 三大模块壳子 + 模拟面试 AI 对话 (2026-06-16)
 
 ### 架构变更
