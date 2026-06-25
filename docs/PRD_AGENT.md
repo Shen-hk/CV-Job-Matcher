@@ -20,11 +20,11 @@
 
 ## 2. 用户画像
 
-| 画像 | 典型场景 | 核心痛点 |
-|---|---|---|
-| 应届生 A | 海投 20+ 个岗位，不知道为什么没有回复 | 简历和JD错位，不知道怎么改 |
-| 在职跳槽者 B | 下班后偷偷练面试，精力有限 | 没有人陪练，自己不知道回答的质量 |
-| 转行者 C | 从财务转产品，技能差距很大 | 不知道哪些经历可以迁移，简历怎么包装 |
+| 画像      | 典型场景                  | 核心痛点               |
+| ------- | --------------------- | ------------------ |
+| 应届生 A   | 海投 20+ 个岗位，不知道为什么没有回复 | 简历和JD错位，不知道怎么改     |
+| 在职跳槽者 B | 下班后偷偷练面试，精力有限         | 没有人陪练，自己不知道回答的质量   |
+| 转行者 C   | 从财务转产品，技能差距很大         | 不知道哪些经历可以迁移，简历怎么包装 |
 
 ---
 
@@ -66,10 +66,10 @@
 
 ### 可扩展性的三个层级
 
-| 层级 | 扩展方式 | 示例 |
-|---|---|---|
-| **工具层** | 新增 Tool 实现接口并注册到 Router，Agent Core 不动 | 加"薪资谈判工具""offer对比工具" |
-| **平台层** | 打招呼现在对接 BOSS，换解析逻辑即可接入猎聘/LinkedIn，接口不变 | `parse_shared_jd()` 内部实现替换 |
+| 层级                | 扩展方式                                                        | 示例                              |
+| ----------------- | ----------------------------------------------------------- | ------------------------------- |
+| **工具层**           | 新增 Tool 实现接口并注册到 Router，Agent Core 不动                       | 加"薪资谈判工具""offer对比工具"            |
+| **平台层**           | 打招呼现在对接 BOSS，换解析逻辑即可接入猎聘/LinkedIn，接口不变                      | `parse_shared_jd()` 内部实现替换      |
 | **AI Provider 层** | 已有 `AiProviderManager` 支持多 provider，Agent LLM 调用走这一层，换模型零改动 | DeepSeek → Ollama → Claude 无缝切换 |
 
 ---
@@ -80,33 +80,33 @@
 
 ### 4.1 JD 工具 `jd_tool`
 
-| 函数 | 输入 | 输出 | 说明 |
-|---|---|---|---|
-| `analyze_jd(text)` | 原始 JD 文本 | `JobDescription` | 提取岗位/公司/技能/学历要求 |
-| `get_current_jd()` | — | `JobDescription?` | 读取当前会话绑定的 JD |
+| 函数                 | 输入       | 输出                | 说明              |
+| ------------------ | -------- | ----------------- | --------------- |
+| `analyze_jd(text)` | 原始 JD 文本 | `JobDescription`  | 提取岗位/公司/技能/学历要求 |
+| `get_current_jd()` | —        | `JobDescription?` | 读取当前会话绑定的 JD    |
 
 **触发语义**：「我看到一个JD」「帮我分析这个岗位」「粘贴JD」
 
 ### 4.2 简历工具 `resume_tool`
 
-| 函数 | 输入 | 输出 | 说明 |
-|---|---|---|---|
-| `load_resume(versionId?)` | 版本ID（可选） | `Resume` | 加载当前/指定版本简历 |
-| `edit_section(section, instruction)` | 段落标识 + 自然语言指令 | `Resume` | 定点修改某一条经历/技能 |
-| `star_format(section)` | 段落标识 | `Resume` | STAR 法则格式化 |
-| `quantify(section)` | 段落标识 | `EditSuggestion[]` | 数据量化建议（不自动改，给候选项） |
-| `create_version(label)` | 版本标签 | `ResumeVersion` | 保存当前为新版本 |
-| `diff_versions(v1, v2)` | 两个版本ID | `DiffResult` | 对比两版本差异 |
-| `export_resume(format)` | `"pdf"` / `"html"` | `File` | 导出 |
+| 函数                                   | 输入                 | 输出                 | 说明                |
+| ------------------------------------ | ------------------ | ------------------ | ----------------- |
+| `load_resume(versionId?)`            | 版本ID（可选）           | `Resume`           | 加载当前/指定版本简历       |
+| `edit_section(section, instruction)` | 段落标识 + 自然语言指令      | `Resume`           | 定点修改某一条经历/技能      |
+| `star_format(section)`               | 段落标识               | `Resume`           | STAR 法则格式化        |
+| `quantify(section)`                  | 段落标识               | `EditSuggestion[]` | 数据量化建议（不自动改，给候选项） |
+| `create_version(label)`              | 版本标签               | `ResumeVersion`    | 保存当前为新版本          |
+| `diff_versions(v1, v2)`              | 两个版本ID             | `DiffResult`       | 对比两版本差异           |
+| `export_resume(format)`              | `"pdf"` / `"html"` | `File`             | 导出                |
 
 **触发语义**：「帮我改」「优化一下」「换个说法」「保存这个版本」「导出简历」
 
 ### 4.3 匹配分析工具 `match_tool`
 
-| 函数 | 输入 | 输出 | 说明 |
-|---|---|---|---|
-| `calculate_match(jd, resume)` | JD + 简历 | `MatchReport` | 综合评分 + 四维度分项 |
-| `skill_gap(jd, resume)` | JD + 简历 | `SkillGap[]` | 缺失技能列表 + 重要度权重 |
+| 函数                            | 输入      | 输出            | 说明             |
+| ----------------------------- | ------- | ------------- | -------------- |
+| `calculate_match(jd, resume)` | JD + 简历 | `MatchReport` | 综合评分 + 四维度分项   |
+| `skill_gap(jd, resume)`       | JD + 简历 | `SkillGap[]`  | 缺失技能列表 + 重要度权重 |
 
 `MatchReport` 字段：`overall(0-100)` / `keyword(0-100)` / `experience(0-100)` / `education(0-100)` / `skill(0-100)` / `missingSkills[]` / `highlights[]`
 
@@ -114,12 +114,12 @@
 
 ### 4.4 面试工具 `interview_tool`
 
-| 函数 | 输入 | 输出 | 说明 |
-|---|---|---|---|
+| 函数                                      | 输入              | 输出                 | 说明                  |
+| --------------------------------------- | --------------- | ------------------ | ------------------- |
 | `start_interview(persona?, jd, resume)` | 人格（可选）/ JD / 简历 | `InterviewSession` | 开始面试，Agent 进入面试对话模式 |
-| `submit_answer(sessionId, answer)` | 会话ID + 回答 | `InterviewTurn` | 提交一条回答，获取追问或下一题 |
-| `end_interview(sessionId)` | 会话ID | `EvalReport` | 结束并生成五维度评估报告 |
-| `get_hint(sessionId)` | 会话ID | `Hint` | 给出思路框架（不给直接答案） |
+| `submit_answer(sessionId, answer)`      | 会话ID + 回答       | `InterviewTurn`    | 提交一条回答，获取追问或下一题     |
+| `end_interview(sessionId)`              | 会话ID            | `EvalReport`       | 结束并生成五维度评估报告        |
+| `get_hint(sessionId)`                   | 会话ID            | `Hint`             | 给出思路框架（不给直接答案）      |
 
 **面试对话模式**：Agent 进入该模式后，对话框变为面试专用 UI（题目气泡 + 回答输入 + 工具栏），结束后自动退出模式。
 
@@ -127,12 +127,12 @@
 
 ### 4.5 投递追踪工具 `tracking_tool`
 
-| 函数 | 输入 | 输出 | 说明 |
-|---|---|---|---|
-| `create_application(company, jd, resumeVersionId?)` | 公司/JD/简历版本 | `TrackingEntry` | 新建一条投递记录 |
-| `update_status(id, status, note?)` | ID + 新状态 + 备注 | `TrackingEntry` | 更新进度 |
-| `list_applications(filter?)` | 状态筛选（可选） | `TrackingEntry[]` | 查看投递列表 |
-| `set_reminder(id, datetime, note)` | 投递ID + 时间 + 备注 | `Reminder` | 设置跟进提醒 |
+| 函数                                                  | 输入             | 输出                | 说明       |
+| --------------------------------------------------- | -------------- | ----------------- | -------- |
+| `create_application(company, jd, resumeVersionId?)` | 公司/JD/简历版本     | `TrackingEntry`   | 新建一条投递记录 |
+| `update_status(id, status, note?)`                  | ID + 新状态 + 备注  | `TrackingEntry`   | 更新进度     |
+| `list_applications(filter?)`                        | 状态筛选（可选）       | `TrackingEntry[]` | 查看投递列表   |
+| `set_reminder(id, datetime, note)`                  | 投递ID + 时间 + 备注 | `Reminder`        | 设置跟进提醒   |
 
 **触发语义**：「记录一下这个投递」「我投了xx公司」「帮我看看进展」「设个提醒」
 
@@ -140,11 +140,11 @@
 
 > **设计原则**：AI 负责"说什么"，用户负责"点发送"——不做全自动投递，规避平台封号风险和法律灰色地带。
 
-| 函数 | 输入 | 输出 | 说明 |
-|---|---|---|---|
-| `parse_shared_jd(sharedText)` | Android Share Intent 接收的原始文本 | `JobDescription` | 解析从 BOSS/猎聘等 App 分享过来的 JD |
-| `generate_greeting(jd, resume, style?)` | JD + 简历 + 风格偏好 | `GreetingDraft` | 生成针对该岗位的个性化打招呼话术（含多个候选版本） |
-| `copy_to_clipboard(text)` | 话术文本 | `Unit` | 复制到剪贴板，用户回到 BOSS 粘贴发送 |
+| 函数                                      | 输入                           | 输出               | 说明                        |
+| --------------------------------------- | ---------------------------- | ---------------- | ------------------------- |
+| `parse_shared_jd(sharedText)`           | Android Share Intent 接收的原始文本 | `JobDescription` | 解析从 BOSS/猎聘等 App 分享过来的 JD |
+| `generate_greeting(jd, resume, style?)` | JD + 简历 + 风格偏好               | `GreetingDraft`  | 生成针对该岗位的个性化打招呼话术（含多个候选版本） |
+| `copy_to_clipboard(text)`               | 话术文本                         | `Unit`           | 复制到剪贴板，用户回到 BOSS 粘贴发送     |
 
 **`GreetingDraft` 字段**：`versions[]`（3个风格变体：简洁版/详细版/亮点突出版）/ `highlightedSkills[]`（本次打招呼重点强调的匹配项）/ `warningMissing[]`（JD要求但简历没有的关键项，避免被当场问倒）
 
@@ -161,15 +161,16 @@
 
 > 与 §4.4 模拟面试不同：这里处理用户上传的**真实面试录音/视频**，AI 做事后分析而非实时对话。
 
-| 函数 | 输入 | 输出 | 说明 |
-|---|---|---|---|
-| `upload_recording(file, type)` | 音频/视频文件 + 类型标识 | `DebriefSession` | 创建复盘会话，开始转录 |
-| `transcribe(sessionId)` | 会话ID | `Transcript` | 语音→文字（本地 STT 优先，降级云端） |
-| `analyze_debrief(sessionId, jd?)` | 会话ID + 可选关联JD | `DebriefReport` | 分析答题质量、提炼问题列表、标记表现亮点/弱点 |
-| `save_to_knowledge_base(sessionId)` | 会话ID | `Unit` | 将本次复盘结论写入知识库 |
-| `query_knowledge_base(query)` | 自然语言查询 | `KnowledgeChunk[]` | 查询历史复盘积累的知识 |
+| 函数                                  | 输入             | 输出                 | 说明                      |
+| ----------------------------------- | -------------- | ------------------ | ----------------------- |
+| `upload_recording(file, type)`      | 音频/视频文件 + 类型标识 | `DebriefSession`   | 创建复盘会话，开始转录             |
+| `transcribe(sessionId)`             | 会话ID           | `Transcript`       | 语音→文字（本地 STT 优先，降级云端）   |
+| `analyze_debrief(sessionId, jd?)`   | 会话ID + 可选关联JD  | `DebriefReport`    | 分析答题质量、提炼问题列表、标记表现亮点/弱点 |
+| `save_to_knowledge_base(sessionId)` | 会话ID           | `Unit`             | 将本次复盘结论写入知识库            |
+| `query_knowledge_base(query)`       | 自然语言查询         | `KnowledgeChunk[]` | 查询历史复盘积累的知识             |
 
 **`DebriefReport` 字段**：
+
 - `questions[]` — 面试官提问列表（自动识别）
 - `answers[]` — 对应回答摘要
 - `turnAnalysis[]` — 每题得分 + 亮点 + 改进点
@@ -299,23 +300,24 @@ Agent：[调用 query_knowledge_base("我的面试弱点")]
 **渲染时机**：工具调用结束后插入消息列表，流式文字在同一气泡里先行渲染，卡片在 `ToolResult` 事件到达后统一追加，避免内容残缺时渲染。
 
 **交互原则**：
+
 - 卡片内的按钮（接受/回滚/复制）直接触发 Tool 调用，不需要用户再输入
 - 右下角统一有「全屏编辑 ↗」入口，跳转对应独立页面
 - 卡片本身不滚动，超长内容折叠，用户点「展开」
 
 **卡片清单**：
 
-| 卡片 | 触发 Tool | 核心元素 |
-|---|---|---|
-| `MatchCard` | `calculate_match` | 总分环 + 四维进度条 + 缺失技能标签 |
-| `ResumeDiffCard` | `edit_section` | Before/After 高亮行对比 + 接受/回滚按钮 |
-| `ResumePreviewCard` | `load_resume` / `create_version` | 排版缩略图 + 版本标签 + 三个操作按钮 |
-| `QuantifyCard` | `quantify` | 模糊短语高亮 + 候选量化方案（单选） |
-| `EvalCard` | `end_interview` | 雷达图 + 关键时刻列表 |
-| `DebriefCard` | `analyze_debrief` | 题目识别列表 + 逐题评分 + 模式洞察 |
-| `TrackingCard` | `create_application` | 公司名 + 状态标签 + 快捷更新按钮 |
-| `GreetingCard` | `generate_greeting` | 3版本话术切换 + 各自一键复制 |
-| `InterviewTurnCard` | `submit_answer` | 题目 + 评语 + 追问（面试模式专用） |
+| 卡片                  | 触发 Tool                          | 核心元素                         |
+| ------------------- | -------------------------------- | ---------------------------- |
+| `MatchCard`         | `calculate_match`                | 总分环 + 四维进度条 + 缺失技能标签         |
+| `ResumeDiffCard`    | `edit_section`                   | Before/After 高亮行对比 + 接受/回滚按钮 |
+| `ResumePreviewCard` | `load_resume` / `create_version` | 排版缩略图 + 版本标签 + 三个操作按钮        |
+| `QuantifyCard`      | `quantify`                       | 模糊短语高亮 + 候选量化方案（单选）          |
+| `EvalCard`          | `end_interview`                  | 雷达图 + 关键时刻列表                 |
+| `DebriefCard`       | `analyze_debrief`                | 题目识别列表 + 逐题评分 + 模式洞察         |
+| `TrackingCard`      | `create_application`             | 公司名 + 状态标签 + 快捷更新按钮          |
+| `GreetingCard`      | `generate_greeting`              | 3版本话术切换 + 各自一键复制             |
+| `InterviewTurnCard` | `submit_answer`                  | 题目 + 评语 + 追问（面试模式专用）         |
 
 ### 6.3 面试模式
 
@@ -392,11 +394,13 @@ data class AgentContext(
 存储跨会话积累的面试经验，供 Agent 在对话中随时检索。
 
 **存储内容**：
+
 - 每次模拟面试的评估报告摘要
 - 每次真实面试复盘的 `patternInsights`
 - 用户主动标记的"重要经验"片段
 
 **技术方案**：
+
 - 首版：Room 表 `knowledge_chunks(id, source, content, tags, createdAt)` + 关键词全文检索
 - 后续：本地 embedding（`EmbeddingEngine.kt` 已有雏形）做语义检索
 
@@ -487,31 +491,31 @@ AgentOutput sealed class:
 
 ## 9. 验收标准
 
-| 场景 | 通过条件 |
-|---|---|
-| 粘贴JD | 3秒内展示 MatchCard，数据与手动计算一致 |
-| 说"帮我改第二条经历" | 正确定位 section，展示 Before/After 卡片 |
-| 面试流程完整跑一遍 | 能正常追问、跳过、结束并展示 EvalCard |
-| 从 BOSS 分享岗位到 App | 自动解析JD，生成3版本话术，一键复制 |
-| 上传面试录音 | 转录成功，识别出面试官提问，生成分析报告 |
-| 第2次及以上面试准备 | Agent 主动引用知识库历史弱点 |
-| 关闭App再打开 | AgentContext 恢复（JD + 简历版本不丢失） |
-| 无网络时 | 本地 NLP 回退，明确提示"AI功能不可用" |
-| 意图不明时 | 展示澄清问题，不误操作 |
+| 场景               | 通过条件                            |
+| ---------------- | ------------------------------- |
+| 粘贴JD             | 3秒内展示 MatchCard，数据与手动计算一致       |
+| 说"帮我改第二条经历"      | 正确定位 section，展示 Before/After 卡片 |
+| 面试流程完整跑一遍        | 能正常追问、跳过、结束并展示 EvalCard         |
+| 从 BOSS 分享岗位到 App | 自动解析JD，生成3版本话术，一键复制             |
+| 上传面试录音           | 转录成功，识别出面试官提问，生成分析报告            |
+| 第2次及以上面试准备       | Agent 主动引用知识库历史弱点               |
+| 关闭App再打开         | AgentContext 恢复（JD + 简历版本不丢失）   |
+| 无网络时             | 本地 NLP 回退，明确提示"AI功能不可用"         |
+| 意图不明时            | 展示澄清问题，不误操作                     |
 
 ---
 
 ## 10. 开放问题（待决策）
 
-| # | 问题 | 选项 | 当前倾向 |
-|---|---|---|---|
-| Q1 | IntentClassifier 首版用规则还是 LLM | 规则快速 / LLM 准确 | 先规则，Sprint C 之后引入 LLM 兜底 |
-| Q2 | 面试模式是全屏覆盖还是对话内嵌 | 全屏沉浸感好 / 对话连贯性好 | 待定，先做对话内嵌 |
-| Q3 | 旧线性流程（JD→简历→润色→结果）是否保留 | 保留兼容 / 删除简化 | 保留，但不在新用户引导中展示 |
-| Q4 | 对话历史是否跨JD保留 | 完全保留 / 切JD时清空 | 切JD时提示"开启新对话" |
-| Q5 | 复盘转录用本地还是云端 STT | 本地（离线/隐私）/ 云端（准确率高）| 本地优先，云端降级，用户可选 |
-| Q6 | 打招呼话术"自动发送"是否要做 | 不做（当前方案）/ 做（无障碍服务，有封号风险）| 暂不做，先验证话术质量的价值 |
-| Q7 | 知识库长期检索用关键词还是向量 | 关键词（简单）/ 向量（语义准）| 先关键词，EmbeddingEngine 已有雏形，后续升级 |
+| #   | 问题                           | 选项                       | 当前倾向                           |
+| --- | ---------------------------- | ------------------------ | ------------------------------ |
+| Q1  | IntentClassifier 首版用规则还是 LLM | 规则快速 / LLM 准确            | 先规则，Sprint C 之后引入 LLM 兜底       |
+| Q2  | 面试模式是全屏覆盖还是对话内嵌              | 全屏沉浸感好 / 对话连贯性好          | 待定，先做对话内嵌                      |
+| Q3  | 旧线性流程（JD→简历→润色→结果）是否保留       | 保留兼容 / 删除简化              | 保留，但不在新用户引导中展示                 |
+| Q4  | 对话历史是否跨JD保留                  | 完全保留 / 切JD时清空            | 切JD时提示"开启新对话"                  |
+| Q5  | 复盘转录用本地还是云端 STT              | 本地（离线/隐私）/ 云端（准确率高）      | 本地优先，云端降级，用户可选                 |
+| Q6  | 打招呼话术"自动发送"是否要做              | 不做（当前方案）/ 做（无障碍服务，有封号风险） | 暂不做，先验证话术质量的价值                 |
+| Q7  | 知识库长期检索用关键词还是向量              | 关键词（简单）/ 向量（语义准）         | 先关键词，EmbeddingEngine 已有雏形，后续升级 |
 
 ---
 
