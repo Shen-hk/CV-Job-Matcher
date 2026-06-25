@@ -1,31 +1,79 @@
 # 智简求职 — 未完成需求 & 待办清单
 
-> 最后更新：2026-06-24 | 当前进度：Sprint 1 + Sprint 1.5 完成（基础架构 + 三大模块 + 面试 AI 对话 + Agent 记忆 + 求职信）
+> 最后更新：2026-06-25 | 当前进度：Sprint 1 + Sprint 1.5 完成；Sprint 2.1-2.5 完成；Sprint A-UI 完成（聊天界面重构 + Markdown 渲染 + 富卡片 Composable + 流式节流）；Sprint A-Logic 未完成（工具执行、UseCase 接入、卡片回调）
 
 ---
 
-## Sprint 2: 简历优化深度 + 跨模块"改简历"按钮
+## Sprint A-UI：Agent 聊天系统重构（已完成）
+
+> 来源：用户要求参考 `D:\Project\Android\mantou` 项目，移植其 API 系统和聊天系统，适配 TieLink 求职功能，UI 继续用 Compose。
+
+### 已完成部分
+
+- [x] `StreamEvent` 新增 `Thinking` 变体，接通 DeepSeek 推理模型 `reasoning_content` 字段
+- [x] `AgentOutput` 新增 `Thinking` 变体，从 `StreamingApiService` → `AgentUseCase` → `AgentViewModel` 全链路打通
+- [x] `AgentMessage` 扩展字段：`card: UiCard?`、`thinkingContent: String?`、`toolLoadingName: String?`
+- [x] `AgentChatUiState` 新增 `thinkingBuffer` 字段
+- [x] 新建 `MarkdownText.kt` — 纯 Compose Markdown 渲染器（无外部依赖），支持 H1-H4 标题、有序/无序列表、代码块、加粗/斜体/行内代码、分割线
+- [x] 新建 `AgentCards.kt` — 7 种富卡片 Composable：`MatchCard`、`ResumeDiffCard`、`ResumePreviewCard`、`EvalCard`、`TrackingCard`、`GreetingCard`、`InterviewTurnCard`
+- [x] 重写 `AgentViewModel`：120ms 流式节流（参考 mantou）、思考内容单独缓冲、ToolStart 插入 loading 气泡、ToolResult 替换为卡片
+- [x] 重写 `AgentChatScreen`：Agent 气泡带头像 + Markdown 渲染 + 可折叠思考面板；用户气泡右对齐；三点等待动画；错误横幅淡入淡出
+
+---
+
+## Sprint A-Logic：Agent 工具执行接入（未完成，核心缺口）
+
+> 当前状态：UI 层全部完成，但工具从不执行 — `AgentOutput.ToolResult` 永远不会 emit，所有富卡片永远不会出现。
+
+### A-L1 AgentUseCase 工具分发（最高优先级）
+
+- [ ] `AgentUseCase.kt:65` 处的 `TODO` — 根据 `intent.toolCall.toolName` 分发到对应 UseCase
+  - `match_tool` → 调用 `MatchScoreDetailUseCase.enrich()` + `SkillGapAnalyzer.analyze()` → emit `ToolResult(UiCard.MatchCard(...))`
+  - `resume_tool` → 调用 `QuantifyAssistant.analyzeAndSuggest()` / `StarFormatter.format()` → emit `ToolResult(UiCard.ResumeDiffCard(...))`
+  - `interview_tool` → 读取最近面试会话 → emit `ToolResult(UiCard.InterviewTurnCard(...))`
+  - `tracking_tool` → 读取投递记录 → emit `ToolResult(UiCard.TrackingCard(...))`
+  - `greeting_tool` → AI 生成求职信 → emit `ToolResult(UiCard.GreetingCard(...))`
+- [ ] 工具执行需要在 `AgentUseCase` 注入：`MatchScoreDetailUseCase`、`SkillGapAnalyzer`、`QuantifyAssistant`、`StarFormatter`、`TrackingRepository`
+
+### A-L2 IntentClassifier 路由验证
+
+- [ ] 确认 `IntentClassifier.classify()` 对常见求职意图能正确返回 `toolCall`（"帮我分析匹配度"、"优化这句话"、"准备面试"等）
+- [ ] 补充缺失的意图识别规则（当前规则覆盖不全）
+
+### A-L3 ResumeDiffCard 回调接入
+
+- [ ] `UiCard.ResumeDiffCard.onAccept` 目前是空 lambda — 需接入 `ResumeVersionRepository` 将 `after` 文本写入当前激活版本
+- [ ] `onRollback` 需恢复原文
+
+### A-L4 Anthropic 协议支持（可选，低优先级）
+
+- [ ] mantou 支持 OpenAI + Anthropic 双协议，TieLink `StreamingApiService` 目前只有 OpenAI 格式
+- [ ] 若用户配置 Claude API，需在 `StreamingApiService` 增加 `streamAnthropicChat()` 并在 `AiProviderManager` 接入
+
+---
+
+
 
 ### 2.1 JD-简历匹配度分维度评分
-- [ ] `domain/usecase/MatchScoreDetailUseCase.kt` — 关键词覆盖度/技能契合度/经验相关度/学历匹配度 量化（`MatchAnalysis` v2 字段已就绪，需 UseCase 填充逻辑）
-- [ ] `ResumeOptimizeScreen` 展示分维度环形图 + 进度条
+- [x] `domain/usecase/MatchScoreDetailUseCase.kt` — 关键词覆盖度/技能契合度/经验相关度/学历匹配度 量化（含 `enrich()` 方法填充 MatchAnalysis v2 字段）
+- [x] `ResumeOptimizeScreen` 展示分维度环形图 + 进度条（4维度颜色区分：绿/橙/红）
 
 ### 2.2 缺失技能检测
-- [ ] `domain/usecase/SkillGapAnalyzer.kt` — JD vs 简历技能差异分析，含重要度权重（`SkillGap` 数据类已就绪）
-- [ ] `ResumeOptimizeScreen` 缺失技能列表 + 点选"添加到简历"
+- [x] `domain/usecase/SkillGapAnalyzer.kt` — JD vs 简历技能差异分析，含重要度权重（REQUIRED/PREFERRED/NORMAL）
+- [x] `ResumeOptimizeScreen` 缺失技能列表 + 点选"添加到简历" AssistChip，按重要度分组显示
 
 ### 2.3 数据量化助手
-- [ ] `domain/usecase/QuantifyAssistant.kt` — 正则检测模糊表述 → AI 改写为量化表达
-- [ ] `ResumeOptimizeScreen` 高亮模糊短语，点击触发 AI 量化建议（Prompt `resume_quantify` 已就绪）
+- [x] `domain/usecase/QuantifyAssistant.kt` — 正则检测模糊表述 → AI 改写为量化表达（批量最多5条）
+- [x] `ResumeOptimizeScreen` 量化建议卡片，每条可单独采用/忽略
 
 ### 2.4 STAR 法则格式化
-- [ ] `domain/usecase/StarFormatter.kt` — 流水账经历 → 情境-任务-行动-结果（Prompt `resume_star_format` 已就绪）
-- [ ] `ResumeOptimizeScreen` 每条经历的"STAR 格式化"按钮
+- [x] `domain/usecase/StarFormatter.kt` — 经历文本 → 情境-任务-行动-结果（Prompt `resume_star_format` 已接入）
+- [x] `ResumeOptimizeScreen` "STAR格式化"按钮 → 输入弹窗 → 结果对话框 → 追加到简历
 
 ### 2.5 简历多版本管理完善
-- [ ] `ResumeOptimizeScreen` 版本下拉选择器 + "新建版本"按钮（后端 `ResumeVersionRepository` 已就绪）
-- [ ] 版本间对比功能
-- [ ] 版本标签（技术岗/产品岗/外企岗）
+- [x] `ResumeOptimizeScreen` 版本保存对话框加入标签选择（技术岗/产品岗/外企岗/管理岗/实习）
+- [x] 版本间对比功能（DropdownMenu 内"对比"按钮 → 左右双列对比 Dialog）
+- [x] 版本标签在下拉选择器中显示
 
 ### 2.6 面试中 → 改简历 跨模块跳转
 - [ ] `InterviewScreen` 当 AI 检测到回答不足时显示"帮我改简历"操作 chip
@@ -139,4 +187,4 @@ PRD_AGENT.md 定义了 Sprint A-F，与上述 Sprint 编号的对应关系：
 3. **参考 `CLAUDE.md`**（项目根目录）了解项目技术栈和开发命令
 4. **参考 `docs/TECHNICAL_DESIGN.md`** 了解完整技术方案
 5. **参考 `docs/PRD_AGENT.md`** 了解 Agent 架构规划和 Sprint A-F
-6. **从 Sprint 2.1（匹配度分维度评分）开始**，按顺序推进
+6. **从 Sprint A-Logic（Agent 工具执行接入）开始**，优先级：A-L1（工具分发）> A-L2（意图路由）> A-L3（卡片回调）> A-L4（Anthropic 协议），然后推进 Sprint 2.6 和 Sprint 3

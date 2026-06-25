@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit
 
 sealed class StreamEvent {
     data object Start : StreamEvent()
+    data class Thinking(val text: String) : StreamEvent()
     data class Content(val text: String) : StreamEvent()
     data object Done : StreamEvent()
     data class Error(val message: String) : StreamEvent()
@@ -175,6 +176,7 @@ object StreamingApiService {
             val adapter = moshi.adapter(StreamChunk::class.java)
             val chunk = adapter.fromJson(data) ?: return null
             val delta = chunk.choices?.firstOrNull()?.delta ?: return null
+            delta.reasoningContent?.let { return StreamEvent.Thinking(it) }
             delta.content?.let { StreamEvent.Content(it) }
         } catch (_: Exception) {
             null

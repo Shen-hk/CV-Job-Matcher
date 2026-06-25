@@ -87,7 +87,9 @@ class AgentUseCase @Inject constructor(
                     is com.example.tielink.data.remote.StreamEvent.Start -> {
                         // 开始标记
                     }
-                    is com.example.tielink.data.remote.StreamEvent.Content -> {
+                    is com.example.tielink.data.remote.StreamEvent.Thinking -> {
+                        emit(AgentOutput.Thinking(event.text))
+                    }                    is com.example.tielink.data.remote.StreamEvent.Content -> {
                         textBuilder.append(event.text)
                         emit(AgentOutput.StreamText(event.text))
                     }

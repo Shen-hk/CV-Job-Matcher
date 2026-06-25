@@ -6,14 +6,18 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.local.AppPreferences
-import com.example.tielink.data.remote.PromptRegistry
 import com.example.tielink.data.repository.PolishRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
-import com.example.tielink.domain.model.MatchAnalysis
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.SkillGap
 import com.example.tielink.domain.model.SkillImportance
 import com.example.tielink.domain.usecase.MatchAnalysisUseCase
+import com.example.tielink.domain.usecase.MatchScoreDetailUseCase
+import com.example.tielink.domain.usecase.QuantifyAssistant
+import com.example.tielink.domain.usecase.QuantifySuggestion
+import com.example.tielink.domain.usecase.SkillGapAnalyzer
+import com.example.tielink.domain.usecase.StarFormatter
+import com.example.tielink.domain.usecase.StarResult
 import com.example.tielink.util.FileParser
 import com.example.tielink.util.TextCleaner
 import com.squareup.moshi.Moshi
@@ -28,6 +32,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+// Preset version tags
+val VERSION_TAG_PRESETS = listOf("技术岗", "产品岗", "外企岗", "管理岗", "实习")
+
 data class ResumeOptimizeUiState(
     val resumeText: String = "",
     val cleanedText: String = "",
@@ -40,14 +47,31 @@ data class ResumeOptimizeUiState(
     val matchScore: Int = 0,
     val suggestions: List<String> = emptyList(),
     val optimizationNote: String = "",
-    // Match analysis detail
+    // Match dimension scores (Sprint 2.1)
     val keywordCoverage: Float = 0f,
     val skillFit: Float = 0f,
     val experienceRelevance: Float = 0f,
-    val missingSkills: List<String> = emptyList(),
+    val educationMatch: Float = 0f,
+    // Skill gaps (Sprint 2.2)
+    val skillGaps: List<SkillGap> = emptyList(),
+    val showSkillGaps: Boolean = false,
+    // Quantify suggestions (Sprint 2.3)
+    val quantifySuggestions: List<QuantifySuggestion> = emptyList(),
+    val isQuantifying: Boolean = false,
+    val showQuantifySuggestions: Boolean = false,
+    // STAR format (Sprint 2.4)
+    val starResult: StarResult? = null,
+    val isStarFormatting: Boolean = false,
+    val showStarResult: Boolean = false,
+    // Version tags (Sprint 2.5)
+    val selectedTags: List<String> = emptyList(),
     // UI mode
     val isVersionSelectorOpen: Boolean = false,
     val showMatchDetail: Boolean = false,
+    val showVersionCompare: Boolean = false,
+    val compareVersion: ResumeVersion? = null,
+    // Legacy (kept for v1 MatchScoreCard)
+    val missingSkills: List<String> = emptyList(),
     // Source type & file
     val sourceType: String = "text",
     val isFileProcessing: Boolean = false,
@@ -59,7 +83,10 @@ class ResumeOptimizeViewModel @Inject constructor(
     private val polishRepository: PolishRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val matchAnalysisUseCase: MatchAnalysisUseCase,
-    private val promptRegistry: PromptRegistry,
+    private val matchScoreDetailUseCase: MatchScoreDetailUseCase,
+    private val skillGapAnalyzer: SkillGapAnalyzer,
+    private val quantifyAssistant: QuantifyAssistant,
+    private val starFormatter: StarFormatter,
     private val textCleaner: TextCleaner,
     private val appPreferences: AppPreferences,
     private val moshi: Moshi
@@ -78,11 +105,7 @@ class ResumeOptimizeViewModel @Inject constructor(
             if (lastResume.isNotBlank()) {
                 _uiState.update { it.copy(resumeText = lastResume, cleanedText = lastResume) }
             }
-            val versions = resumeVersionRepository.getAll()
-            val active = versions.firstOrNull { it.isActive }
-            _uiState.update {
-                it.copy(versions = versions, currentVersion = active ?: versions.firstOrNull())
-            }
+            refreshVersions()
         }
     }
 
@@ -94,7 +117,7 @@ class ResumeOptimizeViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
-    // ── AI Polish ──────────────────────────────────────────
+    // ── AI Polish ──────────────────────────────────────────────
 
     fun polishResume(jdRawText: String, jdStructuredJson: String, fullPolish: Boolean = true) {
         val state = _uiState.value
@@ -129,7 +152,7 @@ class ResumeOptimizeViewModel @Inject constructor(
         }
     }
 
-    // ── Match Analysis ─────────────────────────────────────
+    // ── Match Analysis (Sprint 2.1) ────────────────────────────
 
     fun analyzeMatch(jdRawText: String, jdStructuredJson: String, jdSkills: List<String> = emptyList()) {
         viewModelScope.launch {
@@ -138,20 +161,39 @@ class ResumeOptimizeViewModel @Inject constructor(
             if (text.isBlank() || jdRawText.isBlank()) return@launch
 
             try {
+                // Base match analysis (keyword + TF-IDF)
                 val result = matchAnalysisUseCase.analyze(
                     jdText = jdRawText,
                     resumeText = text,
                     jdSkills = jdSkills
                 )
+
+                // Enrich with v2 dimension scores
+                val enriched = matchScoreDetailUseCase.enrich(
+                    existing = result.analysis,
+                    jdText = jdRawText,
+                    resumeText = text
+                )
+
+                // Skill gap analysis (Sprint 2.2)
+                val skillGaps = skillGapAnalyzer.analyze(
+                    jdText = jdRawText,
+                    resumeText = text,
+                    jdSkills = result.analysis.missing + result.analysis.matched
+                )
+
                 _uiState.update {
                     it.copy(
-                        matchScore = result.analysis.score,
-                        keywordCoverage = result.keywordScore.toFloat(),
-                        skillFit = result.tfidfScore.toFloat(),
-                        experienceRelevance = 0f, // Not separately computed yet
-                        suggestions = result.analysis.suggestions,
-                        missingSkills = result.analysis.missing,
-                        showMatchDetail = true
+                        matchScore = enriched.score,
+                        keywordCoverage = enriched.keywordCoverage,
+                        skillFit = enriched.skillFit,
+                        experienceRelevance = enriched.experienceRelevance,
+                        educationMatch = enriched.educationMatch,
+                        missingSkills = enriched.missing,
+                        skillGaps = skillGaps,
+                        suggestions = enriched.suggestions,
+                        showMatchDetail = true,
+                        showSkillGaps = skillGaps.isNotEmpty()
                     )
                 }
             } catch (e: Exception) {
@@ -164,9 +206,130 @@ class ResumeOptimizeViewModel @Inject constructor(
         _uiState.update { it.copy(showMatchDetail = !it.showMatchDetail) }
     }
 
-    // ── Version Management ─────────────────────────────────
+    fun toggleSkillGaps() {
+        _uiState.update { it.copy(showSkillGaps = !it.showSkillGaps) }
+    }
 
-    fun saveVersion(name: String) {
+    // Sprint 2.2: Add a missing skill to resume text
+    fun addSkillToResume(skill: String) {
+        val state = _uiState.value
+        val currentText = state.resumeText
+        val updated = if (currentText.contains("技能") || currentText.contains("Skills")) {
+            // Insert before the last occurrence of skill section end
+            currentText.trimEnd() + "\n$skill"
+        } else {
+            currentText.trimEnd() + "\n\n技能：$skill"
+        }
+        _uiState.update {
+            it.copy(
+                resumeText = updated,
+                skillGaps = it.skillGaps.filterNot { gap -> gap.skill == skill }
+            )
+        }
+    }
+
+    // ── Quantify Assistant (Sprint 2.3) ────────────────────────
+
+    fun detectAndSuggestQuantification() {
+        val text = _uiState.value.polishedText.ifBlank { _uiState.value.resumeText }
+        if (text.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isQuantifying = true, error = null) }
+            try {
+                val suggestions = quantifyAssistant.analyzeAndSuggest(text)
+                _uiState.update {
+                    it.copy(
+                        isQuantifying = false,
+                        quantifySuggestions = suggestions,
+                        showQuantifySuggestions = suggestions.isNotEmpty(),
+                        error = if (suggestions.isEmpty()) "未检测到可量化的模糊描述" else null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isQuantifying = false, error = "量化分析失败: ${e.message}") }
+            }
+        }
+    }
+
+    // Apply a quantify suggestion by replacing original text with quantified version
+    fun applyQuantifySuggestion(suggestion: QuantifySuggestion) {
+        val state = _uiState.value
+        val targetText = state.polishedText.ifBlank { state.resumeText }
+        val updated = targetText.replace(suggestion.original, suggestion.quantified)
+        val remainingSuggestions = state.quantifySuggestions.filterNot { it == suggestion }
+        if (state.polishedText.isNotBlank()) {
+            _uiState.update {
+                it.copy(
+                    polishedText = updated,
+                    quantifySuggestions = remainingSuggestions,
+                    showQuantifySuggestions = remainingSuggestions.isNotEmpty()
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    resumeText = updated,
+                    quantifySuggestions = remainingSuggestions,
+                    showQuantifySuggestions = remainingSuggestions.isNotEmpty()
+                )
+            }
+        }
+    }
+
+    fun dismissQuantifySuggestion(suggestion: QuantifySuggestion) {
+        val remaining = _uiState.value.quantifySuggestions.filterNot { it == suggestion }
+        _uiState.update { it.copy(quantifySuggestions = remaining, showQuantifySuggestions = remaining.isNotEmpty()) }
+    }
+
+    fun dismissAllQuantifySuggestions() {
+        _uiState.update { it.copy(quantifySuggestions = emptyList(), showQuantifySuggestions = false) }
+    }
+
+    // ── STAR Formatter (Sprint 2.4) ────────────────────────────
+
+    fun formatAsStar(experienceText: String) {
+        if (experienceText.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isStarFormatting = true, error = null) }
+            try {
+                val result = starFormatter.format(experienceText)
+                if (result != null) {
+                    _uiState.update {
+                        it.copy(
+                            isStarFormatting = false,
+                            starResult = result,
+                            showStarResult = true
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isStarFormatting = false, error = "STAR格式化失败，请重试") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isStarFormatting = false, error = "STAR格式化失败: ${e.message}") }
+            }
+        }
+    }
+
+    fun applyStarResult() {
+        val state = _uiState.value
+        val starResult = state.starResult ?: return
+        val targetText = state.polishedText.ifBlank { state.resumeText }
+        val withStar = targetText.trimEnd() + "\n\n${starResult.formatted}"
+        if (state.polishedText.isNotBlank()) {
+            _uiState.update { it.copy(polishedText = withStar, starResult = null, showStarResult = false) }
+        } else {
+            _uiState.update { it.copy(resumeText = withStar, starResult = null, showStarResult = false) }
+        }
+    }
+
+    fun dismissStarResult() {
+        _uiState.update { it.copy(starResult = null, showStarResult = false) }
+    }
+
+    // ── Version Management (Sprint 2.5) ────────────────────────
+
+    fun saveVersion(name: String, tags: List<String> = emptyList()) {
         viewModelScope.launch {
             val state = _uiState.value
             val text = state.polishedText.ifBlank { state.resumeText }
@@ -176,12 +339,11 @@ class ResumeOptimizeViewModel @Inject constructor(
                 name = name.ifBlank { "未命名版本" },
                 rawText = state.resumeText,
                 cleanedText = text,
-                matchScore = state.matchScore.toFloat()
+                matchScore = state.matchScore.toFloat(),
+                tags = tags
             )
             resumeVersionRepository.save(version)
-            val versions = resumeVersionRepository.getAll()
-            val active = versions.firstOrNull { it.isActive }
-            _uiState.update { it.copy(versions = versions, currentVersion = active ?: versions.firstOrNull()) }
+            refreshVersions()
         }
     }
 
@@ -203,7 +365,25 @@ class ResumeOptimizeViewModel @Inject constructor(
         _uiState.update { it.copy(isVersionSelectorOpen = !it.isVersionSelectorOpen) }
     }
 
-    // ── File Upload ────────────────────────────────────────
+    fun toggleSelectedTag(tag: String) {
+        val current = _uiState.value.selectedTags.toMutableList()
+        if (current.contains(tag)) current.remove(tag) else current.add(tag)
+        _uiState.update { it.copy(selectedTags = current) }
+    }
+
+    fun clearSelectedTags() {
+        _uiState.update { it.copy(selectedTags = emptyList()) }
+    }
+
+    fun showVersionCompare(compareWith: ResumeVersion) {
+        _uiState.update { it.copy(showVersionCompare = true, compareVersion = compareWith) }
+    }
+
+    fun dismissVersionCompare() {
+        _uiState.update { it.copy(showVersionCompare = false, compareVersion = null) }
+    }
+
+    // ── File Upload ────────────────────────────────────────────
 
     fun processFile(context: Context, uri: Uri, mimeType: String?, fileName: String?) {
         viewModelScope.launch {
@@ -252,16 +432,26 @@ class ResumeOptimizeViewModel @Inject constructor(
                 optimizationNote = "",
                 currentVersion = null,
                 fileName = null,
-                sourceType = "text"
+                sourceType = "text",
+                skillGaps = emptyList(),
+                quantifySuggestions = emptyList(),
+                starResult = null
             )
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────
+
+    private suspend fun refreshVersions() {
+        val versions = resumeVersionRepository.getAll()
+        val active = versions.firstOrNull { it.isActive }
+        _uiState.update {
+            it.copy(versions = versions, currentVersion = active ?: versions.firstOrNull())
+        }
+    }
 
     /**
-     * Tries to parse the polish result JSON, falls back to using the raw text as the polished result.
-     * Returns: (polishedText, matchScore?, optimizationNote?, suggestions?)
+     * Tries to parse the polish result JSON, falls back to using the raw text.
      */
     private fun parsePolishResult(jsonString: String): Quadruple {
         return try {
@@ -274,7 +464,6 @@ class ResumeOptimizeViewModel @Inject constructor(
             val map: Map<String, Any> = moshi.adapter<Map<String, Any>>(mapType).fromJson(cleaned)
                 ?: return Quadruple(jsonString, null, null, null)
 
-            // Build a formatted text from the structured JSON
             val sb = StringBuilder()
             map["name"]?.let { sb.appendLine(it) }
             map["targetPosition"]?.let { sb.appendLine("目标：$it") }
@@ -282,7 +471,6 @@ class ResumeOptimizeViewModel @Inject constructor(
             sb.appendLine()
             map["summary"]?.let { sb.appendLine(it); sb.appendLine() }
 
-            // Experiences
             (map["experiences"] as? List<*>)?.forEach { exp ->
                 val e = exp as? Map<*, *> ?: return@forEach
                 sb.appendLine("${e["title"]} @ ${e["company"]} (${e["period"]})")
@@ -290,14 +478,12 @@ class ResumeOptimizeViewModel @Inject constructor(
                 sb.appendLine()
             }
 
-            // Education
             (map["education"] as? List<*>)?.forEach { edu ->
                 val e = edu as? Map<*, *> ?: return@forEach
                 sb.appendLine("${e["school"]} - ${e["degree"]} (${e["period"]})")
             }
             sb.appendLine()
 
-            // Projects
             (map["projects"] as? List<*>)?.forEach { proj ->
                 val p = proj as? Map<*, *> ?: return@forEach
                 sb.appendLine("${p["name"]} (${p["period"]})")
@@ -307,7 +493,6 @@ class ResumeOptimizeViewModel @Inject constructor(
                 sb.appendLine()
             }
 
-            // Skills
             (map["skills"] as? List<*>)?.joinToString(", ")?.let {
                 sb.appendLine("技能: $it")
             }
@@ -324,7 +509,6 @@ class ResumeOptimizeViewModel @Inject constructor(
     }
 }
 
-/** Simple 4-tuple for inner use. */
 private data class Quadruple(
     val polishedText: String,
     val matchScore: Int?,

@@ -5,14 +5,8 @@ package com.example.tielink.domain.model
  * 用于解耦工具调用和 UI 渲染
  */
 sealed class AgentOutput {
-    /**
-     * 流式文本片段，追加到当前气泡
-     */
     data class StreamText(val chunk: String) : AgentOutput()
-
-    /**
-     * 工具开始调用，显示 loading 状态
-     */
+    data class Thinking(val chunk: String) : AgentOutput()
     data class ToolStart(val toolName: String, val description: String) : AgentOutput()
 
     /**

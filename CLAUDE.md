@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **首次使用时，请先阅读 `docs/PROJECT_FRAMEWORK.md`** — 该文档包含完整的项目框架结构、文件清单、架构分层、导航路由、数据库Schema和AI Provider体系。本文件侧重于构建命令和关键技术细节。
+
 ## Build & Development Commands
 
 ```bash

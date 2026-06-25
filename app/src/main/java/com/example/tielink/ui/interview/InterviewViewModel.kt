@@ -138,6 +138,7 @@ class InterviewViewModel @Inject constructor(
                                 it.copy(messages = msgs)
                             }
                         }
+                        is StreamEvent.Thinking -> { }
                         is StreamEvent.Done -> { }
                         is StreamEvent.Error -> {
                             streamError = event.message
@@ -232,6 +233,7 @@ class InterviewViewModel @Inject constructor(
                                 it.copy(messages = msgs)
                             }
                         }
+                        is StreamEvent.Thinking -> { }
                         is StreamEvent.Done -> { /* streaming complete */ }
                         is StreamEvent.Error -> {
                             streamError = event.message
