@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.cv_jobmatcher"
+    namespace = "com.example.tielink"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.cv_jobmatcher"
+        applicationId = "com.example.tielink"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

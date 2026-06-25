@@ -1,8 +1,8 @@
-# CVJobMatcher 技术方案文档
+# TieLink 技术方案文档
 
 ## 项目概述
 
-**CVJobMatcher** 是一款基于 Jetpack Compose 的 Android 求职助手应用。核心能力：AI 驱动的简历优化、多角色模拟面试、投递追踪、语义匹配分析、HTML/PDF 导出、求职信生成、Agent 记忆系统。支持中文内容处理，双 AI 后端（DeepSeek API + 本地 Ollama）。
+**TieLink** 是一款基于 Jetpack Compose 的 Android 求职助手应用。核心能力：AI 驱动的简历优化、多角色模拟面试、投递追踪、语义匹配分析、HTML/PDF 导出、求职信生成、Agent 记忆系统。支持中文内容处理，双 AI 后端（DeepSeek API + 本地 Ollama）。
 
 | 属性 | 值 |
 |------|-----|

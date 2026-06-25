@@ -1,4 +1,4 @@
-# CVJobMatcher v2.0 升级指南
+# TieLink v2.0 升级指南
 
 ## 🎉 重大更新概览
 
@@ -11,7 +11,7 @@
 ### 🔬 Phase 1: 核心算法升级（已完成）
 
 #### Embedding语义匹配引擎
-- **文件**: [EmbeddingEngine.kt](app/src/main/java/com/example/cv_jobmatcher/domain/nlp/EmbeddingEngine.kt)
+- **文件**: [EmbeddingEngine.kt](app/src/main/java/com/example/tielink/domain/nlp/EmbeddingEngine.kt)
 - **功能**: 使用TFLite加载专业中文Embedding模型
 - **提升**: 匹配准确度从TF-IDF的**60%提升至95%+**
 - **特性**: 
@@ -20,7 +20,7 @@
   - <100ms推理速度
 
 #### 语义匹配器
-- **文件**: [SemanticMatcher.kt](app/src/main/java/com/example/cv_jobmatcher/domain/nlp/SemanticMatcher.kt)
+- **文件**: [SemanticMatcher.kt](app/src/main/java/com/example/tielink/domain/nlp/SemanticMatcher.kt)
 - **功能**: 融合Embedding + 关键词双引擎评分
 - **权重**: 60%语义相似度 + 40%关键词匹配
 - **优势**: 同时具备可解释性和准确性
@@ -28,7 +28,7 @@
 ### 🎨 Phase 2: 专业PDF生成（已完成）
 
 #### PDF生成器
-- **文件**: [PdfGenerator.kt](app/src/main/java/com/example/cv_jobmatcher/util/PdfGenerator.kt)
+- **文件**: [PdfGenerator.kt](app/src/main/java/com/example/tielink/util/PdfGenerator.kt)
 - **模板**: 
   - 经典单栏（适合大多数场景）
   - 现代双栏（突出技能和经历）
@@ -38,28 +38,28 @@
 - **输出**: 像素级精确排版，A4标准尺寸
 
 #### 结构化简历数据模型
-- **文件**: [ResumeData.kt](app/src/main/java/com/example/cv_jobmatcher/domain/model/ResumeData.kt)
+- **文件**: [ResumeData.kt](app/src/main/java/com/example/tielink/domain/model/ResumeData.kt)
 - **功能**: 智能解析LLM输出的文本为结构化数据
 - **支持**: 自动识别章节、条目、技能列表等
 
 ### 🤖 Phase 3: 多AI架构（已完成）
 
 #### AI Provider抽象层
-- **接口**: [AiProvider.kt](app/src/main/java/com/example/cv_jobmatcher/data/remote/AiProvider.kt)
+- **接口**: [AiProvider.kt](app/src/main/java/com/example/tielink/data/remote/AiProvider.kt)
 - **实现**:
   - `DeepSeekProvider` - 云端API（默认）
   - `OllamaProvider` - 本地/局域网部署
   - `LocalProvider` - 完全离线模式
 
 #### 智能路由管理器
-- **文件**: [AiProviderManager.kt](app/src/main/java/com/example/cv_jobmatcher/data/remote/AiProviderManager.kt)
+- **文件**: [AiProviderManager.kt](app/src/main/java/com/example/tielink/data/remote/AiProviderManager.kt)
 - **策略**: 
   - 优先使用配置的Provider
   - 自动故障转移（Fallback）
   - 支持手动切换
 
 #### Cover Letter生成
-- **文件**: [CoverLetterRepository.kt](app/src/main/java/com/example/cv_jobmatcher/data/repository/CoverLetterRepository.kt)
+- **文件**: [CoverLetterRepository.kt](app/src/main/java/com/example/tielink/data/repository/CoverLetterRepository.kt)
 - **功能**: 
   - 中英文求职信生成
   - 智能模板推荐

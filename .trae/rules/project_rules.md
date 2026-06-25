@@ -1,4 +1,4 @@
-# CVJobMatcher 项目规范
+# TieLink 项目规范
 
 ## 项目概述
 Android 简历优化与职位匹配应用，使用 Kotlin + Jetpack Compose + Hilt + Moshi。

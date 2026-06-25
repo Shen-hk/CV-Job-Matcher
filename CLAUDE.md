@@ -20,11 +20,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 .\gradlew.bat clean
 ```
 
-To run a single test class: `.\gradlew.bat testDebugUnitTest --tests "com.example.cv_jobmatcher.ExampleUnitTest"`
+To run a single test class: `.\gradlew.bat testDebugUnitTest --tests "com.example.tielink.ExampleUnitTest"`
 
 ## Architecture Overview
 
-Single-module Android app (`com.example.cv_jobmatcher`) using **Clean Architecture + MVVM** with Jetpack Compose. Dependency injection via Hilt throughout.
+Single-module Android app (`com.example.tielink`) using **Clean Architecture + MVVM** with Jetpack Compose. Dependency injection via Hilt throughout.
 
 ### Layer Structure
 
@@ -39,7 +39,7 @@ Single-module Android app (`com.example.cv_jobmatcher`) using **Clean Architectu
 - `usecase/MatchAnalysisUseCase` — score blending pipeline
 
 **Data** (`data/`) — Infrastructure only:
-- `local/db/` — Room database (`cv_jobmatcher.db`, v6) with 5 tables: `history`, `resume_versions`, `tracking`, `interview_sessions`, `interview_messages`. Migrations 3→4 and 4→5 defined; uses `fallbackToDestructiveMigration(true)` for newer versions.
+- `local/db/` — Room database (`tielink.db`, v6) with 5 tables: `history`, `resume_versions`, `tracking`, `interview_sessions`, `interview_messages`. Migrations 3→4 and 4→5 defined; uses `fallbackToDestructiveMigration(true)` for newer versions.
 - `local/AppPreferences` — DataStore keys: `deepseek_api_key`, `llm_model`, `llm_base_url`, `last_resume`, `has_seen_onboarding`, `ollama_base_url`, `ollama_model`, `ollama_embed_model`, `ai_provider`, `pdf_template`, `app_language`, `cached_jd_raw/json/company`, `last_interview_persona`
 - `remote/` — `DeepSeekApiService` (Retrofit), `StreamingApiService` (SSE), `OllamaProvider` (raw OkHttp), `AiProviderManager` (fallback chain: DeepSeek → Ollama → Local), `PromptRegistry` (loads from `assets/prompts.json` + hardcoded fallback), `InterviewPrompts` (persona → prompt mapping)
 - `repository/` — one repository per domain concept: Resume, ResumeVersion, Jd, Polish, CoverLetter, Settings, History, Interview, Tracking

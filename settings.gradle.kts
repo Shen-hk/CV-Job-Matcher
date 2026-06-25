@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CV-Job Matcher"
+rootProject.name = "TieLink"
 include(":app")
  

@@ -44,7 +44,7 @@
 如需自定义模型：
 
 1. 转换为TFLite格式
-2. 更新 [EmbeddingEngine.kt](../java/com/example/cv_jobmatcher/domain/nlp/EmbeddingEngine.kt) 中的常量:
+2. 更新 [EmbeddingEngine.kt](../java/com/example/tielink/domain/nlp/EmbeddingEngine.kt) 中的常量:
    ```kotlin
    private const val MODEL_FILE = "your_model.tflite"
    private const val EMBEDDING_DIM = 768
