@@ -40,10 +40,12 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.ui.components.ErrorBanner
+import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -295,5 +297,39 @@ private fun PolishProgressBar(progress: Float) {
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
+    }
+}
+
+// ─── Previews ──────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun StepItemPreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            StepItem(label = "解析JD需求", isComplete = true, isCurrent = false, isLast = false)
+            StepItem(label = "分析简历匹配度", isComplete = true, isCurrent = false, isLast = false)
+            StepItem(label = "AI深度润色中", isComplete = false, isCurrent = true, isLast = false)
+            StepItem(label = "生成优化建议", isComplete = false, isCurrent = false, isLast = true)
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun PolishProgressBarPreview() {
+    TieLinkTheme {
+        Box(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+            PolishProgressBar(progress = 0.45f)
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun PolishScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        PolishScreen(onNavigateBack = {}, onPolishSuccess = {})
     }
 }

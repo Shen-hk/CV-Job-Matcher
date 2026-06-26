@@ -14,7 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.tielink.ui.theme.TieLinkTheme
 
 @Composable
 fun LoadingOverlay(
@@ -48,5 +50,16 @@ fun LoadingOverlay(
                 )
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LoadingOverlayPreview() {
+    TieLinkTheme {
+        LoadingOverlay(
+            message = "正在处理中...",
+            hint = "请耐心等待，即将完成"
+        )
     }
 }

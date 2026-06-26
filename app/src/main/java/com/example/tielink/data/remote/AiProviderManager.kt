@@ -101,6 +101,49 @@ class AiProviderManager @Inject constructor(
         throw Exception("所有AI服务都不可用")
     }
 
+    /**
+     * suspend 版本的流式调用，完全避免 runBlocking。
+     * AgentUseCase 使用这个方法，不再调用 chatWithFallbackStream。
+     */
+    suspend fun chatStream(request: LlmRequest): Flow<StreamEvent> {
+        val providerName = preferences.getAiProvider()
+        val apiKey = preferences.getApiKey()
+        val model = preferences.getModel()
+        val baseUrl = preferences.getBaseUrl()
+        val ollamaUrl = preferences.getOllamaBaseUrl()
+        val ollamaModel = preferences.getOllamaModel()
+
+        return when (providerName) {
+            "ollama" -> StreamingApiService.streamOllamaChat(
+                baseUrl = ollamaUrl,
+                model = ollamaModel,
+                messages = request.messages,
+                temperature = request.temperature
+            )
+            else -> {
+                if (apiKey.isNotBlank()) {
+                    StreamingApiService.streamOpenAiChat(
+                        baseUrl = baseUrl,
+                        apiKey = apiKey,
+                        model = model,
+                        messages = request.messages,
+                        temperature = request.temperature,
+                        maxTokens = request.maxTokens
+                    )
+                } else if (preferences.getOllamaBaseUrl().isNotBlank()) {
+                    StreamingApiService.streamOllamaChat(
+                        baseUrl = ollamaUrl,
+                        model = ollamaModel,
+                        messages = request.messages,
+                        temperature = request.temperature
+                    )
+                } else {
+                    throw IllegalStateException("没有可用的 AI 服务，请在设置中配置 API Key")
+                }
+            }
+        }
+    }
+
     fun chatWithFallbackStream(request: LlmRequest): Flow<StreamEvent> {
         val provider = getProvider()
         return provider.chatCompletionStream(request)

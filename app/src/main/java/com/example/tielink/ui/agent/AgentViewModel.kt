@@ -18,9 +18,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -43,6 +46,10 @@ class AgentViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(AgentChatUiState())
     val uiState: StateFlow<AgentChatUiState> = _uiState.asStateFlow()
+
+    // 通知 UI 触发文件选择器
+    private val _openFilePicker = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val openFilePicker: SharedFlow<Unit> = _openFilePicker.asSharedFlow()
 
     private var streamJob: Job? = null
 
@@ -82,13 +89,20 @@ class AgentViewModel @Inject constructor(
     private fun loadWelcomeMessage() {
         val hasJd = _uiState.value.contextBar.jdTitle != null
         val hasResume = _uiState.value.contextBar.resumeVersionName != null
-        val welcome = when {
-            hasJd && hasResume -> "你好！我看到你已有目标岗位和简历，有什么可以帮你的？比如分析匹配度、优化简历、准备面试，直接说就行。"
-            hasJd -> "你好！我看到你已有目标岗位。你可以粘贴简历文本或上传简历文件，我来帮你分析和优化。"
-            hasResume -> "你好！我看到你已有一份简历。你可以粘贴岗位描述（JD），我来帮你分析匹配度并优化简历。"
-            else -> "你好！我是智简求职，你的 AI 求职伙伴。可以粘贴 JD 或简历，我来帮你分析匹配度、优化简历、准备面试、管理投递。直接说就行！"
+
+        val prompts = when {
+            hasJd && hasResume -> listOf("分析我的匹配度", "针对这个 JD 优化简历", "准备面试问题", "更新投递进度")
+            hasJd              -> listOf("帮我写一份匹配的简历", "分析岗位核心要求", "准备面试问题", "推荐相关岗位")
+            hasResume          -> listOf("分析我的简历优势", "帮我找匹配岗位", "我该怎么优化简历", "模拟一次面试")
+            else               -> listOf("我想优化简历", "我有一个 JD 想分析", "帮我准备面试", "怎么追踪投递进度")
         }
-        _uiState.update { it.copy(messages = listOf(AgentMessage(role = AgentMessageRole.AGENT, content = welcome))) }
+
+        _uiState.update { it.copy(suggestedPrompts = prompts) }
+    }
+
+    fun sendPrompt(prompt: String) {
+        _uiState.update { it.copy(inputText = prompt) }
+        sendMessage()
     }
 
     fun updateInputText(text: String) {
@@ -118,7 +132,8 @@ class AgentViewModel @Inject constructor(
                 error = null,
                 pendingAttachmentName = null,
                 pendingAttachmentText = null,
-                thinkingBuffer = ""
+                thinkingBuffer = "",
+                suggestedPrompts = emptyList()
             )
         }
         val userMessage = AgentMessage(role = AgentMessageRole.USER, content = finalText)
@@ -157,12 +172,30 @@ class AgentViewModel @Inject constructor(
                         )
                         _uiState.update { it.copy(messages = it.messages + loadingMsg) }
                     }
+                    is AgentOutput.ToolCancelled -> {
+                        // 工具因缺少前置条件被取消，移除 loading 气泡，交由 LLM 回复
+                        _uiState.update { state ->
+                            val msgs = state.messages.toMutableList()
+                            msgs.removeAll { it.toolLoadingName != null }
+                            state.copy(messages = msgs)
+                        }
+                    }
                     is AgentOutput.ToolResult -> {
-                        // Replace the last tool-loading bubble (if any) with the card
+                        // Attach real callbacks; replace loading bubble with card
+                        val card = when (val raw = output.card) {
+                            is com.example.tielink.domain.model.UiCard.ResumeDiffCard -> raw.copy(
+                                onAccept = { acceptResumeDiff(raw.after) },
+                                onRollback = { /* nothing — caller keeps original */ }
+                            )
+                            is com.example.tielink.domain.model.UiCard.UploadPromptCard -> raw.copy(
+                                onUpload = { _openFilePicker.tryEmit(Unit) }
+                            )
+                            else -> raw
+                        }
                         val cardMsg = AgentMessage(
                             role = AgentMessageRole.AGENT,
                             content = "",
-                            card = output.card
+                            card = card
                         )
                         _uiState.update { state ->
                             val msgs = state.messages.toMutableList()
@@ -270,6 +303,33 @@ class AgentViewModel @Inject constructor(
             }
             state.copy(messages = msgs, isLoading = false, isStreaming = false)
         }
+    }
+
+    // ── Resume diff callbacks ──────────────────────────────────────────────────
+
+    private fun acceptResumeDiff(newText: String) {
+        viewModelScope.launch {
+            val active = resumeVersionRepository.getActive() ?: return@launch
+            resumeVersionRepository.save(
+                active.copy(
+                    rawText = active.rawText.replace(
+                        // Find the original sentence in the resume and swap it
+                        // Use a best-effort substring replacement; if not found, append
+                        findOriginalInResume(active.rawText, newText) ?: return@launch,
+                        newText
+                    ),
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    private fun findOriginalInResume(resumeText: String, newText: String): String? {
+        // Locate the corresponding original diff bubble to get the before-text
+        val diffCard = _uiState.value.messages
+            .mapNotNull { it.card as? com.example.tielink.domain.model.UiCard.ResumeDiffCard }
+            .firstOrNull { it.after == newText }
+        return diffCard?.before?.takeIf { resumeText.contains(it) }
     }
 
     override fun onCleared() {

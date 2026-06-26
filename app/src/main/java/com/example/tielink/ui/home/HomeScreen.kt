@@ -43,9 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +71,7 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "智简求职",
+                        "TieLink",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -355,5 +357,70 @@ private fun JdOptimizeSection(
                 )
             }
         }
+    }
+}
+
+// ─── Previews ──────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun EntryCardPreview() {
+    TieLinkTheme {
+        Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EntryCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Description,
+                title = "简历优化",
+                subtitle = "智能匹配JD\n多版本管理",
+                badge = "3份",
+                onClick = {}
+            )
+            EntryCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.SmartToy,
+                title = "模拟面试",
+                subtitle = "AI真实对话\n人格自选",
+                badge = null,
+                onClick = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun JdOptimizeSectionPreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            JdOptimizeSection(
+                jdLabel = "Android开发工程师 — 字节跳动",
+                isSet = true,
+                onSetJd = {},
+                onStartOptimize = {}
+            )
+            JdOptimizeSection(
+                jdLabel = "请设置目标岗位",
+                isSet = false,
+                onSetJd = {},
+                onStartOptimize = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun HomeScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        HomeScreen(
+            onNavigateToResumeOptimize = {},
+            onNavigateToMockInterview = {},
+            onNavigateToTracking = {},
+            onNavigateToSettings = {},
+            onNavigateToJdInput = {},
+            onNavigateToJdOptimize = {},
+            onNavigateToAgentChat = {}
+        )
     }
 }

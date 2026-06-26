@@ -1,9 +1,13 @@
 package com.example.tielink.domain.model
 
+import java.util.concurrent.atomic.AtomicLong
+
+private val idCounter = AtomicLong(System.currentTimeMillis())
+
 enum class AgentMessageRole { USER, AGENT, SYSTEM }
 
 data class AgentMessage(
-    val id: Long = System.currentTimeMillis(),
+    val id: Long = idCounter.incrementAndGet(),
     val role: AgentMessageRole,
     val content: String,
     val timestamp: Long = System.currentTimeMillis(),
@@ -33,6 +37,7 @@ data class AgentChatUiState(
     val pendingAttachmentName: String? = null,
     val pendingAttachmentText: String? = null,
     val isParsingFile: Boolean = false,
-    /** Accumulates thinking text while streaming; flushed into the final message on Done */
-    val thinkingBuffer: String = ""
+    val thinkingBuffer: String = "",
+    /** Shown below the welcome message; cleared after first user message */
+    val suggestedPrompts: List<String> = emptyList()
 )

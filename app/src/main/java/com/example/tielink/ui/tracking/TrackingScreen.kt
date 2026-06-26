@@ -49,10 +49,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.tielink.data.repository.TimelineEvent
 import com.example.tielink.data.repository.TrackingItem
 import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.theme.TieLinkTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -369,5 +372,74 @@ private fun TrackingItemCard(
                 )
             }
         }
+    }
+}
+
+// ─── Previews ──────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun TrackingItemCardPreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TrackingItemCard(
+                item = TrackingItem(
+                    id = 1,
+                    companyName = "字节跳动",
+                    positionName = "Android开发工程师",
+                    status = "面试中",
+                    timeline = listOf(
+                        TimelineEvent("已投"),
+                        TimelineEvent("简历筛选中"),
+                        TimelineEvent("面试中")
+                    ),
+                    createdAt = System.currentTimeMillis()
+                ),
+                onStatusChange = {},
+                onDelete = {}
+            )
+            TrackingItemCard(
+                item = TrackingItem(
+                    id = 2,
+                    companyName = "腾讯",
+                    positionName = "iOS开发工程师",
+                    status = "已投",
+                    timeline = listOf(TimelineEvent("已投")),
+                    createdAt = System.currentTimeMillis() - 86400000
+                ),
+                onStatusChange = {},
+                onDelete = {}
+            )
+            TrackingItemCard(
+                item = TrackingItem(
+                    id = 3,
+                    companyName = "阿里巴巴",
+                    positionName = "前端开发工程师",
+                    status = "已Offer",
+                    timeline = listOf(
+                        TimelineEvent("已投"),
+                        TimelineEvent("笔试"),
+                        TimelineEvent("一面"),
+                        TimelineEvent("二面"),
+                        TimelineEvent("已Offer")
+                    ),
+                    createdAt = System.currentTimeMillis() - 86400000 * 7
+                ),
+                onStatusChange = {},
+                onDelete = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun TrackingScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        TrackingScreen(
+            onNavigateBack = {},
+            onNavigateToJdInput = {}
+        )
     }
 }

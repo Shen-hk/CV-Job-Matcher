@@ -33,11 +33,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.ui.components.ErrorBanner
 import com.example.tielink.ui.components.SectionCard
+import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -184,5 +186,17 @@ fun JdInputScreen(
                 Text("下一步：输入简历 →")
             }
         }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun JdInputScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        JdInputScreen(
+            onNavigateToSettings = {},
+            onJdSubmitted = { _, _ -> }
+        )
     }
 }

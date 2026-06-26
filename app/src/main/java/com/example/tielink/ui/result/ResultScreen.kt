@@ -105,6 +105,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -112,6 +113,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.ui.components.ResumePreviewWebView
 import com.example.tielink.ui.components.ScoreRingChart
+import com.example.tielink.ui.theme.TieLinkTheme
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
@@ -393,6 +395,85 @@ private fun SidebarIcon(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(icon, label, Modifier.size(18.dp), tint = if (selected) BrandBlue else TextTertiary)
+    }
+}
+
+// ─── Previews ──────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun SidebarIconPreview() {
+    TieLinkTheme {
+        Column(
+            Modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            SidebarIcon(Icons.Default.AutoAwesome, "AI", selected = true) {}
+            SidebarIcon(Icons.Default.Fullscreen, "关键词", selected = false) {}
+            SidebarIcon(Icons.Default.History, "历史", selected = false) {}
+            SidebarIcon(Icons.Default.AutoAwesome, "AI助手", selected = false) {}
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ResultChatBubblePreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChatBubble(ChatMessage(role = "user", content = "帮我把项目经历改成更量化的描述"))
+            ChatBubble(ChatMessage(role = "assistant", content = "好的，我已经将你的项目经历改写为STAR格式，并补充了具体的数据指标。你可以查看右侧预览效果。"))
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ExpandableSectionCardPreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ExpandableSectionCard(
+                icon = "👤",
+                title = "个人信息",
+                summary = "张三 · Android开发工程师",
+                isExpanded = false,
+                onToggle = {}
+            ) {
+                Text("展开后的内容区域")
+            }
+            ExpandableSectionCard(
+                icon = "💼",
+                title = "实习工作经历",
+                summary = "2项 · 字节跳动, 腾讯",
+                isExpanded = true,
+                onToggle = {}
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = BgWhite)) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text("字节跳动", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("Android开发实习生 · 2023.06 - 2024.03", fontSize = 12.sp, color = TextSecondary)
+                        }
+                    }
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = BgWhite)) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text("腾讯", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("客户端开发实习生 · 2022.07 - 2023.05", fontSize = 12.sp, color = TextSecondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ResultScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        ResultScreen(onNavigateBack = {}, onNavigateToHistory = {})
     }
 }
 

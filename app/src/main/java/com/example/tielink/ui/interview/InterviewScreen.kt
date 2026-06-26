@@ -53,12 +53,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.tielink.domain.model.DimensionScore
 import com.example.tielink.domain.model.InterviewPersona
 import com.example.tielink.domain.model.InterviewResult
 import com.example.tielink.domain.model.MessageRole
 import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -488,5 +491,65 @@ private fun InterviewEndCard(
                 ) { Text("投递这家") }
             }
         }
+    }
+}
+
+// ─── Previews ──────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ChatBubblePreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChatBubble(com.example.tielink.domain.model.InterviewMessage(
+                id = 1, sessionId = 1, role = MessageRole.USER, content = "我熟练掌握Kotlin和Jetpack Compose，有3年Android开发经验。"
+            ))
+            ChatBubble(com.example.tielink.domain.model.InterviewMessage(
+                id = 2, sessionId = 1, role = MessageRole.INTERVIEWER, content = "请详细描述一下你在项目中是如何使用Jetpack Compose进行UI开发的？"
+            ))
+            ChatBubble(com.example.tielink.domain.model.InterviewMessage(
+                id = 3, sessionId = 1, role = MessageRole.SYSTEM, content = "提示：可以从性能优化角度回答", isHint = true
+            ))
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun InterviewEndCardPreview() {
+    TieLinkTheme {
+        InterviewEndCard(
+            result = InterviewResult(
+                overallScore = 78f,
+                dimensionScores = listOf(
+                    DimensionScore("表达清晰度", 80f),
+                    DimensionScore("技术深度", 72f),
+                    DimensionScore("项目经验", 85f),
+                    DimensionScore("沟通能力", 75f)
+                ),
+                improvements = listOf(
+                    "技术方案描述可以更结构化",
+                    "建议用STAR法则组织项目经历",
+                    "可以补充更多量化数据"
+                )
+            ),
+            onRestart = {},
+            onGoToResumeEdit = {},
+            onGoToTracking = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun InterviewScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        InterviewScreen(
+            onNavigateBack = {},
+            onNavigateToResumeEdit = {},
+            onNavigateToTracking = {},
+            onNavigateToJdInput = {}
+        )
     }
 }

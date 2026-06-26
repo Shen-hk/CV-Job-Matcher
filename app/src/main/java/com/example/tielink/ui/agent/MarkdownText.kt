@@ -22,7 +22,9 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.example.tielink.ui.theme.TieLinkTheme
 
 /** Lightweight Compose-native markdown renderer — no external deps. */
 @Composable
@@ -258,4 +260,38 @@ private fun DividerBlock() {
             .background(MaterialTheme.colorScheme.outlineVariant)
             .padding(vertical = 0.5.dp)
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun MarkdownTextPreview() {
+    TieLinkTheme {
+        MarkdownText(
+            text = """
+                # Heading 1
+
+                This is a **bold** and *italic* paragraph with `inline code`.
+
+                ## Heading 2
+
+                - Bullet item one
+                - Bullet item two with **bold**
+
+                1. Numbered item one
+                2. Numbered item two
+
+                ```
+                fun hello() {
+                    println("Code block")
+                }
+                ```
+
+                ---
+
+                ### Heading 3
+
+                Final paragraph.
+            """.trimIndent()
+        )
+    }
 }

@@ -17,8 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.tielink.ui.theme.MissRed
+import com.example.tielink.ui.theme.TieLinkTheme
 
 @Composable
 fun ErrorBanner(
@@ -54,5 +56,16 @@ fun ErrorBanner(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ErrorBannerPreview() {
+    TieLinkTheme {
+        ErrorBanner(
+            message = "网络请求失败，请检查网络连接后重试。",
+            onRetry = {}
+        )
     }
 }

@@ -1,7 +1,9 @@
 package com.example.tielink.data.remote
 
+import android.util.Log
 import com.example.tielink.data.remote.dto.StreamChunk
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -11,6 +13,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -26,14 +29,20 @@ sealed class StreamEvent {
 
 object StreamingApiService {
 
+    private const val TAG = "StreamingApiService"
     private const val JSON_MEDIA_TYPE = "application/json; charset=utf-8"
 
-    private val moshi = Moshi.Builder().build()
+    private val moshi = Moshi.Builder()
+        .add(KotlinJsonAdapterFactory())
+        .build()
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        .addInterceptor(HttpLoggingInterceptor { msg ->
+            Log.d(TAG, msg)
+        }.apply { level = HttpLoggingInterceptor.Level.HEADERS })
         .build()
 
     fun streamOpenAiChat(
@@ -77,6 +86,8 @@ object StreamingApiService {
         if (apiKey.isNotEmpty()) {
             builder.addHeader("Authorization", "Bearer $apiKey")
         }
+
+        Log.d(TAG, "流式请求 → $url, model=$model, messages=${messages.size}")
 
         val call = client.newCall(builder.build())
         call.enqueue(object : okhttp3.Callback {

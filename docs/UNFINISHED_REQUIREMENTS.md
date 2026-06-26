@@ -1,6 +1,6 @@
 # 智简求职 — 未完成需求 & 待办清单
 
-> 最后更新：2026-06-25 | 当前进度：Sprint 1 + Sprint 1.5 完成；Sprint 2.1-2.5 完成；Sprint A-UI 完成（聊天界面重构 + Markdown 渲染 + 富卡片 Composable + 流式节流）；Sprint A-Logic 未完成（工具执行、UseCase 接入、卡片回调）
+> 最后更新：2026-06-26 | 当前进度：Sprint 1 + Sprint 1.5 完成；Sprint 2.1-2.5 完成；Sprint A-UI 完成；Sprint A-Logic 完成（A-L1 工具分发、A-L2 意图路由、A-L3 卡片回调）
 
 ---
 
@@ -25,25 +25,24 @@
 
 > 当前状态：UI 层全部完成，但工具从不执行 — `AgentOutput.ToolResult` 永远不会 emit，所有富卡片永远不会出现。
 
-### A-L1 AgentUseCase 工具分发（最高优先级）
+### A-L1 AgentUseCase 工具分发（已完成）
 
-- [ ] `AgentUseCase.kt:65` 处的 `TODO` — 根据 `intent.toolCall.toolName` 分发到对应 UseCase
-  - `match_tool` → 调用 `MatchScoreDetailUseCase.enrich()` + `SkillGapAnalyzer.analyze()` → emit `ToolResult(UiCard.MatchCard(...))`
-  - `resume_tool` → 调用 `QuantifyAssistant.analyzeAndSuggest()` / `StarFormatter.format()` → emit `ToolResult(UiCard.ResumeDiffCard(...))`
-  - `interview_tool` → 读取最近面试会话 → emit `ToolResult(UiCard.InterviewTurnCard(...))`
-  - `tracking_tool` → 读取投递记录 → emit `ToolResult(UiCard.TrackingCard(...))`
-  - `greeting_tool` → AI 生成求职信 → emit `ToolResult(UiCard.GreetingCard(...))`
-- [ ] 工具执行需要在 `AgentUseCase` 注入：`MatchScoreDetailUseCase`、`SkillGapAnalyzer`、`QuantifyAssistant`、`StarFormatter`、`TrackingRepository`
+- [x] `AgentUseCase.kt` 注入 `MatchScoreDetailUseCase`、`SkillGapAnalyzer`、`QuantifyAssistant`、`TrackingRepository`、`InterviewRepository`
+- [x] `match_tool` → NlpEngine 提取关键词 + MatchScoreDetailUseCase 四维评分 + SkillGapAnalyzer → `ToolResult(MatchCard)`
+- [x] `resume_tool` → QuantifyAssistant.analyzeAndSuggest → `ToolResult(ResumeDiffCard)`（callbacks 由 ViewModel 注入）
+- [x] `interview_tool` → InterviewRepository.getActiveSession + 最后消息 → `ToolResult(InterviewTurnCard)`
+- [x] `tracking_tool` → TrackingRepository.getAll → 最新一条 → `ToolResult(TrackingCard)`
+- [x] `platform_tool` → AI 生成三版求职信 → 解析 JSON → `ToolResult(GreetingCard)`
 
-### A-L2 IntentClassifier 路由验证
+### A-L2 IntentClassifier 路由验证（已完成）
 
-- [ ] 确认 `IntentClassifier.classify()` 对常见求职意图能正确返回 `toolCall`（"帮我分析匹配度"、"优化这句话"、"准备面试"等）
-- [ ] 补充缺失的意图识别规则（当前规则覆盖不全）
+- [x] 移除澄清阈值（原"1个关键词=需要澄清"），改为任何命中直接分发工具，避免误触发澄清对话
 
-### A-L3 ResumeDiffCard 回调接入
+### A-L3 ResumeDiffCard 回调接入（已完成）
 
-- [ ] `UiCard.ResumeDiffCard.onAccept` 目前是空 lambda — 需接入 `ResumeVersionRepository` 将 `after` 文本写入当前激活版本
-- [ ] `onRollback` 需恢复原文
+- [x] `AgentViewModel` 在 `ToolResult` 处理中为 `ResumeDiffCard` 注入真实回调
+- [x] `onAccept` → 查找简历中原句，替换为量化后文本并保存到当前激活版本
+- [x] `onRollback` → 什么都不做（保留原文）
 
 ### A-L4 Anthropic 协议支持（可选，低优先级）
 

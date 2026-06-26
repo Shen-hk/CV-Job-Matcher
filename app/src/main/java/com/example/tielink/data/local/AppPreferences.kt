@@ -53,14 +53,20 @@ class AppPreferences @Inject constructor(
         const val DEFAULT_MODEL = "deepseek-chat"
     }
 
-    // ── API Key ────────────────────────────────────────────────
+    // ── Volatile caches (for synchronous reads from OkHttp interceptors) ──
 
     @Volatile
     private var cachedApiKey: String? = null
 
+    @Volatile
+    private var cachedBaseUrl: String = DEFAULT_BASE_URL
+
     init {
-        // Eagerly load API key into volatile cache for the OkHttp interceptor
-        runBlocking { cachedApiKey = getApiKey() }
+        // Eagerly load into volatile caches for synchronous consumers
+        runBlocking {
+            cachedApiKey = getApiKey()
+            cachedBaseUrl = getBaseUrl()
+        }
     }
 
     fun getApiKeyFlow(): Flow<String> {
@@ -96,13 +102,16 @@ class AppPreferences @Inject constructor(
 
     // ── Base URL ───────────────────────────────────────────────
 
-    fun getBaseUrlSync(): String = DEFAULT_BASE_URL
+    fun getBaseUrlSync(): String = cachedBaseUrl
 
     suspend fun getBaseUrl(): String {
-        return dataStore.data.first()[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL
+        val url = dataStore.data.first()[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL
+        cachedBaseUrl = url
+        return url
     }
 
     suspend fun setBaseUrl(url: String) {
+        cachedBaseUrl = url
         dataStore.edit { prefs ->
             prefs[PrefKeys.LLM_BASE_URL] = url
         }

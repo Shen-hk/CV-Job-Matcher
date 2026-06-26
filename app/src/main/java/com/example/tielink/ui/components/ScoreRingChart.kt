@@ -24,8 +24,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.example.tielink.domain.model.MatchLevel
+import com.example.tielink.ui.theme.TieLinkTheme
 import com.example.tielink.ui.theme.MatchGreen
 import com.example.tielink.ui.theme.MissRed
 import com.example.tielink.ui.theme.WarningOrange
@@ -127,5 +129,16 @@ fun ScoreRingChart(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ScoreRingChartPreview() {
+    TieLinkTheme {
+        ScoreRingChart(
+            score = 78,
+            level = MatchLevel.MEDIUM
+        )
     }
 }

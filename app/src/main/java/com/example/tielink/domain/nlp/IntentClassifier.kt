@@ -10,35 +10,86 @@ import com.example.tielink.domain.model.ToolCall
  */
 object IntentClassifier {
 
-    // 意图关键词映射
+    // 意图关键词映射 — 每个 IntentType 有一组关键词/短语，用 contains 做子串匹配
     private val intentKeywords = mapOf(
-        IntentType.JD_ANALYZE to listOf(
-            "分析岗位", "看jd", "岗位描述", "职位要求", "这个岗位", "这个职位",
-            "粘贴jd", "发个jd", "帮我看看这个", "这份工作"
-        ),
         IntentType.MATCH to listOf(
-            "匹配度", "匹配吗", "胜率", "合适吗", "合适不", "能不能过",
-            "有多大把握", "几率多大", "差距", "缺什么", "差在哪"
+            // 精确命中
+            "匹配度", "匹配吗", "匹配情况", "匹配分析", "匹配率",
+            "胜率", "合适吗", "合适不", "能不能过", "有多大把握", "几率多大",
+            // 自然语言
+            "匹不匹配", "配不配", "符不符合", "差距", "缺什么", "差在哪",
+            "能过吗", "通过率", "竞争力", "有竞争力", "有戏吗", "有希望吗",
+            "帮我分析", "帮我匹配", "分析匹配", "看看匹配", "查匹配",
+            "岗位匹配", "职位匹配", "jd匹配", "匹配一下", "匹配看看",
+            "打多少分", "多少分", "能打几分", "评分"
         ),
         IntentType.RESUME_EDIT to listOf(
+            // 精确命中
             "改简历", "优化简历", "修改简历", "润色简历", "简历改", "简历优化",
-            "换个说法", "重写", "帮我改", "改一下", "调整简历", "简历调整"
+            "调整简历", "简历调整", "简历润色", "简历修改",
+            // 自然语言
+            "换个说法", "重写", "帮我改", "改一下", "改写",
+            "优化经历", "改经历", "改描述", "改写经历",
+            "润色", "美化", "措辞", "改措辞", "量化", "帮我量化",
+            "star", "star法则", "star改写", "行动", "成果",
+            "简历不好", "简历差", "简历太", "改改简历"
         ),
         IntentType.INTERVIEW to listOf(
+            // 精确命中
             "模拟面试", "练面试", "面试模拟", "准备面试", "面试准备",
-            "我要面试", "帮我练", "模拟一下", "面一下"
+            // 自然语言
+            "我要面试", "帮我练", "模拟一下", "面一下", "练习面试",
+            "面试练习", "练一下", "开始面试", "进入面试", "打开面试",
+            "来面试", "搞个面试", "做个面试", "帮我面试",
+            "面试官", "面我", "考考我", "问我", "出题"
         ),
         IntentType.TRACKING to listOf(
-            "投递", "投了", "记录投递", "投递记录", "投递状态",
-            "跟进", "跟进一下", "投了哪", "投了哪些"
+            // 精确命中
+            "记录投递", "投递记录", "投递状态",
+            // 自然语言
+            "投递", "投了", "跟进", "跟进一下", "投了哪", "投了哪些",
+            "投了什么", "投过什么", "投了没", "投递情况", "投递进度",
+            "申请记录", "申请状态", "申请进度", "投了几个",
+            "记录一下", "记一下", "添加投递", "新建投递"
         ),
         IntentType.PLATFORM to listOf(
-            "打招呼", "话术", "生成话术", "boss", "猎聘",
-            "帮我写个打招呼", "怎么打招呼"
+            // 精确命中
+            "打招呼", "话术", "生成话术", "怎么打招呼",
+            // 自然语言
+            "帮我写个打招呼", "帮我写话术", "写个话术",
+            "boss", "boss直聘", "猎聘", "拉钩", "智联",
+            "招聘软件", "招聘平台", "招聘app",
+            "怎么开口", "怎么聊", "开场白", "私信", "发消息"
+        ),
+        IntentType.JD_ANALYZE to listOf(
+            "分析岗位", "看jd", "岗位描述", "职位要求", "这个岗位", "这个职位",
+            "粘贴jd", "发个jd", "帮我看看这个", "这份工作",
+            "jd分析", "分析jd", "解读岗位", "岗位分析"
         ),
         IntentType.DEBRIEF to listOf(
             "复盘", "面试复盘", "上传录音", "面试录音", "录音分析",
-            "分析面试", "复盘面试"
+            "分析面试", "复盘面试", "回顾面试", "面试回顾"
+        )
+    )
+
+    // 弱关键词：短词/高频词，需要 ≥2 个命中才触发，避免误判
+    private val weakKeywords = mapOf(
+        IntentType.MATCH to listOf(
+            "匹配", "胜率", "差距", "缺什么", "差在哪", "分析", "评估",
+            "打分", "多少分", "竞争力", "胜算"
+        ),
+        IntentType.RESUME_EDIT to listOf(
+            "改", "优化", "润色", "修改", "重写", "措辞", "量化",
+            "star", "美化", "提升"
+        ),
+        IntentType.INTERVIEW to listOf(
+            "面试", "模拟", "练习", "面", "考官", "提问"
+        ),
+        IntentType.TRACKING to listOf(
+            "投递", "投了", "跟进", "记录", "申请", "进度", "跟踪"
+        ),
+        IntentType.PLATFORM to listOf(
+            "打招呼", "话术", "开场", "私信", "撩", "回复"
         )
     )
 
@@ -50,39 +101,24 @@ object IntentClassifier {
     fun classify(userText: String): AgentIntent {
         val lowerText = userText.lowercase().trim()
 
-        // 1. 遍历关键词规则，找到最高置信度的匹配
-        var bestMatch: Pair<IntentType, Int>? = null
-        var matchedKeywords = 0
-
+        // 1. 先检查强关键词（长短语，单次命中即可触发）
         for ((intentType, keywords) in intentKeywords) {
-            val count = keywords.count { keyword ->
-                lowerText.contains(keyword.lowercase())
-            }
-            if (count > matchedKeywords) {
-                matchedKeywords = count
-                bestMatch = intentType to count
+            val matchCount = keywords.count { lowerText.contains(it.lowercase()) }
+            if (matchCount > 0) {
+                return createIntentForType(intentType, userText)
             }
         }
 
-        // 2. 根据匹配结果返回意图
-        return when {
-            bestMatch != null && matchedKeywords >= 2 -> {
-                // 高置信度：匹配到2个及以上关键词
-                createIntentForType(bestMatch.first, userText)
-            }
-            bestMatch != null -> {
-                // 中置信度：匹配到1个关键词，需要简单确认
-                AgentIntent(
-                    type = bestMatch.first,
-                    clarificationNeeded = true,
-                    clarificationPrompt = "你是想要${getIntentDescription(bestMatch.first)}吗？"
-                )
-            }
-            else -> {
-                // 低置信度：没有匹配到任何关键词，走普通聊天
-                AgentIntent(type = IntentType.CHAT)
+        // 2. 再检查弱关键词（短词/高频词，需要 ≥2 个命中才触发）
+        for ((intentType, weakWords) in weakKeywords) {
+            val matchCount = weakWords.count { lowerText.contains(it.lowercase()) }
+            if (matchCount >= 2) {
+                return createIntentForType(intentType, userText)
             }
         }
+
+        // 3. 都没有匹配到，走普通聊天
+        return AgentIntent(type = IntentType.CHAT)
     }
 
     /**

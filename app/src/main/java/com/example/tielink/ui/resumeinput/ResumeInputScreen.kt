@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,6 +63,7 @@ import com.example.tielink.domain.model.MatchLevel
 import com.example.tielink.ui.components.ErrorBanner
 import com.example.tielink.ui.components.ScoreRingChart
 import com.example.tielink.ui.components.SectionCard
+import com.example.tielink.ui.theme.TieLinkTheme
 
 private val BrandBlue = Color(0xFF2563EB)
 private val SuccessGreen = Color(0xFF16A34A)
@@ -454,5 +456,77 @@ private fun StatItem(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
         Text(label, fontSize = 11.sp, color = TextTertiary)
+    }
+}
+
+// ─── Previews ──────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun HistoryItemRowPreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            HistoryItemRow(
+                entity = HistoryEntity(
+                    id = 1,
+                    createdAt = System.currentTimeMillis(),
+                    jdRawText = "岗位描述...",
+                    jdTitle = "Android开发工程师 — 字节跳动",
+                    originalResume = "原始简历...",
+                    polishedResume = "优化后简历...",
+                    jdSkills = "Kotlin,Jetpack Compose",
+                    matchNote = "优化项目经历描述",
+                    matchScore = 85,
+                    matchedKeywords = "[\"Kotlin\",\"Android\"]",
+                    missingKeywords = "[\"协程\"]",
+                    suggestions = "[\"补充协程经验\"]"
+                ),
+                onClick = {}
+            )
+            HistoryItemRow(
+                entity = HistoryEntity(
+                    id = 2,
+                    createdAt = System.currentTimeMillis() - 86400000,
+                    jdRawText = "...",
+                    jdTitle = "iOS开发工程师 — 腾讯",
+                    originalResume = "...",
+                    polishedResume = "...",
+                    jdSkills = "Swift,SwiftUI",
+                    matchNote = "",
+                    matchScore = 55,
+                    matchedKeywords = "[\"Swift\"]",
+                    missingKeywords = "[\"SwiftUI\",\"Combine\"]",
+                    suggestions = "[\"学习SwiftUI\"]"
+                ),
+                onClick = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun MatchConfirmDialogPreview() {
+    TieLinkTheme {
+        MatchConfirmDialog(
+            score = 72,
+            matchedKeywords = listOf("Kotlin", "Android", "MVVM", "Git", "Gradle"),
+            missingKeywords = listOf("Jetpack Compose", "协程", "性能优化"),
+            suggestions = listOf("补充Compose经验", "展示协程项目"),
+            onConfirm = {},
+            onDismiss = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ResumeInputScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        ResumeInputScreen(
+            onNavigateBack = {},
+            onResumeSubmitted = { _, _, _, _, _, _ -> }
+        )
     }
 }

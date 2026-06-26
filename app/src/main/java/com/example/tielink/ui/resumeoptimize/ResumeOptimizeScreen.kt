@@ -69,10 +69,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.domain.model.SkillImportance
 import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -516,6 +518,52 @@ private fun ScoreBar(label: String, score: Float) {
             color = color
         )
         Text("${(score * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(32.dp))
+    }
+}
+
+// ─── Previews ──────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ScoreBarPreview() {
+    TieLinkTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ScoreBar("关键词覆盖", 0.85f)
+            ScoreBar("技能契合", 0.60f)
+            ScoreBar("经验相关", 0.45f)
+            ScoreBar("学历匹配", 0.90f)
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun SkillGapChipPreview() {
+    TieLinkTheme {
+        // SkillGapChip requires viewModel in the actual impl — show static representation
+        Column(modifier = Modifier.padding(8.dp)) {
+            AssistChip(
+                onClick = {},
+                label = { Text("Kotlin Coroutines", style = MaterialTheme.typography.labelSmall) },
+                leadingIcon = { Icon(Icons.Default.Add, "添加", Modifier.size(14.dp)) },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ResumeOptimizeScreenPreview() {
+    // Preview of static layout — hiltViewModel() unavailable in preview
+    TieLinkTheme {
+        ResumeOptimizeScreen(
+            onNavigateBack = {},
+            onNavigateToInterview = {},
+            onNavigateToJdInput = {}
+        )
     }
 }
 

@@ -2,6 +2,7 @@ package com.example.tielink.ui.agent
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,9 +18,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material3.Button
@@ -41,14 +46,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.UiCard
 
@@ -63,6 +73,7 @@ fun UiCardComposable(card: UiCard, modifier: Modifier = Modifier) {
         is UiCard.TrackingCard -> TrackingCardComposable(card, modifier)
         is UiCard.GreetingCard -> GreetingCardComposable(card, modifier)
         is UiCard.InterviewTurnCard -> InterviewTurnCardComposable(card, modifier)
+        is UiCard.UploadPromptCard -> UploadPromptCardComposable(card, modifier)
     }
 }
 
@@ -260,31 +271,112 @@ fun ResumeDiffCardComposable(card: UiCard.ResumeDiffCard, modifier: Modifier = M
 @Composable
 fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifier = Modifier) {
     val clipboard = LocalClipboardManager.current
+    var showFullScreen by remember { mutableStateOf(false) }
+
+    // 全屏预览 Dialog
+    if (showFullScreen && card.resumeData != null) {
+        Dialog(
+            onDismissRequest = { showFullScreen = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "简历全屏预览 · ${card.versionName}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { showFullScreen = false }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Filled.Close, "关闭", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    com.example.tielink.ui.components.ResumePreviewWebView(
+                        resumeData = card.resumeData,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("简历预览 · ${card.versionName}",
-                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f))
-                IconButton(onClick = { clipboard.setText(AnnotatedString(card.previewText)) },
-                    modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Filled.ContentCopy, "复制", modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "📄 简历预览 · ${card.versionName}",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                // 复制纯文本
+                IconButton(
+                    onClick = { clipboard.setText(AnnotatedString(card.previewText)) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.ContentCopy, "复制纯文本",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                // 全屏按钮（仅当 resumeData 有值时可用）
+                IconButton(
+                    onClick = { showFullScreen = true },
+                    enabled = card.resumeData != null,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Fullscreen, "全屏预览",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (card.resumeData != null)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    )
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(8.dp)) {
-                Text(
-                    text = card.previewText.take(600) + if (card.previewText.length > 600) "…" else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth().padding(10.dp)
+
+            // 正文：有 ResumeData 时用 WebView，否则降级为文字
+            if (card.resumeData != null) {
+                com.example.tielink.ui.components.ResumePreviewWebView(
+                    resumeData = card.resumeData,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 220.dp, max = 320.dp)
                 )
+            } else {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.padding(12.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = card.previewText.take(600) + if (card.previewText.length > 600) "…" else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth().padding(10.dp)
+                    )
+                }
             }
         }
     }
@@ -498,5 +590,122 @@ fun InterviewTurnCardComposable(card: UiCard.InterviewTurnCard, modifier: Modifi
                 }
             }
         }
+    }
+}
+
+// ─── UploadPromptCard ─────────────────────────────────────────────────────────
+
+@Composable
+fun UploadPromptCardComposable(card: UiCard.UploadPromptCard, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Upload,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.secondary
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = card.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = card.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            FilledTonalButton(
+                onClick = card.onUpload,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Filled.Upload, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("上传简历")
+            }
+        }
+    }
+}
+
+// ─── Previews ─────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true)
+@Composable
+private fun MatchCardComposablePreview() {
+    MaterialTheme {
+        MatchCardComposable(
+            card = UiCard.MatchCard(
+                overallScore = 85,
+                keywordScore = 80,
+                experienceScore = 88,
+                educationScore = 90,
+                skillScore = 78,
+                missingSkills = listOf("Kubernetes", "AWS", "Python"),
+                highlights = listOf("5年Java开发经验符合要求", "硕士学历匹配", "团队管理经验加分")
+            )
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ResumeDiffCardComposablePreview() {
+    MaterialTheme {
+        ResumeDiffCardComposable(
+            card = UiCard.ResumeDiffCard(
+                section = "工作经验",
+                before = "负责公司内部系统的开发与维护工作",
+                after = "主导3个核心业务系统的架构设计与开发，支撑日均100万+请求，系统可用性提升至99.9%",
+                onAccept = {},
+                onRollback = {}
+            )
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun GreetingCardComposablePreview() {
+    MaterialTheme {
+        GreetingCardComposable(
+            card = UiCard.GreetingCard(
+                companyName = "字节跳动",
+                position = "高级Android开发工程师",
+                greetings = listOf(
+                    GreetingVersion(
+                        style = "简洁版",
+                        content = "尊敬的面试官，您好！我对贵司的高级Android开发工程师岗位非常感兴趣。我有5年Android开发经验，熟练掌握Kotlin和Jetpack Compose，希望能有机会加入贵司。",
+                        highlightedSkills = listOf("Kotlin", "Jetpack Compose", "Android")
+                    ),
+                    GreetingVersion(
+                        style = "详细版",
+                        content = "尊敬的字节跳动面试官团队：\n\n我是一名拥有5年Android开发经验的工程师，目前正在寻找新的职业机会。在过往的工作中，我主导过多个大型App的架构设计，深度参与过从0到1的产品孵化。\n\n我对贵司的技术氛围和产品矩阵非常向往，期待能有机会与您深入交流。",
+                        highlightedSkills = listOf("架构设计", "性能优化", "团队协作")
+                    )
+                )
+            )
+        )
     }
 }

@@ -25,6 +25,12 @@ sealed class AgentOutput {
     data class Error(val message: String) : AgentOutput()
 
     /**
+     * 工具调用因缺少前置条件被取消（回退到 LLM 文本回复），
+     * ViewModel 收到后应移除对应的 toolLoading 气泡。
+     */
+    data class ToolCancelled(val toolName: String) : AgentOutput()
+
+    /**
      * 对话结束标记
      */
     object Done : AgentOutput()
@@ -55,7 +61,9 @@ sealed class UiCard {
     data class ResumePreviewCard(
         val versionName: String,
         val versionId: Long,
-        val previewText: String
+        val previewText: String,
+        val resumeData: com.example.tielink.domain.model.ResumeData? = null,
+        val onNavigateToResult: (() -> Unit)? = null
     ) : UiCard()
 
     data class EvalCard(
@@ -81,6 +89,12 @@ sealed class UiCard {
         val totalQuestions: Int,
         val question: String,
         val feedback: String?
+    ) : UiCard()
+
+    data class UploadPromptCard(
+        val title: String,
+        val description: String,
+        val onUpload: () -> Unit = {}
     ) : UiCard()
 }
 
