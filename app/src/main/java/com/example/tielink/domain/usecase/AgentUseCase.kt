@@ -8,6 +8,7 @@ import com.example.tielink.data.remote.PromptRegistry
 import com.example.tielink.data.remote.dto.Message
 import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.InterviewRepository
+import com.example.tielink.data.repository.JdLibraryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.repository.TrackingRepository
 import com.example.tielink.domain.model.AgentContext
@@ -18,6 +19,7 @@ import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.nlp.IntentClassifier
 import com.example.tielink.domain.nlp.NlpEngine
 import com.example.tielink.util.AgentWorkspace
+import com.squareup.moshi.Moshi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
@@ -36,19 +38,20 @@ class AgentUseCase @Inject constructor(
     private val promptRegistry: PromptRegistry,
     private val agentContextRepository: AgentContextRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
+    private val jdLibraryRepository: JdLibraryRepository,
     private val matchScoreDetailUseCase: MatchScoreDetailUseCase,
     private val skillGapAnalyzer: SkillGapAnalyzer,
     private val quantifyAssistant: QuantifyAssistant,
     private val trackingRepository: TrackingRepository,
-    private val interviewRepository: InterviewRepository
+    private val interviewRepository: InterviewRepository,
+    private val moshi: Moshi
 ) {
     companion object {
         private const val TAG = "AgentUseCase"
         private const val MAX_CONTEXT_MESSAGES = 20
         // TODO: 调试开关，测试完记得改回 false
-        private const val DEBUG_SHOW_ALL_CARDS = true
+        private const val DEBUG_SHOW_ALL_CARDS = false
     }
-
     /**
      * 处理用户输入，返回 AgentOutput 流
      */
@@ -68,6 +71,13 @@ class AgentUseCase @Inject constructor(
         val intent = IntentClassifier.classify(userText)
         Log.d(TAG, "识别意图: ${intent.type}, 工具调用: ${intent.toolCall}")
 
+        // 1a. 自动保存 JD：检测到长文本包含岗位关键词时，后台提取并写入 JD 库
+        if (intent.type == com.example.tielink.domain.model.IntentType.JD_ANALYZE
+            || looksLikeJd(userText)
+        ) {
+            withContext(Dispatchers.IO) { tryAutoSaveJd(userText) }
+        }
+
         // 2. 如果需要澄清，发出澄清请求
         if (intent.clarificationNeeded) {
             emit(AgentOutput.ClarificationRequest(
@@ -79,39 +89,63 @@ class AgentUseCase @Inject constructor(
 
         // 3. 如果有工具调用，先执行工具
         if (intent.toolCall != null) {
-            val toolDesc = when (intent.toolCall.toolName) {
+            val toolName = intent.toolCall.toolName
+
+            // 3a. 前置条件检查 —— 缺简历时直接给上传卡，绝不进入 ToolStart/loading
+            //     （区分「缺前置条件」与「有前置条件但工具无产出」两种情况）
+            val needsResume = toolName in listOf("resume_tool", "match_tool")
+            if (needsResume && resumeVersionRepository.getActive() == null) {
+                val (title, desc) = when (toolName) {
+                    "resume_tool" -> "需要您的简历" to "请上传简历文件，支持 PDF、Word 或纯文本格式"
+                    else -> "需要简历才能分析匹配度" to "请上传简历文件，支持 PDF、Word 或纯文本格式"
+                }
+                emit(AgentOutput.ToolResult(UiCard.UploadPromptCard(title = title, description = desc, toolName = toolName)))
+                emit(AgentOutput.Done)
+                return@flow
+            }
+
+            val toolDesc = when (toolName) {
                 "match_tool" -> "正在分析简历与岗位匹配度..."
-                "resume_tool" -> "正在扫描简历可优化点..."
+                "resume_tool" -> "简历正在优化中..."
                 "interview_tool" -> "正在加载面试会话..."
                 "tracking_tool" -> "正在读取投递记录..."
                 "platform_tool" -> "正在生成打招呼话术..."
                 else -> "正在调用 ${intent.toolCall.function}..."
             }
-            emit(AgentOutput.ToolStart(toolName = intent.toolCall.toolName, description = toolDesc))
+            emit(AgentOutput.ToolStart(toolName = toolName, description = toolDesc))
 
-            val toolResult = executeTool(intent.toolCall.toolName, userText, appContext)
-            if (toolResult != null) {
+            val toolResult = executeTool(toolName, userText, appContext)
+
+            // 3b. resume_tool：简历已存在，无论是否生成 diff 建议，都展示简历预览卡
+            if (toolName == "resume_tool") {
+                if (toolResult != null) emit(AgentOutput.ToolResult(toolResult))
+                val previewCard = buildResumePreviewCard()
+                if (previewCard != null) {
+                    emit(AgentOutput.ToolResult(previewCard))
+                } else if (toolResult == null) {
+                    // 理论上简历存在就能构建预览卡；兜底防止 loading 气泡残留
+                    emit(AgentOutput.ToolCancelled(toolName))
+                    emit(AgentOutput.StreamText("简历已就绪，但暂时没有可自动优化的内容，你可以告诉我想优化哪一部分。\n\n"))
+                }
+                if (toolResult != null || previewCard != null) {
+                    emit(AgentOutput.Done)
+                    return@flow
+                }
+            } else if (toolResult != null) {
                 emit(AgentOutput.ToolResult(toolResult))
-                // match_tool 成功后追加简历预览卡，让用户直观看到当前简历 HTML
-                if (intent.toolCall.toolName == "match_tool") {
+                // match_tool 完成后追加简历预览卡
+                if (toolName == "match_tool") {
                     buildResumePreviewCard()?.let { emit(AgentOutput.ToolResult(it)) }
                 }
                 emit(AgentOutput.Done)
                 return@flow
             }
-            // 工具缺少前置条件 — 缺简历时直接给上传卡片，其他情况给提示文字
-            emit(AgentOutput.ToolCancelled(intent.toolCall.toolName))
-            val needsResume = intent.toolCall.toolName in listOf("resume_tool", "match_tool")
-            if (needsResume) {
-                val (title, desc) = when (intent.toolCall.toolName) {
-                    "resume_tool" -> "需要您的简历" to "请上传简历文件，支持 PDF、Word 或纯文本格式"
-                    else -> "需要简历才能分析匹配度" to "请上传简历文件，支持 PDF、Word 或纯文本格式"
-                }
-                emit(AgentOutput.ToolResult(UiCard.UploadPromptCard(title = title, description = desc)))
-                emit(AgentOutput.Done)
-                return@flow
-            }
-            val hint = when (intent.toolCall.toolName) {
+
+            // 3c. 工具有前置条件但无产出（如 match 缺 JD、面试无会话）——
+            //     移除 loading 气泡，给一段引导文字后交给 LLM 继续对话
+            emit(AgentOutput.ToolCancelled(toolName))
+            val hint = when (toolName) {
+                "match_tool" -> "（还没有设置目标岗位 JD，无法计算匹配度。你可以把岗位描述发给我，我来帮你分析）"
                 "interview_tool" -> "（需要先在模拟面试页面开启会话才能加载面试卡片）"
                 "tracking_tool" -> "（暂无投递记录，请先在投递追踪页面添加记录）"
                 "platform_tool" -> "（需要先设置目标岗位 JD 才能生成打招呼话术卡片，以下是文字建议）"
@@ -431,6 +465,71 @@ class AgentUseCase @Inject constructor(
             emptyList()
         }
     }
+
+    // ── JD 自动保存 ─────────────────────────────────────────────────────────
+
+    /**
+     * 判断文本是否像 JD：长度足够 + 包含岗位关键词。
+     */
+    private fun looksLikeJd(text: String): Boolean {
+        if (text.length < 60) return false
+        val jdKeywords = listOf(
+            "岗位", "职责", "要求", "任职", "招聘", "学历", "经验", "薪资",
+            "本科", "硕士", "负责", "团队", "开发", "设计", "产品", "项目",
+            "职位", "工作", "技能", "能力", "熟悉", "掌握", "了解"
+        )
+        val hitCount = jdKeywords.count { text.contains(it) }
+        return hitCount >= 4
+    }
+
+    /**
+     * 尝试从用户输入中提取 JD 并保存到 JD 库。
+     * 后台执行，不阻塞对话流。
+     */
+    private suspend fun tryAutoSaveJd(userText: String) {
+        try {
+            // 用 AI 提取关键信息
+            val prompt = """你是一位招聘专家。请从以下文本中提取岗位信息，只返回JSON：
+{"company":"公司名（如未提及则为空字符串）","position":"职位名称","salary":"薪资范围（如20k-40k，未提及则为空字符串）","skills":["技能1","技能2","技能3"]}"""
+            val request = LlmRequest(
+                messages = listOf(
+                    Message("system", prompt),
+                    Message("user", "请提取: ${userText.take(2000)}")
+                ),
+                temperature = 0.3,
+                maxTokens = 300
+            )
+            val response = aiProviderManager.chatWithFallback(request)
+            val json = response.content
+                .removePrefix("```json").removePrefix("```")
+                .removeSuffix("```").trim()
+
+            val adapter = moshi.adapter(JdExtractResultMoshi::class.java)
+            val result = adapter.fromJson(json) ?: return
+
+            if (result.position.isNotBlank()) {
+                jdLibraryRepository.saveFromAi(
+                    companyName = result.company,
+                    positionName = result.position,
+                    rawText = userText,
+                    structuredJson = json,
+                    skills = result.skills,
+                    salary = result.salary
+                )
+                Log.d(TAG, "已自动保存 JD: ${result.company} ${result.position}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "自动保存 JD 失败: ${e.message}")
+        }
+    }
+
+    @com.squareup.moshi.JsonClass(generateAdapter = false)
+    data class JdExtractResultMoshi(
+        val company: String = "",
+        val position: String = "",
+        val salary: String = "",
+        val skills: List<String> = emptyList()
+    )
 
     // ── 调试用：弹出所有卡片类型 ───────────────────────────────────────────────
 

@@ -80,7 +80,6 @@ import com.example.tielink.ui.theme.TieLinkTheme
 @Composable
 fun ResumeOptimizeScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToInterview: () -> Unit,
     onNavigateToJdInput: () -> Unit,
     onNavigateToPolish: (resumeText: String, jdRawText: String, jdStructuredJson: String,
                           templatePath: String?, sourceType: String, fullPolish: Boolean) -> Unit = { _, _, _, _, _, _ -> },
@@ -408,16 +407,10 @@ fun ResumeOptimizeScreen(
 
             // ── Bottom Actions ────────────────────────────────
             if (state.resumeText.isNotBlank()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { versionNameDialog = true },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("保存版本") }
-                    Button(
-                        onClick = onNavigateToInterview,
-                        modifier = Modifier.weight(1f)
-                    ) { Text("用这份简历去面试 →") }
-                }
+                OutlinedButton(
+                    onClick = { versionNameDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("保存版本") }
             }
 
             // ── Save Version Dialog (Sprint 2.5) ──────────────
@@ -561,7 +554,6 @@ private fun ResumeOptimizeScreenPreview() {
     TieLinkTheme {
         ResumeOptimizeScreen(
             onNavigateBack = {},
-            onNavigateToInterview = {},
             onNavigateToJdInput = {}
         )
     }

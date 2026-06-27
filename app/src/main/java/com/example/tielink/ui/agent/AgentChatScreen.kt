@@ -47,8 +47,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
@@ -100,55 +100,57 @@ import com.example.tielink.ui.theme.TieLinkTheme
 fun AgentChatScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToResumeOptimize: () -> Unit,
-    onNavigateToMockInterview: () -> Unit,
     onNavigateToTracking: () -> Unit,
+    onNavigateToJdList: () -> Unit = {},
+    onNavigateToResumeLibrary: () -> Unit = {},
+    onNavigateToResumePreview: (Long) -> Unit = {},
     viewModel: AgentViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // 新消息时立即滚动到底部（不使用动画，避免与 streaming 更新冲突）
-    LaunchedEffect(state.messages.size) {
+    // 新消息或 streaming 过程中跟随内容增长滚到底部
+    LaunchedEffect(state.messages.size, state.isStreaming) {
         if (state.messages.isNotEmpty()) {
-            listState.scrollToItem(state.messages.size - 1)
-        }
-    }
-    // streaming 过程中跟随内容增长滚到底部
-    LaunchedEffect(state.isStreaming) {
-        if (state.isStreaming) {
-            snapshotFlow { state.messages.size }
-                .collect { listState.scrollToItem(maxOf(0, it - 1)) }
-        }
-    }
-
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            val mimeType = context.contentResolver.getType(it)
-            var fileName = "文件"
-            context.contentResolver.query(it, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && nameIndex >= 0) fileName = cursor.getString(nameIndex)
+            if (state.isStreaming) {
+                snapshotFlow { state.messages.size }
+                    .collect { listState.scrollToItem(maxOf(0, it - 1)) }
+            } else {
+                listState.scrollToItem(state.messages.size - 1)
             }
-            viewModel.attachFile(context, it, mimeType, fileName)
         }
     }
 
-    // 收集卡片内"上传简历"按钮触发的事件
+    // toolName 来自上传卡片时非空；来自输入框附件按钮时为空串
+    var pendingPickerToolName by remember { mutableStateOf("") }
+
+    // 使用 GetContent 而非 OpenDocument — MIUI 对 ACTION_GET_CONTENT 兼容性更好
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        android.util.Log.d("AgentChatScreen", "文件选择器回调: uri=$uri, pendingToolName=$pendingPickerToolName")
+        if (uri == null) {
+            android.util.Log.w("AgentChatScreen", "文件选择器返回 null (用户取消或 MIUI 投递失败)")
+            return@rememberLauncherForActivityResult
+        }
+        val mimeType = context.contentResolver.getType(uri)
+        var fileName = "文件"
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst() && nameIndex >= 0) fileName = cursor.getString(nameIndex)
+        }
+        viewModel.attachFile(context, uri, mimeType, fileName, fromCardToolName = pendingPickerToolName)
+        pendingPickerToolName = ""
+    }
+
+    // 收集文件选择器触发事件；toolName 非空说明来自上传卡片
     LaunchedEffect(Unit) {
-        viewModel.openFilePicker.collect {
-            filePickerLauncher.launch(arrayOf(
-                "application/pdf",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "text/plain", "image/*"
-            ))
+        viewModel.openFilePicker.collect { toolName ->
+            android.util.Log.d("AgentChatScreen", "openFilePicker 收到: toolName=$toolName")
+            pendingPickerToolName = toolName
+            filePickerLauncher.launch("*/*")
         }
-    }
-
-    LaunchedEffect(state.messages.size) {
-        if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.size - 1)
     }
 
     Scaffold(
@@ -162,6 +164,14 @@ fun AgentChatScreen(
                         Icon(Icons.Default.Menu, contentDescription = "菜单")
                     }
                 },
+                actions = {
+                    IconButton(onClick = onNavigateToJdList) {
+                        Icon(Icons.Default.Work, contentDescription = "JD 库")
+                    }
+                    IconButton(onClick = onNavigateToResumeLibrary) {
+                        Icon(Icons.Outlined.Description, contentDescription = "简历库")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -169,7 +179,6 @@ fun AgentChatScreen(
             Column {
                 QuickActionsBar(
                     onResumeOptimize = onNavigateToResumeOptimize,
-                    onMockInterview = onNavigateToMockInterview,
                     onTracking = onNavigateToTracking
                 )
                 if (state.pendingAttachmentName != null || state.isParsingFile) {
@@ -187,11 +196,8 @@ fun AgentChatScreen(
                     onSend = { viewModel.sendMessage() },
                     onCancel = { viewModel.cancelStream() },
                     onAttach = {
-                        filePickerLauncher.launch(arrayOf(
-                            "application/pdf",
-                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            "text/plain", "image/*"
-                        ))
+                        pendingPickerToolName = ""   // 输入框附件按钮：手动模式
+                        filePickerLauncher.launch("*/*")
                     }
                 )
             }
@@ -252,7 +258,7 @@ fun AgentChatScreen(
                                 }
                             }
                         ) { message ->
-                            MessageRow(message = message)
+                            MessageRow(message = message, onNavigateToResumePreview = onNavigateToResumePreview)
                         }
 
                         item { Spacer(modifier = Modifier.height(4.dp)) }
@@ -314,7 +320,7 @@ private fun WelcomePage(
         Spacer(Modifier.height(6.dp))
 
         Text(
-            text = "分析匹配度、优化简历、模拟面试、追踪投递",
+            text = "分析匹配度、优化简历、追踪投递 — 都可以直接跟我说",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -348,14 +354,14 @@ private fun WelcomePage(
 // ─── Message row — dispatches to the right layout ─────────────────────────────
 
 @Composable
-private fun MessageRow(message: AgentMessage) {
+private fun MessageRow(message: AgentMessage, onNavigateToResumePreview: (Long) -> Unit = {}) {
     when {
         // Tool loading placeholder
         message.toolLoadingName != null -> ToolLoadingBubble(message)
         // Rich card (from tool result)
         message.card != null -> {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                UiCardComposable(card = message.card, modifier = Modifier.fillMaxWidth())
+                UiCardComposable(card = message.card, modifier = Modifier.fillMaxWidth(), onNavigateToResumePreview = onNavigateToResumePreview)
             }
         }
         // User bubble
@@ -528,7 +534,6 @@ private fun ThinkingDotsIndicator() {
 @Composable
 private fun QuickActionsBar(
     onResumeOptimize: () -> Unit,
-    onMockInterview: () -> Unit,
     onTracking: () -> Unit
 ) {
     Row(
@@ -543,9 +548,6 @@ private fun QuickActionsBar(
         )
         AssistChip(onClick = onResumeOptimize, label = { Text("简历优化") },
             leadingIcon = { Icon(Icons.Outlined.Description, null, modifier = Modifier.size(14.dp)) },
-            shape = RoundedCornerShape(16.dp), colors = chipColor)
-        AssistChip(onClick = onMockInterview, label = { Text("模拟面试") },
-            leadingIcon = { Icon(Icons.Outlined.School, null, modifier = Modifier.size(14.dp)) },
             shape = RoundedCornerShape(16.dp), colors = chipColor)
         AssistChip(onClick = onTracking, label = { Text("投递追踪") },
             leadingIcon = { Icon(Icons.Default.Checklist, null, modifier = Modifier.size(14.dp)) },
@@ -594,37 +596,43 @@ private fun InputArea(
     onCancel: () -> Unit,
     onAttach: () -> Unit
 ) {
-    val gradientColors = listOf(
-        Color(0xFF6C63FF), // 紫
-        Color(0xFF3B82F6), // 蓝
-        Color(0xFF06B6D4), // 青
-        Color(0xFF10B981)  // 绿
-    )
+    // remember 避免每帧重组时重新创建列表
+    val gradientColors = remember {
+        listOf(
+            Color(0xFF6C63FF), // 紫
+            Color(0xFF3B82F6), // 蓝
+            Color(0xFF06B6D4), // 青
+            Color(0xFF10B981)  // 绿
+        )
+    }
+    val inputShape = remember { RoundedCornerShape(28.dp) }
 
-    // 悬浮容器：顶部渐变遮罩 + 输入框
+    // 悬浮容器：imePadding 跟随键盘上移，animateContentSize 平滑过渡
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
+            .animateContentSize()
             .padding(bottom = 20.dp)
     ) {
         // 输入框本体
+        // 关键优化：
+        // 1. shadow 去除自定义颜色 → GPU RenderNode 硬件加速（自定义颜色会回退到软件渲染）
+        // 2. elevation 从 24dp 降至 12dp，减少阴影计算面积
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
                 .shadow(
-                    elevation = 24.dp,
-                    shape = RoundedCornerShape(28.dp),
-                    ambientColor = Color(0xFF6C63FF).copy(alpha = 0.55f),
-                    spotColor = Color(0xFF3B82F6).copy(alpha = 0.55f)
+                    elevation = 12.dp,
+                    shape = inputShape
                 )
                 .border(
                     width = 2.dp,
                     brush = Brush.horizontalGradient(gradientColors),
-                    shape = RoundedCornerShape(28.dp)
+                    shape = inputShape
                 )
-                .clip(RoundedCornerShape(28.dp))
+                .clip(inputShape)
                 .background(MaterialTheme.colorScheme.surface)
         ) {
             OutlinedTextField(
@@ -757,7 +765,6 @@ private fun QuickActionsBarPreview() {
     TieLinkTheme {
         QuickActionsBar(
             onResumeOptimize = {},
-            onMockInterview = {},
             onTracking = {}
         )
     }
@@ -843,7 +850,7 @@ private fun AgentChatScreenContentPreview() {
             },
             bottomBar = {
                 Column {
-                    QuickActionsBar(onResumeOptimize = {}, onMockInterview = {}, onTracking = {})
+                    QuickActionsBar(onResumeOptimize = {}, onTracking = {})
                     InputArea(
                         text = "", isStreaming = false, hasAttachment = false,
                         onTextChange = {}, onSend = {}, onCancel = {}, onAttach = {}

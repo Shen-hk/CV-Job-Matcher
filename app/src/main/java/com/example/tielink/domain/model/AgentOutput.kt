@@ -55,7 +55,9 @@ sealed class UiCard {
         val before: String,
         val after: String,
         val onAccept: () -> Unit,
-        val onRollback: () -> Unit
+        val onRollback: () -> Unit,
+        /** 交互状态：决定卡片渲染采用/撤回反馈 */
+        val status: DiffStatus = DiffStatus.PENDING
     ) : UiCard()
 
     data class ResumePreviewCard(
@@ -94,6 +96,7 @@ sealed class UiCard {
     data class UploadPromptCard(
         val title: String,
         val description: String,
+        val toolName: String = "",
         val onUpload: () -> Unit = {}
     ) : UiCard()
 }
@@ -103,3 +106,11 @@ data class GreetingVersion(
     val content: String,
     val highlightedSkills: List<String>
 )
+
+/** ResumeDiffCard 的交互状态 */
+enum class DiffStatus {
+    PENDING,    // 待用户决定
+    ACCEPTED,   // 已采用并写回简历
+    ROLLED_BACK,// 已撤回（保留原文）
+    FAILED      // 采用失败（原文未在简历中定位到）
+}

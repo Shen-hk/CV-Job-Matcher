@@ -229,10 +229,7 @@ fun ResultScreen(
                             missingKeywords = state.missingKeywords,
                             suggestions = state.suggestions,
                             iterativeHistory = state.iterativeHistory,
-                            jdTitle = state.jdTitle,
-                            chatMessages = state.aiChatMessages,
-                            isAiProcessing = state.isAiProcessing,
-                            onSendChatMessage = { viewModel.sendAiChatMessage(it) }
+                            jdTitle = state.jdTitle
                         )
 
                         // ── Main content: 内容编辑 ────────────
@@ -287,78 +284,43 @@ private fun SmartSidebar(
     missingKeywords: List<String>,
     suggestions: List<String>,
     iterativeHistory: List<String>,
-    jdTitle: String,
-    // ── Chat params ──
-    chatMessages: List<ChatMessage> = emptyList(),
-    isAiProcessing: Boolean = false,
-    onSendChatMessage: (String) -> Unit = {}
+    jdTitle: String
 ) {
-    val chatWidth = if (activeTab == "chat") 400.dp else 260.dp
-
     Column(
         Modifier
             .fillMaxHeight()
             .background(BgSurface)
             .border(1.dp, BorderLight)
             .animateContentSize()
-            .widthIn(min = 44.dp, max = if (expanded) chatWidth else 44.dp)
+            .widthIn(min = 44.dp, max = if (expanded) 260.dp else 44.dp)
     ) {
         if (expanded) {
-            when (activeTab) {
-                "chat" -> {
-                    // Chat panel has its own full layout (no scroll wrapper)
-                    Column(Modifier.fillMaxWidth().weight(1f)) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "AI 助手",
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 14.sp
-                            )
-                            IconButton(onClick = onToggleExpanded, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.Close, "收起", Modifier.size(16.dp))
-                            }
-                        }
-                        androidx.compose.material3.HorizontalDivider(color = BorderLight)
-                        AiChatPanel(
-                            messages = chatMessages,
-                            isProcessing = isAiProcessing,
-                            onSend = onSendChatMessage
-                        )
+            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+                Row(
+                    Modifier.fillMaxWidth().padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        when (activeTab) {
+                            "ai" -> "AI 建议"
+                            "keywords" -> "关键词"
+                            "history" -> "历史版本"
+                            else -> "设置"
+                        },
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    )
+                    IconButton(onClick = onToggleExpanded, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, "收起", Modifier.size(16.dp))
                     }
                 }
-                else -> {
-                    Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                when (activeTab) {
-                                    "ai" -> "AI 建议"
-                                    "keywords" -> "关键词"
-                                    "history" -> "历史版本"
-                                    else -> "设置"
-                                },
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 14.sp
-                            )
-                            IconButton(onClick = onToggleExpanded, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.Close, "收起", Modifier.size(16.dp))
-                            }
-                        }
-                        androidx.compose.material3.HorizontalDivider(color = BorderLight)
+                androidx.compose.material3.HorizontalDivider(color = BorderLight)
 
-                        when (activeTab) {
-                            "ai" -> AiSuggestionsPanel(suggestions, matchedKeywords, missingKeywords, jdTitle)
-                            "keywords" -> KeywordsDetailPanel(matchScore, matchLevel, matchedKeywords, missingKeywords)
-                            "history" -> HistoryPanel(iterativeHistory)
-                        }
-                    }
+                when (activeTab) {
+                    "ai" -> AiSuggestionsPanel(suggestions, matchedKeywords, missingKeywords, jdTitle)
+                    "keywords" -> KeywordsDetailPanel(matchScore, matchLevel, matchedKeywords, missingKeywords)
+                    "history" -> HistoryPanel(iterativeHistory)
                 }
             }
         } else {
@@ -370,7 +332,6 @@ private fun SmartSidebar(
                 SidebarIcon(Icons.Default.AutoAwesome, "AI", activeTab == "ai") { onSelectTab("ai") }
                 SidebarIcon(Icons.Default.Fullscreen, "关键词", activeTab == "keywords") { onSelectTab("keywords") }
                 SidebarIcon(Icons.Default.History, "历史", activeTab == "history") { onSelectTab("history") }
-                SidebarIcon(Icons.Default.AutoAwesome, "AI助手", activeTab == "chat") { onSelectTab("chat") }
                 Spacer(Modifier.weight(1f))
                 Spacer(Modifier.height(8.dp))
             }
@@ -416,18 +377,6 @@ private fun SidebarIconPreview() {
         }
     }
 }
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun ResultChatBubblePreview() {
-    TieLinkTheme {
-        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ChatBubble(ChatMessage(role = "user", content = "帮我把项目经历改成更量化的描述"))
-            ChatBubble(ChatMessage(role = "assistant", content = "好的，我已经将你的项目经历改写为STAR格式，并补充了具体的数据指标。你可以查看右侧预览效果。"))
-        }
-    }
-}
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun ExpandableSectionCardPreview() {
@@ -1426,182 +1375,6 @@ private fun ExpandableSectionCard(
                 Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
                     content()
                 }
-            }
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  AI 聊天面板 (侧栏内)
-// ═══════════════════════════════════════════════════════════════
-
-@Composable
-private fun AiChatPanel(
-    messages: List<ChatMessage>,
-    isProcessing: Boolean,
-    onSend: (String) -> Unit
-) {
-    var inputText by rememberSaveable { mutableStateOf("") }
-    val listState = rememberLazyListState()
-
-    // Auto-scroll to bottom on new messages
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize().background(BgWhite)
-    ) {
-        // Message list
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            if (messages.isEmpty()) {
-                item {
-                    Box(
-                        Modifier.fillMaxWidth().padding(top = 24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🤖", fontSize = 32.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "告诉我你想怎么修改简历",
-                                fontSize = 13.sp,
-                                color = TextTertiary
-                            )
-                            Text(
-                                "例如：「把项目经历改成更量化」",
-                                fontSize = 12.sp,
-                                color = TextTertiary.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-                }
-            }
-            items(messages.size) { index ->
-                val msg = messages[index]
-                ChatBubble(msg)
-            }
-            if (isProcessing) {
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Card(
-                            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = BgSurface)
-                        ) {
-                            Row(
-                                Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CircularProgressIndicator(
-                                    Modifier.size(14.dp),
-                                    strokeWidth = 2.dp,
-                                    color = BrandBlue
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "AI 思考中...",
-                                    fontSize = 12.sp,
-                                    color = TextTertiary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Input area
-        androidx.compose.material3.HorizontalDivider(color = BorderLight)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("输入修改需求...", fontSize = 12.sp) },
-                maxLines = 3,
-                textStyle = MaterialTheme.typography.bodySmall,
-                shape = RoundedCornerShape(16.dp),
-                enabled = !isProcessing
-            )
-            IconButton(
-                onClick = {
-                    if (inputText.isNotBlank() && !isProcessing) {
-                        onSend(inputText.trim())
-                        inputText = ""
-                    }
-                },
-                modifier = Modifier.size(38.dp),
-                enabled = inputText.isNotBlank() && !isProcessing
-            ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Send, "发送",
-                        Modifier.size(20.dp),
-                        tint = if (inputText.isNotBlank()) BrandBlue else TextTertiary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChatBubble(message: ChatMessage) {
-    val isUser = message.role == "user"
-    val horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
-
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
-    ) {
-        Card(
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp
-            ),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isUser) BrandBlueLight else BgSurface
-            ),
-            modifier = Modifier.widthIn(max = 360.dp),
-            border = if (!isUser) androidx.compose.foundation.BorderStroke(0.5.dp, BorderLight) else null
-        ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                if (!isUser) {
-                    Text(
-                        text = "🤖 AI助手",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = BrandBlue,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                }
-                Text(
-                    text = message.content,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextPrimary
-                )
             }
         }
     }

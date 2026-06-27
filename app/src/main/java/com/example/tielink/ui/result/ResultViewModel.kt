@@ -17,6 +17,7 @@ import com.example.tielink.data.local.db.entity.HistoryEntity
 import com.example.tielink.data.repository.CoverLetterRepository
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.PolishRepository
+import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.MatchLevel
 import com.example.tielink.domain.model.PolishResult
 import com.example.tielink.domain.model.ResumeData
@@ -35,12 +36,6 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
-
-data class ChatMessage(
-    val role: String,   // "user" | "assistant"
-    val content: String,
-    val timestamp: Long = System.currentTimeMillis()
-)
 
 data class ResultUiState(
     val polishedResume: String = "",
@@ -76,9 +71,6 @@ data class ResultUiState(
     // ── 内容编辑 ──
     val selectedTab: String = "edit",   // "edit" | "flow_agent"
     val expandedSection: String? = null, // "personal" | "projects" | "education" | "experience" | "skills"
-    // ── AI 聊天 ──
-    val aiChatMessages: List<ChatMessage> = emptyList(),
-    val isAiProcessing: Boolean = false,
     val showCompletionAnimation: Boolean = false
 )
 
@@ -88,6 +80,7 @@ class ResultViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     private val polishRepository: PolishRepository,
     private val coverLetterRepository: CoverLetterRepository,
+    private val resumeVersionRepository: ResumeVersionRepository,
     private val moshi: Moshi,
     private val application: Application
 ) : ViewModel() {
@@ -98,9 +91,39 @@ class ResultViewModel @Inject constructor(
 
     init {
         val sessionId = savedStateHandle.get<Long>("sessionId") ?: -1L
-        Log.d(TAG, "init: sessionId=$sessionId")
-        if (sessionId > 0) loadResult(sessionId)
-        else _uiState.update { it.copy(isLoading = false, error = "未找到润色结果") }
+        val versionId = savedStateHandle.get<Long>("versionId") ?: -1L
+        Log.d(TAG, "init: sessionId=$sessionId, versionId=$versionId")
+        when {
+            sessionId > 0 -> loadResult(sessionId)
+            versionId > 0 -> loadResumeVersion(versionId)
+            else -> _uiState.update { it.copy(isLoading = false, error = "未找到润色结果") }
+        }
+    }
+
+    private fun loadResumeVersion(versionId: Long) {
+        viewModelScope.launch {
+            try {
+                val version = resumeVersionRepository.getById(versionId)
+                if (version == null) {
+                    _uiState.update { it.copy(isLoading = false, error = "简历版本未找到") }
+                    return@launch
+                }
+                val rawText = version.rawText.ifBlank { version.cleanedText }
+                val resumeData = ResumeData.fromPolishedText(rawText)
+                _uiState.update {
+                    it.copy(
+                        polishedResume = rawText,
+                        jdTitle = version.name,
+                        resumeData = resumeData,
+                        currentSessionId = versionId,
+                        isLoading = false
+                    )
+                }
+            } catch (ex: Exception) {
+                Log.e(TAG, "loadResumeVersion 失败: ${ex.message}", ex)
+                _uiState.update { it.copy(isLoading = false, error = "加载失败: ${ex.localizedMessage}") }
+            }
+        }
     }
 
     private fun loadResult(sessionId: Long) {
@@ -367,89 +390,6 @@ class ResultViewModel @Inject constructor(
 
     fun setExpandedSection(section: String?) {
         _uiState.update { it.copy(expandedSection = section) }
-    }
-
-    /** 发送 AI 聊天消息，自动修改简历 */
-    fun sendAiChatMessage(instruction: String) {
-        if (instruction.isBlank()) return
-        viewModelScope.launch {
-            val state = _uiState.value
-            val userMsg = ChatMessage(role = "user", content = instruction)
-            _uiState.update {
-                it.copy(
-                    aiChatMessages = it.aiChatMessages + userMsg,
-                    isAiProcessing = true
-                )
-            }
-
-            try {
-                val resumeJson = state.resumeData?.let { data ->
-                    moshi.adapter(ResumeData::class.java).toJson(data)
-                } ?: ""
-
-                val result = polishRepository.iterativePolish(
-                    jdText = state.jdRawText,
-                    currentResumeJson = resumeJson,
-                    instruction = instruction
-                )
-
-                result.fold(
-                    onSuccess = { rawOutput ->
-                        val polishResult = PolishResult.fromLlmOutput(rawOutput)
-                        val newResumeData = (if (polishResult.resumeJson.isNotBlank()) {
-                            ResumeData.fromJsonString(polishResult.resumeJson)
-                        } else {
-                            ResumeData.fromPolishedText(polishResult.polishedResume)
-                        })?.withAutoDetectedLinks()
-                        // 如果 AI 没返回链接，保留用户之前手动填的
-                        val mergedData = if (newResumeData?.links.isNullOrEmpty() && state.resumeData?.links?.isNotEmpty() == true) {
-                            newResumeData?.copy(links = state.resumeData!!.links)
-                        } else newResumeData
-
-                        val replyContent = polishResult.optimizationNote.ifBlank {
-                            "已根据你的需求完成修改 ✅"
-                        }
-                        val assistantMsg = ChatMessage(role = "assistant", content = replyContent)
-
-                        _uiState.update {
-                            it.copy(
-                                resumeData = mergedData,
-                                polishedResume = polishResult.polishedResume,
-                                aiChatMessages = it.aiChatMessages + assistantMsg,
-                                isAiProcessing = false,
-                                showCompletionAnimation = true
-                            )
-                        }
-                        Log.i(TAG, "AI聊天修改完成")
-                    },
-                    onFailure = { e ->
-                        Log.e(TAG, "AI聊天修改失败: ${e.message}", e)
-                        val errorMsg = ChatMessage(
-                            role = "assistant",
-                            content = "抱歉，修改失败：${e.localizedMessage}"
-                        )
-                        _uiState.update {
-                            it.copy(
-                                aiChatMessages = it.aiChatMessages + errorMsg,
-                                isAiProcessing = false
-                            )
-                        }
-                    }
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "AI聊天异常: ${e.message}", e)
-                val errorMsg = ChatMessage(
-                    role = "assistant",
-                    content = "抱歉，出了点问题：${e.localizedMessage}"
-                )
-                _uiState.update {
-                    it.copy(
-                        aiChatMessages = it.aiChatMessages + errorMsg,
-                        isAiProcessing = false
-                    )
-                }
-            }
-        }
     }
 
     fun dismissCompletionAnimation() {

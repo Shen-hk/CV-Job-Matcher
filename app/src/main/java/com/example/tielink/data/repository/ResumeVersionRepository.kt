@@ -38,6 +38,11 @@ class ResumeVersionRepository @Inject constructor(
         }
     }
 
+    suspend fun insertAndActivate(version: ResumeVersion): Long {
+        dao.deactivateAll()
+        return dao.insert(version.copy(isActive = true).toEntity())
+    }
+
     suspend fun setActive(id: Long) {
         dao.deactivateAll()
         dao.setActive(id)

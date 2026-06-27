@@ -6,11 +6,13 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.tielink.data.local.db.dao.HistoryDao
 import com.example.tielink.data.local.db.dao.InterviewDao
+import com.example.tielink.data.local.db.dao.JdLibraryDao
 import com.example.tielink.data.local.db.dao.ResumeVersionDao
 import com.example.tielink.data.local.db.dao.TrackingDao
 import com.example.tielink.data.local.db.entity.HistoryEntity
 import com.example.tielink.data.local.db.entity.InterviewMessageEntity
 import com.example.tielink.data.local.db.entity.InterviewSessionEntity
+import com.example.tielink.data.local.db.entity.JdLibraryEntity
 import com.example.tielink.data.local.db.entity.ResumeVersionEntity
 import com.example.tielink.data.local.db.entity.TrackingEntity
 
@@ -20,9 +22,10 @@ import com.example.tielink.data.local.db.entity.TrackingEntity
         ResumeVersionEntity::class,
         TrackingEntity::class,
         InterviewSessionEntity::class,
-        InterviewMessageEntity::class
+        InterviewMessageEntity::class,
+        JdLibraryEntity::class
     ],
-    version = 6,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,6 +33,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun resumeVersionDao(): ResumeVersionDao
     abstract fun trackingDao(): TrackingDao
     abstract fun interviewDao(): InterviewDao
+    abstract fun jdLibraryDao(): JdLibraryDao
 
     companion object {
         val MIGRATION_3_4 = object : Migration(3, 4) {
@@ -105,6 +109,29 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // Index on session_id for fast message lookups
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_interview_messages_session_id ON interview_messages(session_id)")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS jd_library (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        company_name TEXT NOT NULL DEFAULT '',
+                        position_name TEXT NOT NULL DEFAULT '',
+                        raw_text TEXT NOT NULL,
+                        structured_json TEXT NOT NULL DEFAULT '',
+                        skills TEXT NOT NULL DEFAULT '',
+                        source_type TEXT NOT NULL DEFAULT 'manual',
+                        created_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE jd_library ADD COLUMN salary TEXT NOT NULL DEFAULT ''")
             }
         }
     }

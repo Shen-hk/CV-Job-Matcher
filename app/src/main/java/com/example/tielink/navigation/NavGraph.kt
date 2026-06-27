@@ -1,5 +1,10 @@
 package com.example.tielink.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import com.example.tielink.ui.LocalGlobalJdViewModel
@@ -9,12 +14,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.tielink.ui.agent.AgentChatScreen
 import com.example.tielink.ui.history.HistoryScreen
-import com.example.tielink.ui.home.HomeScreen
-import com.example.tielink.ui.interview.InterviewScreen
 import com.example.tielink.ui.jdinput.JdInputScreen
+import com.example.tielink.ui.jdlist.JdListScreen
 import com.example.tielink.ui.polish.PolishScreen
 import com.example.tielink.ui.result.ResultScreen
 import com.example.tielink.ui.resumeinput.ResumeInputScreen
+import com.example.tielink.ui.resumelibrary.ResumeLibraryScreen
 import com.example.tielink.ui.resumeoptimize.ResumeOptimizeScreen
 import com.example.tielink.ui.settings.SettingsScreen
 import com.example.tielink.ui.tracking.TrackingScreen
@@ -22,11 +27,11 @@ import java.net.URLEncoder
 
 object Routes {
     // ── New: Parallel workbench ──
-    const val HOME = "home"
     const val RESUME_OPTIMIZE = "resume_optimize"
-    const val MOCK_INTERVIEW = "mock_interview"
     const val TRACKING = "tracking"
     const val AGENT_CHAT = "agent_chat"
+    const val JD_LIST = "jd_list"
+    const val RESUME_LIBRARY = "resume_library"
 
     // ── Legacy: Linear flow (kept for backward compat) ──
     const val JD_INPUT = "jd_input"
@@ -35,6 +40,7 @@ object Routes {
     const val RESULT = "result/{sessionId}"
     const val HISTORY = "history"
     const val SETTINGS = "settings"
+    const val RESUME_FULL_PREVIEW = "resume_full_preview/{versionId}"
 
     // ── JD优化 flow ──
     const val JD_OPTIMIZE_JD_INPUT = "jd_optimize_jd_input"
@@ -59,6 +65,7 @@ object Routes {
     }
 
     fun result(sessionId: Long): String = "result/$sessionId"
+    fun resumeFullPreview(versionId: Long): String = "resume_full_preview/$versionId"
 }
 
 @Composable
@@ -67,40 +74,17 @@ fun NavGraph(navController: NavHostController) {
         navController = navController,
         startDestination = Routes.AGENT_CHAT  // Agent as main entry point
     ) {
-        // ── Home ────────────────────────────────────────────
-        composable(Routes.HOME) {
-            HomeScreen(
-                onNavigateToResumeOptimize = {
-                    navController.navigate(Routes.RESUME_OPTIMIZE)
-                },
-                onNavigateToMockInterview = {
-                    navController.navigate(Routes.MOCK_INTERVIEW)
-                },
-                onNavigateToTracking = {
-                    navController.navigate(Routes.TRACKING)
-                },
-                onNavigateToSettings = {
-                    navController.navigate(Routes.SETTINGS)
-                },
-                onNavigateToJdInput = {
-                    navController.navigate(Routes.JD_INPUT)
-                },
-                onNavigateToJdOptimize = {
-                    navController.navigate(Routes.JD_OPTIMIZE_JD_INPUT)
-                },
-                onNavigateToAgentChat = {
-                    navController.navigate(Routes.AGENT_CHAT)
-                }
-            )
-        }
-
         // ── Agent Chat (new main entry) ────────────────────
         composable(Routes.AGENT_CHAT) {
             AgentChatScreen(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToResumeOptimize = { navController.navigate(Routes.RESUME_OPTIMIZE) },
-                onNavigateToMockInterview = { navController.navigate(Routes.MOCK_INTERVIEW) },
-                onNavigateToTracking = { navController.navigate(Routes.TRACKING) }
+                onNavigateToTracking = { navController.navigate(Routes.TRACKING) },
+                onNavigateToJdList = { navController.navigate(Routes.JD_LIST) },
+                onNavigateToResumeLibrary = { navController.navigate(Routes.RESUME_LIBRARY) },
+                onNavigateToResumePreview = { versionId ->
+                    navController.navigate(Routes.resumeFullPreview(versionId))
+                }
             )
         }
 
@@ -108,30 +92,11 @@ fun NavGraph(navController: NavHostController) {
         composable(Routes.RESUME_OPTIMIZE) {
             ResumeOptimizeScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToInterview = {
-                    navController.navigate(Routes.MOCK_INTERVIEW)
-                },
                 onNavigateToJdInput = {
                     navController.navigate(Routes.JD_INPUT)
                 },
                 onNavigateToPolish = { resumeText, jdRawText, jdJson, tp, st, fp ->
                     navController.navigate(Routes.polish(resumeText, jdRawText, jdJson, tp, st, fp))
-                }
-            )
-        }
-
-        // ── Mock Interview (new) ────────────────────────────
-        composable(Routes.MOCK_INTERVIEW) {
-            InterviewScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToResumeEdit = {
-                    navController.navigate(Routes.RESUME_OPTIMIZE)
-                },
-                onNavigateToTracking = {
-                    navController.navigate(Routes.TRACKING)
-                },
-                onNavigateToJdInput = {
-                    navController.navigate(Routes.JD_INPUT)
                 }
             )
         }
@@ -233,7 +198,7 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onPolishSuccess = { sessionId ->
                     navController.navigate(Routes.result(sessionId)) {
-                        popUpTo(Routes.HOME) { inclusive = false }
+                        popUpTo(Routes.AGENT_CHAT) { inclusive = false }
                     }
                 }
             )
@@ -248,8 +213,8 @@ fun NavGraph(navController: NavHostController) {
         ) {
             ResultScreen(
                 onNavigateBack = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.HOME) { inclusive = true }
+                    navController.navigate(Routes.AGENT_CHAT) {
+                        popUpTo(Routes.AGENT_CHAT) { inclusive = true }
                     }
                 },
                 onNavigateToHistory = {
@@ -272,6 +237,56 @@ fun NavGraph(navController: NavHostController) {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── JD Library ─────────────────────────────────────────
+        composable(Routes.JD_LIST) {
+            JdListScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToPolish = { resumeText, jdRawText, jdStructuredJson, tp, st, fp ->
+                    navController.navigate(Routes.polish(resumeText, jdRawText, jdStructuredJson, tp, st, fp))
+                },
+                onNavigateToTracking = { jdCompany, jdPosition ->
+                    navController.navigate(Routes.TRACKING)
+                },
+                onNavigateToGreeting = { jdRawText, jdCompany ->
+                    // Navigate to agent chat for greeting generation
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // ── Resume Library ─────────────────────────────────────
+        composable(Routes.RESUME_LIBRARY) {
+            ResumeLibraryScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToPreview = { versionId ->
+                    navController.navigate(Routes.resumeFullPreview(versionId))
+                }
+            )
+        }
+
+        // ── Resume Full Preview (from Agent chat card) → reuses ResultScreen ──
+        composable(
+            route = Routes.RESUME_FULL_PREVIEW,
+            arguments = listOf(navArgument("versionId") { type = NavType.LongType }),
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) +
+                        fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(300)) +
+                        fadeOut(animationSpec = tween(300))
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) +
+                        fadeOut(animationSpec = tween(300))
+            }
+        ) {
+            ResultScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToHistory = { navController.navigate(Routes.HISTORY) }
             )
         }
     }

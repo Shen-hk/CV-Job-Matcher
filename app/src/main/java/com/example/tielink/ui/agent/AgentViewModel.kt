@@ -12,6 +12,7 @@ import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentOutput
 import com.example.tielink.domain.model.ContextBarState
+import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.usecase.AgentUseCase
 import com.example.tielink.util.FileParser
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,9 +48,9 @@ class AgentViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AgentChatUiState())
     val uiState: StateFlow<AgentChatUiState> = _uiState.asStateFlow()
 
-    // 通知 UI 触发文件选择器
-    private val _openFilePicker = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val openFilePicker: SharedFlow<Unit> = _openFilePicker.asSharedFlow()
+    // 通知 UI 触发文件选择器；String = toolName（非空时来自上传卡片，空串时来自输入框附件按钮）
+    private val _openFilePicker = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val openFilePicker: SharedFlow<String> = _openFilePicker.asSharedFlow()
 
     private var streamJob: Job? = null
 
@@ -164,13 +165,27 @@ class AgentViewModel @Inject constructor(
                         throttledStreamUpdate()
                     }
                     is AgentOutput.ToolStart -> {
-                        // Insert a transient tool-loading bubble
+                        // Insert a transient tool-loading bubble;
+                        // if a "润色中" processing placeholder is still present, replace it
                         val loadingMsg = AgentMessage(
                             role = AgentMessageRole.AGENT,
                             content = output.description,
                             toolLoadingName = output.toolName
                         )
-                        _uiState.update { it.copy(messages = it.messages + loadingMsg) }
+                        _uiState.update { state ->
+                            val msgs = state.messages.toMutableList()
+                            val processingIdx = msgs.indexOfLast {
+                                it.role == AgentMessageRole.AGENT &&
+                                        it.content == "收到文件啦，正在润色中 ✨" &&
+                                        it.card == null
+                            }
+                            if (processingIdx >= 0) {
+                                msgs[processingIdx] = loadingMsg
+                            } else {
+                                msgs.add(loadingMsg)
+                            }
+                            state.copy(messages = msgs)
+                        }
                     }
                     is AgentOutput.ToolCancelled -> {
                         // 工具因缺少前置条件被取消，移除 loading 气泡，交由 LLM 回复
@@ -181,22 +196,25 @@ class AgentViewModel @Inject constructor(
                         }
                     }
                     is AgentOutput.ToolResult -> {
-                        // Attach real callbacks; replace loading bubble with card
-                        val card = when (val raw = output.card) {
-                            is com.example.tielink.domain.model.UiCard.ResumeDiffCard -> raw.copy(
-                                onAccept = { acceptResumeDiff(raw.after) },
-                                onRollback = { /* nothing — caller keeps original */ }
-                            )
-                            is com.example.tielink.domain.model.UiCard.UploadPromptCard -> raw.copy(
-                                onUpload = { _openFilePicker.tryEmit(Unit) }
-                            )
-                            else -> raw
-                        }
-                        val cardMsg = AgentMessage(
+                        // 先用占位回调建消息以拿到稳定 id，再回填真正引用该 id 的回调
+                        val rawCard = output.card
+                        val placeholderMsg = AgentMessage(
                             role = AgentMessageRole.AGENT,
                             content = "",
-                            card = card
+                            card = rawCard
                         )
+                        val msgId = placeholderMsg.id
+                        val card = when (rawCard) {
+                            is com.example.tielink.domain.model.UiCard.ResumeDiffCard -> rawCard.copy(
+                                onAccept = { acceptResumeDiff(msgId, rawCard.before, rawCard.after) },
+                                onRollback = { rollbackResumeDiff(msgId) }
+                            )
+                            is com.example.tielink.domain.model.UiCard.UploadPromptCard -> rawCard.copy(
+                                onUpload = { _openFilePicker.tryEmit(rawCard.toolName) }
+                            )
+                            else -> rawCard
+                        }
+                        val cardMsg = placeholderMsg.copy(card = card)
                         _uiState.update { state ->
                             val msgs = state.messages.toMutableList()
                             val lastIdx = msgs.indexOfLast { it.toolLoadingName != null }
@@ -268,19 +286,81 @@ class AgentViewModel @Inject constructor(
 
     // ── File attachment ────────────────────────────────────────────────────────
 
-    fun attachFile(context: Context, uri: Uri, mimeType: String?, fileName: String?) {
+    fun attachFile(context: Context, uri: Uri, mimeType: String?, fileName: String?, fromCardToolName: String = "") {
+        Log.d(TAG, "attachFile: uri=$uri, mime=$mimeType, name=$fileName, fromCard=$fromCardToolName")
         viewModelScope.launch {
             _uiState.update { it.copy(isParsingFile = true, error = null) }
             val result = withContext(Dispatchers.IO) { FileParser.extractText(context, uri, mimeType) }
             result.fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isParsingFile = false, pendingAttachmentName = fileName ?: "文件", pendingAttachmentText = text) }
+                    Log.d(TAG, "文件解析成功: ${text.length} 字符, fromCardToolName=$fromCardToolName")
+                    _uiState.update { it.copy(isParsingFile = false) }
+                    if (fromCardToolName.isNotEmpty()) {
+                        saveResumeAndAutoTrigger(text, fileName ?: "我的简历", fromCardToolName)
+                    } else {
+                        _uiState.update { it.copy(pendingAttachmentName = fileName ?: "文件", pendingAttachmentText = text) }
+                    }
                 },
                 onFailure = { e ->
+                    Log.e(TAG, "文件解析失败: ${e.message}", e)
                     _uiState.update { it.copy(isParsingFile = false, error = "文件解析失败: ${e.message}") }
                 }
             )
         }
+    }
+
+    private suspend fun saveResumeAndAutoTrigger(text: String, fileName: String, toolName: String) {
+        Log.d(TAG, "saveResumeAndAutoTrigger: fileName=$fileName, toolName=$toolName, textLen=${text.length}")
+        val cleanName = fileName.substringBeforeLast(".").ifBlank { "我的简历" }
+        try {
+            resumeVersionRepository.insertAndActivate(
+                ResumeVersion(name = cleanName, rawText = text)
+            )
+            _uiState.update { state ->
+                state.copy(contextBar = state.contextBar.copy(resumeVersionName = cleanName))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "保存简历版本失败", e)
+            _uiState.update { it.copy(error = "保存简历失败: ${e.message}") }
+            return
+        }
+
+        // ── 阶段1：替换上传卡片为"收到文件"提示 ──────────────────────────
+        _uiState.update { state ->
+            val msgs = state.messages.toMutableList()
+            val uploadCardIdx = msgs.indexOfLast {
+                it.card is com.example.tielink.domain.model.UiCard.UploadPromptCard
+            }
+            if (uploadCardIdx >= 0) {
+                msgs[uploadCardIdx] = AgentMessage(
+                    role = AgentMessageRole.AGENT,
+                    content = "收到文件啦，正在润色中 ✨"
+                )
+            }
+            state.copy(messages = msgs)
+        }
+
+        // ── 阶段2：自动触发工具（工具完成后会 emit 预览卡）────────────────
+        val autoPrompt = when (toolName) {
+            "match_tool" -> "分析我的简历匹配度"
+            "resume_tool" -> "帮我优化简历"
+            else -> "分析我的简历"
+        }
+
+        val ackMsg = AgentMessage(role = AgentMessageRole.USER, content = "📎 已上传简历：$cleanName")
+        _uiState.update { state ->
+            state.copy(
+                messages = state.messages + ackMsg,
+                isLoading = true,
+                error = null,
+                thinkingBuffer = "",
+                suggestedPrompts = emptyList()
+            )
+        }
+        streamingContentBuf.clear()
+        thinkingBuf.clear()
+        lastStreamUiUpdate = 0L
+        streamJob = viewModelScope.launch { processAgentReply(autoPrompt) }
     }
 
     fun clearAttachment() {
@@ -307,29 +387,55 @@ class AgentViewModel @Inject constructor(
 
     // ── Resume diff callbacks ──────────────────────────────────────────────────
 
-    private fun acceptResumeDiff(newText: String) {
-        viewModelScope.launch {
-            val active = resumeVersionRepository.getActive() ?: return@launch
-            resumeVersionRepository.save(
-                active.copy(
-                    rawText = active.rawText.replace(
-                        // Find the original sentence in the resume and swap it
-                        // Use a best-effort substring replacement; if not found, append
-                        findOriginalInResume(active.rawText, newText) ?: return@launch,
-                        newText
-                    ),
-                    updatedAt = System.currentTimeMillis()
-                )
-            )
+    /** 用新 status 替换指定消息里的 ResumeDiffCard，触发卡片重组反馈 */
+    private fun updateDiffStatus(msgId: Long, status: com.example.tielink.domain.model.DiffStatus) {
+        _uiState.update { state ->
+            val msgs = state.messages.toMutableList()
+            val idx = msgs.indexOfFirst { it.id == msgId }
+            if (idx >= 0) {
+                val card = msgs[idx].card as? com.example.tielink.domain.model.UiCard.ResumeDiffCard
+                if (card != null) {
+                    msgs[idx] = msgs[idx].copy(card = card.copy(status = status))
+                }
+            }
+            state.copy(messages = msgs)
         }
     }
 
-    private fun findOriginalInResume(resumeText: String, newText: String): String? {
-        // Locate the corresponding original diff bubble to get the before-text
-        val diffCard = _uiState.value.messages
-            .mapNotNull { it.card as? com.example.tielink.domain.model.UiCard.ResumeDiffCard }
-            .firstOrNull { it.after == newText }
-        return diffCard?.before?.takeIf { resumeText.contains(it) }
+    private fun acceptResumeDiff(msgId: Long, before: String, newText: String) {
+        viewModelScope.launch {
+            val active = resumeVersionRepository.getActive()
+            if (active == null) {
+                updateDiffStatus(msgId, com.example.tielink.domain.model.DiffStatus.FAILED)
+                return@launch
+            }
+            // 优先在 rawText 中定位，其次 cleanedText
+            val targetField = when {
+                active.rawText.contains(before) -> "raw"
+                active.cleanedText.contains(before) -> "cleaned"
+                else -> null
+            }
+            if (targetField == null) {
+                // 原文未在简历中定位到，无法安全替换 — 给出失败反馈
+                updateDiffStatus(msgId, com.example.tielink.domain.model.DiffStatus.FAILED)
+                return@launch
+            }
+            try {
+                val updated = when (targetField) {
+                    "raw" -> active.copy(rawText = active.rawText.replace(before, newText), updatedAt = System.currentTimeMillis())
+                    else -> active.copy(cleanedText = active.cleanedText.replace(before, newText), updatedAt = System.currentTimeMillis())
+                }
+                resumeVersionRepository.save(updated)
+                updateDiffStatus(msgId, com.example.tielink.domain.model.DiffStatus.ACCEPTED)
+            } catch (e: Exception) {
+                Log.e(TAG, "采用简历优化失败", e)
+                updateDiffStatus(msgId, com.example.tielink.domain.model.DiffStatus.FAILED)
+            }
+        }
+    }
+
+    private fun rollbackResumeDiff(msgId: Long) {
+        updateDiffStatus(msgId, com.example.tielink.domain.model.DiffStatus.ROLLED_BACK)
     }
 
     override fun onCleared() {

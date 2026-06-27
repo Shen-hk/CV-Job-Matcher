@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -46,7 +45,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -57,18 +55,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.UiCard
 
 /** Routes each UiCard variant to the right composable. */
 @Composable
-fun UiCardComposable(card: UiCard, modifier: Modifier = Modifier) {
+fun UiCardComposable(card: UiCard, modifier: Modifier = Modifier, onNavigateToResumePreview: (Long) -> Unit = {}) {
     when (card) {
         is UiCard.MatchCard -> MatchCardComposable(card, modifier)
         is UiCard.ResumeDiffCard -> ResumeDiffCardComposable(card, modifier)
-        is UiCard.ResumePreviewCard -> ResumePreviewCardComposable(card, modifier)
+        is UiCard.ResumePreviewCard -> ResumePreviewCardComposable(card, modifier, onNavigateToResumePreview)
         is UiCard.EvalCard -> EvalCardComposable(card, modifier)
         is UiCard.TrackingCard -> TrackingCardComposable(card, modifier)
         is UiCard.GreetingCard -> GreetingCardComposable(card, modifier)
@@ -241,71 +237,55 @@ fun ResumeDiffCardComposable(card: UiCard.ResumeDiffCard, modifier: Modifier = M
             }
 
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = card.onAccept,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Icon(Icons.Filled.CheckCircle, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("采用")
+            when (card.status) {
+                com.example.tielink.domain.model.DiffStatus.PENDING -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = card.onAccept,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(Icons.Filled.CheckCircle, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("采用")
+                        }
+                        OutlinedButton(
+                            onClick = card.onRollback,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Outlined.Cancel, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("撤回")
+                        }
+                    }
                 }
-                OutlinedButton(
-                    onClick = card.onRollback,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Outlined.Cancel, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("撤回")
-                }
+                com.example.tielink.domain.model.DiffStatus.ACCEPTED ->
+                    DiffStatusRow(Icons.Filled.CheckCircle, "已采用，已写回简历", MaterialTheme.colorScheme.primary)
+                com.example.tielink.domain.model.DiffStatus.ROLLED_BACK ->
+                    DiffStatusRow(Icons.Outlined.Cancel, "已撤回，保留原文", MaterialTheme.colorScheme.onSurfaceVariant)
+                com.example.tielink.domain.model.DiffStatus.FAILED ->
+                    DiffStatusRow(Icons.Outlined.Cancel, "未能在简历中定位原文，可手动复制优化后的内容", MaterialTheme.colorScheme.error)
             }
         }
+    }
+}
+
+@Composable
+private fun DiffStatusRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, modifier = Modifier.size(16.dp), tint = tint)
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = tint)
     }
 }
 
 // ─── ResumePreviewCard ────────────────────────────────────────────────────────
 
 @Composable
-fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifier = Modifier) {
+fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifier = Modifier, onNavigateToResumePreview: (Long) -> Unit = {}) {
     val clipboard = LocalClipboardManager.current
-    var showFullScreen by remember { mutableStateOf(false) }
-
-    // 全屏预览 Dialog
-    if (showFullScreen && card.resumeData != null) {
-        Dialog(
-            onDismissRequest = { showFullScreen = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "简历全屏预览 · ${card.versionName}",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { showFullScreen = false }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Filled.Close, "关闭", modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    com.example.tielink.ui.components.ResumePreviewWebView(
-                        resumeData = card.resumeData,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        }
-    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -339,9 +319,11 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // 全屏按钮（仅当 resumeData 有值时可用）
+                // 全屏按钮：导航到全屏预览页（仅当 resumeData 有值时可用）
                 IconButton(
-                    onClick = { showFullScreen = true },
+                    onClick = {
+                        (card.onNavigateToResult ?: { onNavigateToResumePreview(card.versionId) }).invoke()
+                    },
                     enabled = card.resumeData != null,
                     modifier = Modifier.size(32.dp)
                 ) {

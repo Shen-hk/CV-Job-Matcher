@@ -3,14 +3,24 @@ package com.example.tielink.util
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.io.InputStream
 import java.util.zip.ZipInputStream
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 object FileParser {
     private const val TAG = "FileParser"
+
+    private val recognizer by lazy {
+        TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+    }
 
     fun init(context: Context) {
         Log.d(TAG, "初始化 PDFBox")
@@ -54,7 +64,7 @@ object FileParser {
         }
     }
 
-    fun extractText(context: Context, uri: Uri, mimeType: String?): Result<String> {
+    suspend fun extractText(context: Context, uri: Uri, mimeType: String?): Result<String> {
         Log.d(TAG, "extractText: uri=$uri, mimeType=$mimeType")
         return when {
             mimeType == "application/pdf" ||
@@ -63,10 +73,36 @@ object FileParser {
             mimeType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
                     uri.toString().lowercase().endsWith(".docx") -> extractDocxText(context, uri)
 
+            mimeType != null && mimeType.startsWith("image/") -> extractImageText(context, uri)
+
             else -> {
                 Log.w(TAG, "不支持的文件格式: mimeType=$mimeType")
-                Result.failure(Exception("不支持的文件格式，请选择 PDF 或 DOCX"))
+                Result.failure(Exception("不支持的文件格式，请选择 PDF、DOCX 或图片"))
             }
+        }
+    }
+
+    suspend fun extractImageText(context: Context, uri: Uri): Result<String> {
+        Log.d(TAG, "extractImageText: uri=$uri")
+        return try {
+            val image = InputImage.fromFilePath(context, uri)
+            val result = suspendCancellableCoroutine { cont ->
+                recognizer.process(image)
+                    .addOnSuccessListener { text -> cont.resume(text) }
+                    .addOnFailureListener { e -> cont.resumeWithException(e) }
+            }
+            val ocrText = result.text
+            if (ocrText.isNotBlank()) {
+                val cleaned = TextCleaner.clean(ocrText)
+                Log.i(TAG, "图片 OCR 完成: ${cleaned.length} 字符")
+                Result.success(cleaned)
+            } else {
+                Log.w(TAG, "图片中未识别到文字")
+                Result.failure(Exception("图片中未识别到文字"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "图片 OCR 失败: ${e.message}", e)
+            Result.failure(Exception("图片 OCR 失败: ${e.localizedMessage}"))
         }
     }
 
