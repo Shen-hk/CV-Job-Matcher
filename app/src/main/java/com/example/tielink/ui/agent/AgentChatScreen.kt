@@ -607,12 +607,12 @@ private fun InputArea(
     }
     val inputShape = remember { RoundedCornerShape(28.dp) }
 
-    // 悬浮容器：imePadding 跟随键盘上移，animateContentSize 平滑过渡
+    // 悬浮容器：imePadding 已逐帧跟随 IME inset 动画平滑上移
+    // 注意：不要再叠 animateContentSize() —— 会和 imePadding 的系统动画互相打架造成卡顿
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
-            .animateContentSize()
             .padding(bottom = 20.dp)
     ) {
         // 输入框本体

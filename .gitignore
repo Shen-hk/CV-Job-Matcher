@@ -4,6 +4,11 @@
 /local.properties
 /build/
 app/build/
+baselineprofile/build/
+
+# JVM crash logs
+hs_err_pid*.log
+replay_pid*.log
 
 # Android Studio / IntelliJ IDEA
 /.idea/

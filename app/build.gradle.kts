@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -99,6 +100,12 @@ dependencies {
 
     // Konfetti — celebration confetti animation
     implementation(libs.konfetti.compose)
+
+    // ProfileInstaller — installs the baseline profile bundled in the APK at runtime
+    implementation(libs.profileinstaller)
+
+    // Baseline profile produced by the :baselineprofile module
+    baselineProfile(project(":baselineprofile"))
 
     // Testing
     testImplementation(libs.junit)
