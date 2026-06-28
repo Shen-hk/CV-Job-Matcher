@@ -21,6 +21,7 @@ import com.example.tielink.ui.result.ResultScreen
 import com.example.tielink.ui.resumeinput.ResumeInputScreen
 import com.example.tielink.ui.resumelibrary.ResumeLibraryScreen
 import com.example.tielink.ui.resumeoptimize.ResumeOptimizeScreen
+import com.example.tielink.ui.settings.ModelConfigScreen
 import com.example.tielink.ui.settings.SettingsScreen
 import com.example.tielink.ui.tracking.TrackingScreen
 import java.net.URLEncoder
@@ -40,6 +41,7 @@ object Routes {
     const val RESULT = "result/{sessionId}"
     const val HISTORY = "history"
     const val SETTINGS = "settings"
+    const val MODEL_CONFIG = "model_config"
     const val RESUME_FULL_PREVIEW = "resume_full_preview/{versionId}"
 
     // ── JD优化 flow ──
@@ -236,6 +238,14 @@ fun NavGraph(navController: NavHostController) {
         // ── Settings ────────────────────────────────────────
         composable(Routes.SETTINGS) {
             SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToModelConfig = { navController.navigate(Routes.MODEL_CONFIG) }
+            )
+        }
+
+        // ── Model Config ───────────────────────────────────
+        composable(Routes.MODEL_CONFIG) {
+            ModelConfigScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

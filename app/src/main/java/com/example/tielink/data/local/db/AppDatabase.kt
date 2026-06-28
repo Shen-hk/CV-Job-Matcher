@@ -7,12 +7,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.tielink.data.local.db.dao.HistoryDao
 import com.example.tielink.data.local.db.dao.InterviewDao
 import com.example.tielink.data.local.db.dao.JdLibraryDao
+import com.example.tielink.data.local.db.dao.ProviderDao
 import com.example.tielink.data.local.db.dao.ResumeVersionDao
 import com.example.tielink.data.local.db.dao.TrackingDao
 import com.example.tielink.data.local.db.entity.HistoryEntity
 import com.example.tielink.data.local.db.entity.InterviewMessageEntity
 import com.example.tielink.data.local.db.entity.InterviewSessionEntity
 import com.example.tielink.data.local.db.entity.JdLibraryEntity
+import com.example.tielink.data.local.db.entity.ProviderEntity
+import com.example.tielink.data.local.db.entity.ProviderModelEntity
 import com.example.tielink.data.local.db.entity.ResumeVersionEntity
 import com.example.tielink.data.local.db.entity.TrackingEntity
 
@@ -23,9 +26,11 @@ import com.example.tielink.data.local.db.entity.TrackingEntity
         TrackingEntity::class,
         InterviewSessionEntity::class,
         InterviewMessageEntity::class,
-        JdLibraryEntity::class
+        JdLibraryEntity::class,
+        ProviderEntity::class,
+        ProviderModelEntity::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trackingDao(): TrackingDao
     abstract fun interviewDao(): InterviewDao
     abstract fun jdLibraryDao(): JdLibraryDao
+    abstract fun providerDao(): ProviderDao
 
     companion object {
         val MIGRATION_3_4 = object : Migration(3, 4) {
@@ -132,6 +138,33 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE jd_library ADD COLUMN salary TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS providers (
+                        providerId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        baseUrl TEXT NOT NULL,
+                        apiKey TEXT NOT NULL,
+                        apiFormat TEXT NOT NULL,
+                        createTime INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS provider_models (
+                        modelId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        providerId INTEGER NOT NULL,
+                        modelName TEXT NOT NULL,
+                        createTime INTEGER NOT NULL,
+                        FOREIGN KEY (providerId) REFERENCES providers(providerId) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_provider_models_provider_id ON provider_models(providerId)")
             }
         }
     }

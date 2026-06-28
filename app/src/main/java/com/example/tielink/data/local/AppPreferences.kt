@@ -42,6 +42,10 @@ object PrefKeys {
 
     // Agent Context
     val AGENT_CONTEXT_JSON = stringPreferencesKey("agent_context_json")
+
+    // Active Provider / Model selection
+    val ACTIVE_PROVIDER_ID = stringPreferencesKey("active_provider_id")
+    val ACTIVE_MODEL_NAME = stringPreferencesKey("active_model_name")
 }
 
 @Singleton
@@ -262,6 +266,30 @@ class AppPreferences @Inject constructor(
     suspend fun setAgentContextJson(json: String) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.AGENT_CONTEXT_JSON] = json
+        }
+    }
+
+    // ── Active Provider / Model ──────────────────────────────────
+
+    suspend fun getActiveProviderId(): Long? {
+        val str = dataStore.data.first()[PrefKeys.ACTIVE_PROVIDER_ID] ?: ""
+        return str.toLongOrNull()?.takeIf { it > 0 }
+    }
+
+    suspend fun setActiveProviderId(id: Long?) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.ACTIVE_PROVIDER_ID] = id?.toString() ?: ""
+        }
+    }
+
+    suspend fun getActiveModelName(): String? {
+        val name = dataStore.data.first()[PrefKeys.ACTIVE_MODEL_NAME] ?: ""
+        return name.ifBlank { null }
+    }
+
+    suspend fun setActiveModelName(name: String?) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.ACTIVE_MODEL_NAME] = name ?: ""
         }
     }
 }

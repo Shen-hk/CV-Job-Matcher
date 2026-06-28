@@ -7,18 +7,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -45,6 +50,7 @@ import com.example.tielink.ui.theme.TieLinkTheme
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToModelConfig: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -76,89 +82,107 @@ fun SettingsScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ── API Key ─────────────────────────────────────
+            // ── Model Config Card ───────────────────────────
             Text(
-                text = "DeepSeek API Key",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "在 platform.deepseek.com 注册获取 API Key",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = state.apiKey,
-                onValueChange = viewModel::updateApiKey,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("sk-xxxxxxxx") },
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ── Model ───────────────────────────────────────
-            Text(
-                text = "模型",
+                text = "AI 模型",
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = state.model,
-                onValueChange = viewModel::updateModel,
+
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("deepseek-chat") },
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ── Base URL ────────────────────────────────────
-            Text(
-                text = "API 地址",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = state.baseUrl,
-                onValueChange = viewModel::updateBaseUrl,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("https://api.deepseek.com") },
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // ── Buttons ─────────────────────────────────────
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = viewModel::saveSettings,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("保存设置")
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = viewModel::testConnection,
-                    modifier = Modifier.weight(1f),
-                    enabled = !state.isTesting && state.apiKey.isNotBlank()
-                ) {
-                    if (state.isTesting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(20.dp).width(20.dp),
-                            strokeWidth = 2.dp
-                        )
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Active model info
+                    if (state.activeModelName != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MatchGreen,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                state.activeProviderName?.let { provider ->
+                                    Text(
+                                        text = provider,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = state.activeModelName ?: "",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
                     } else {
-                        Text("测试连接")
+                        Text(
+                            text = "未配置模型",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "请先配置 AI Provider 和模型",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = onNavigateToModelConfig,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("模型配置")
                     }
                 }
             }
 
-            // ── Test Result ─────────────────────────────────
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // ── Test Connection ─────────────────────────────
+            Text(
+                text = "连接测试",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "使用当前活跃配置测试 API 连接",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = viewModel::testConnection,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isTesting && state.apiKey.isNotBlank()
+            ) {
+                if (state.isTesting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text("测试连接")
+            }
+
             state.testResult?.let { result ->
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = if (result.isEmpty()) "✓ 连接成功" else result,
                     color = if (result.isEmpty()) MatchGreen else MissRed,
@@ -168,7 +192,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ── Info ────────────────────────────────────────
+            // ── About ───────────────────────────────────────
             Text(
                 text = "关于",
                 style = MaterialTheme.typography.titleMedium

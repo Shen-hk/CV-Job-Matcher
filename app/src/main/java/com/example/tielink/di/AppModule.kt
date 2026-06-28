@@ -10,8 +10,10 @@ import com.example.tielink.data.local.db.AppDatabase
 import com.example.tielink.data.local.db.dao.HistoryDao
 import com.example.tielink.data.local.db.dao.InterviewDao
 import com.example.tielink.data.local.db.dao.JdLibraryDao
+import com.example.tielink.data.local.db.dao.ProviderDao
 import com.example.tielink.data.local.db.dao.ResumeVersionDao
 import com.example.tielink.data.local.db.dao.TrackingDao
+import com.example.tielink.data.repository.ProviderRepository
 import com.example.tielink.data.remote.DeepSeekApiService
 import com.example.tielink.data.remote.DeepSeekProvider
 import com.example.tielink.data.remote.OllamaProvider
@@ -113,7 +115,7 @@ object AppModule {
             AppDatabase::class.java,
             "tielink.db"
         )
-            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_8_9)
+            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10)
             .fallbackToDestructiveMigration(true)
             .build()
     }
@@ -146,6 +148,12 @@ object AppModule {
     @Singleton
     fun provideJdLibraryDao(db: AppDatabase): JdLibraryDao {
         return db.jdLibraryDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideProviderDao(db: AppDatabase): ProviderDao {
+        return db.providerDao()
     }
 
     // ── Utilities ──────────────────────────────────────────────

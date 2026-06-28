@@ -6,6 +6,7 @@ import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.data.remote.DeepSeekApiService
 import com.example.tielink.data.remote.dto.DeepSeekRequest
 import com.example.tielink.data.remote.dto.Message
+import com.example.tielink.data.repository.ProviderRepository
 import com.example.tielink.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,14 +21,19 @@ data class SettingsUiState(
     val model: String = AppPreferences.DEFAULT_MODEL,
     val baseUrl: String = AppPreferences.DEFAULT_BASE_URL,
     val isTesting: Boolean = false,
-    val testResult: String? = null, // null = no test yet, "" = success, else error msg
-    val isSaved: Boolean = false
+    val testResult: String? = null,
+    val isSaved: Boolean = false,
+    // Active model info (from Room Provider layer)
+    val activeProviderName: String? = null,
+    val activeModelName: String? = null
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val apiService: DeepSeekApiService
+    private val apiService: DeepSeekApiService,
+    private val appPreferences: AppPreferences,
+    private val providerRepository: ProviderRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -41,6 +47,22 @@ class SettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(apiKey = key, model = model, baseUrl = url)
             }
+            // Load active provider/model display info
+            loadActiveModelInfo()
+        }
+    }
+
+    private suspend fun loadActiveModelInfo() {
+        val activeProviderId = appPreferences.getActiveProviderId()
+        val activeModelName = appPreferences.getActiveModelName()
+        val providerName = if (activeProviderId != null) {
+            providerRepository.getProviderById(activeProviderId)?.name
+        } else null
+        _uiState.update {
+            it.copy(
+                activeProviderName = providerName,
+                activeModelName = activeModelName
+            )
         }
     }
 
