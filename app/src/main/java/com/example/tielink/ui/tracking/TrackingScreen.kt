@@ -35,15 +35,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,19 +63,45 @@ import com.example.tielink.ui.theme.TieLinkTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TrackingScreen(
     onNavigateBack: () -> Unit,
     onNavigateToJdInput: () -> Unit,
+    initialJdCompany: String = "",
+    initialJdPosition: String = "",
     viewModel: TrackingViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val globalJdVm = LocalGlobalJdViewModel.current
     val jdState by globalJdVm.state.collectAsState()
+    var showSaveConfirm by remember { mutableStateOf(false) }
+    var pendingStatusChange by remember { mutableStateOf<TrackingStatusChange?>(null) }
+    var pendingDeleteItem by remember { mutableStateOf<TrackingItem?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(initialJdCompany, initialJdPosition) {
+        if (initialJdCompany.isNotBlank() && initialJdPosition.isNotBlank()) {
+            viewModel.openAddForm(
+                company = initialJdCompany,
+                position = initialJdPosition
+            )
+        }
+    }
+
+    LaunchedEffect(state.isAddingNew) {
+        if (!state.isAddingNew) {
+            showSaveConfirm = false
+        }
+    }
 
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        },
         topBar = {
             TopAppBar(
                 title = { Text("投递管理") },
@@ -85,9 +115,9 @@ fun TrackingScreen(
         floatingActionButton = {
             if (!state.isAddingNew) {
                 FloatingActionButton(
-                    onClick = viewModel::toggleAddNew
+                    onClick = viewModel::openAddForm
                 ) {
-                    Icon(Icons.Default.Add, "新增投递")
+                    Icon(Icons.Default.Add, contentDescription = "新增投递")
                 }
             }
         }
@@ -148,13 +178,94 @@ fun TrackingScreen(
                     onCompanyChange = viewModel::updateNewCompany,
                     onPositionChange = viewModel::updateNewPosition,
                     onStatusChange = viewModel::updateNewStatus,
-                    onSave = viewModel::addTracking,
-                    onCancel = viewModel::toggleAddNew
+                    onSave = {
+                        showSaveConfirm = true
+                    },
+                    onCancel = viewModel::closeAddForm
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "确认后会自动保存，保存成功后可撤销。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (showSaveConfirm) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TrackingSaveConfirmCard(
+                        company = state.newCompany,
+                        position = state.newPosition,
+                        status = state.newStatus,
+                        onConfirm = {
+                            viewModel.addTracking { savedItem ->
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "已保存投递",
+                                        actionLabel = "撤销"
+                                    )
+                                    if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                        viewModel.deleteItem(savedItem)
+                                    }
+                                }
+                            }
+                            showSaveConfirm = false
+                        },
+                        onCancel = {
+                            showSaveConfirm = false
+                        }
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
             // ── Tracking List ──────────────────────────────
+            pendingStatusChange?.let { pending ->
+                TrackingStatusConfirmCard(
+                    item = pending.item,
+                    targetStatus = pending.targetStatus,
+                    onConfirm = {
+                        viewModel.updateStatus(pending.item.id, pending.targetStatus)
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "状态已更新",
+                                actionLabel = "撤销"
+                            )
+                            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                viewModel.updateStatus(pending.item.id, pending.item.status)
+                            }
+                        }
+                        pendingStatusChange = null
+                    },
+                    onCancel = {
+                        pendingStatusChange = null
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            pendingDeleteItem?.let { pending ->
+                TrackingDeleteConfirmCard(
+                    item = pending,
+                    onConfirm = {
+                        viewModel.deleteItem(pending) { deletedItem ->
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "已删除投递",
+                                    actionLabel = "撤销"
+                                )
+                                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                    viewModel.restoreItem(deletedItem)
+                                }
+                            }
+                        }
+                        pendingDeleteItem = null
+                    },
+                    onCancel = {
+                        pendingDeleteItem = null
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             val items = viewModel.filteredItems
             if (items.isEmpty()) {
                 Box(
@@ -181,10 +292,12 @@ fun TrackingScreen(
                     items(items) { item ->
                         TrackingItemCard(
                             item = item,
-                            onStatusChange = { newStatus ->
-                                viewModel.updateStatus(item.id, newStatus)
+                            onStatusRequest = { newStatus ->
+                                pendingStatusChange = TrackingStatusChange(item, newStatus)
                             },
-                            onDelete = { viewModel.deleteItem(item.id) }
+                            onDeleteRequest = {
+                                pendingDeleteItem = item
+                            }
                         )
                     }
                 }
@@ -264,10 +377,122 @@ private fun NewTrackingForm(
 }
 
 @Composable
+private fun TrackingSaveConfirmCard(
+    company: String,
+    position: String,
+    status: String,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "确认新增投递",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("公司：$company", style = MaterialTheme.typography.bodyMedium)
+            Text("岗位：$position", style = MaterialTheme.typography.bodyMedium)
+            Text("状态：$status", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                    Text("返回修改")
+                }
+                Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+                    Text("确认保存")
+                }
+            }
+        }
+    }
+}
+
+private data class TrackingStatusChange(
+    val item: TrackingItem,
+    val targetStatus: String
+)
+
+@Composable
+private fun TrackingStatusConfirmCard(
+    item: TrackingItem,
+    targetStatus: String,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "确认修改状态",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("${item.companyName} - ${item.positionName}", style = MaterialTheme.typography.bodyMedium)
+            Text("当前状态：${item.status}", style = MaterialTheme.typography.bodyMedium)
+            Text("目标状态：$targetStatus", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                    Text("返回")
+                }
+                Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+                    Text("确认修改")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackingDeleteConfirmCard(
+    item: TrackingItem,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "确认删除投递",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("${item.companyName} - ${item.positionName}", style = MaterialTheme.typography.bodyMedium)
+            Text("删除后无法恢复", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                    Text("取消")
+                }
+                Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+                    Text("确认删除")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrackingItemCard(
     item: TrackingItem,
-    onStatusChange: (String) -> Unit,
-    onDelete: () -> Unit
+    onStatusRequest: (String) -> Unit,
+    onDeleteRequest: () -> Unit
 ) {
     var showStatusMenu by remember { mutableStateOf(false) }
     val statusColor = Color(STATUS_COLORS[item.status] ?: 0xFF757575)
@@ -350,7 +575,7 @@ private fun TrackingItemCard(
                                 }
                             },
                             onClick = {
-                                onStatusChange(s)
+                                onStatusRequest(s)
                                 showStatusMenu = false
                             }
                         )
@@ -361,7 +586,7 @@ private fun TrackingItemCard(
             Spacer(modifier = Modifier.width(4.dp))
 
             IconButton(
-                onClick = onDelete,
+                onClick = onDeleteRequest,
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
@@ -395,8 +620,8 @@ private fun TrackingItemCardPreview() {
                     ),
                     createdAt = System.currentTimeMillis()
                 ),
-                onStatusChange = {},
-                onDelete = {}
+                onStatusRequest = {},
+                onDeleteRequest = {}
             )
             TrackingItemCard(
                 item = TrackingItem(
@@ -407,8 +632,8 @@ private fun TrackingItemCardPreview() {
                     timeline = listOf(TimelineEvent("已投")),
                     createdAt = System.currentTimeMillis() - 86400000
                 ),
-                onStatusChange = {},
-                onDelete = {}
+                onStatusRequest = {},
+                onDeleteRequest = {}
             )
             TrackingItemCard(
                 item = TrackingItem(
@@ -425,8 +650,8 @@ private fun TrackingItemCardPreview() {
                     ),
                     createdAt = System.currentTimeMillis() - 86400000 * 7
                 ),
-                onStatusChange = {},
-                onDelete = {}
+                onStatusRequest = {},
+                onDeleteRequest = {}
             )
         }
     }

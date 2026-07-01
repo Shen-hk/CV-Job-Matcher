@@ -79,6 +79,55 @@ class AppPreferences @Inject constructor(
         }
     }
 
+    fun getModelFlow(): Flow<String> {
+        return dataStore.data.map { prefs ->
+            prefs[PrefKeys.LLM_MODEL] ?: DEFAULT_MODEL
+        }
+    }
+
+    fun getBaseUrlFlow(): Flow<String> {
+        return dataStore.data.map { prefs ->
+            prefs[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL
+        }
+    }
+
+    fun getOllamaBaseUrlFlow(): Flow<String> {
+        return dataStore.data.map { prefs ->
+            prefs[PrefKeys.OLLAMA_BASE_URL] ?: "http://10.0.2.2:11434"
+        }
+    }
+
+    fun getOllamaModelFlow(): Flow<String> {
+        return dataStore.data.map { prefs ->
+            prefs[PrefKeys.OLLAMA_MODEL] ?: "qwen2.5:7b"
+        }
+    }
+
+    fun getOllamaEmbedModelFlow(): Flow<String> {
+        return dataStore.data.map { prefs ->
+            prefs[PrefKeys.OLLAMA_EMBED_MODEL] ?: "nomic-embed-text"
+        }
+    }
+
+    fun getAiProviderFlow(): Flow<String> {
+        return dataStore.data.map { prefs ->
+            prefs[PrefKeys.AI_PROVIDER] ?: "deepseek"
+        }
+    }
+
+    fun getActiveProviderIdFlow(): Flow<Long?> {
+        return dataStore.data.map { prefs ->
+            val id = prefs[PrefKeys.ACTIVE_PROVIDER_ID] ?: ""
+            id.toLongOrNull()?.takeIf { it > 0 }
+        }
+    }
+
+    fun getActiveModelNameFlow(): Flow<String?> {
+        return dataStore.data.map { prefs ->
+            prefs[PrefKeys.ACTIVE_MODEL_NAME]?.ifBlank { null }
+        }
+    }
+
     suspend fun getApiKey(): String {
         val key = dataStore.data.first()[PrefKeys.API_KEY] ?: ""
         cachedApiKey = key

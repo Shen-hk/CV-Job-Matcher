@@ -64,9 +64,37 @@ class TrackingViewModel @Inject constructor(
             return if (filter == null) items else items.filter { it.status == filter }
         }
 
-    fun toggleAddNew() {
+    fun openAddForm(
+        company: String = "",
+        position: String = "",
+        status: String = "已投"
+    ) {
         _uiState.update {
-            it.copy(isAddingNew = !it.isAddingNew, newCompany = "", newPosition = "")
+            it.copy(
+                isAddingNew = true,
+                newCompany = company,
+                newPosition = position,
+                newStatus = status
+            )
+        }
+    }
+
+    fun closeAddForm() {
+        _uiState.update {
+            it.copy(
+                isAddingNew = false,
+                newCompany = "",
+                newPosition = "",
+                newStatus = "已投"
+            )
+        }
+    }
+
+    fun toggleAddNew() {
+        if (_uiState.value.isAddingNew) {
+            closeAddForm()
+        } else {
+            openAddForm()
         }
     }
 
@@ -82,7 +110,7 @@ class TrackingViewModel @Inject constructor(
         _uiState.update { it.copy(newStatus = status) }
     }
 
-    fun addTracking() {
+    fun addTracking(onSaved: (TrackingItem) -> Unit = {}) {
         val state = _uiState.value
         if (state.newCompany.isBlank() || state.newPosition.isBlank()) return
 
@@ -92,10 +120,9 @@ class TrackingViewModel @Inject constructor(
                 positionName = state.newPosition,
                 status = state.newStatus
             )
-            trackingRepository.insert(item)
-            _uiState.update {
-                it.copy(isAddingNew = false, newCompany = "", newPosition = "", newStatus = "已投")
-            }
+            val id = trackingRepository.insert(item)
+            closeAddForm()
+            onSaved(item.copy(id = id))
         }
     }
 
@@ -105,10 +132,16 @@ class TrackingViewModel @Inject constructor(
         }
     }
 
-    fun deleteItem(id: Long) {
+    fun deleteItem(item: TrackingItem, onDeleted: (TrackingItem) -> Unit = {}) {
         viewModelScope.launch {
-            val item = _uiState.value.items.firstOrNull { it.id == id } ?: return@launch
             trackingRepository.delete(item)
+            onDeleted(item)
+        }
+    }
+
+    fun restoreItem(item: TrackingItem) {
+        viewModelScope.launch {
+            trackingRepository.insert(item.copy(id = 0))
         }
     }
 

@@ -177,10 +177,10 @@ fun ResultScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("润色结果", fontWeight = FontWeight.Medium) },
+                    title = { Text("预览中转", fontWeight = FontWeight.Medium) },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回聊天")
                         }
                     },
                     actions = {
@@ -208,6 +208,37 @@ fun ResultScreen(
                     // ── UI-local sidebar state ─────────────────
                     var sidebarExpanded by rememberSaveable { mutableStateOf(false) }
                     var activeSidebarTab by rememberSaveable { mutableStateOf("ai") }
+
+                    Card(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = BrandBlueLight)
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                text = "这是预览中转页，不是终点页",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandBlue
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = "你可以先看结果，再返回聊天继续追问或继续优化。",
+                                fontSize = 12.sp,
+                                color = TextPrimary,
+                                lineHeight = 16.sp
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = onNavigateBack, modifier = Modifier.weight(1f)) {
+                                    Text("回聊天继续")
+                                }
+                                OutlinedButton(onClick = onNavigateToHistory, modifier = Modifier.weight(1f)) {
+                                    Text("看历史记录")
+                                }
+                            }
+                        }
+                    }
 
                     Row(Modifier.fillMaxSize().padding(padding)) {
                         // ── Left Smart Sidebar ────────────────

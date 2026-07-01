@@ -1,17 +1,18 @@
-package com.example.tielink.ui.settings
+﻿package com.example.tielink.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.local.AppPreferences
-import com.example.tielink.data.remote.DeepSeekApiService
+import com.example.tielink.data.remote.DeepSeekApiServiceFactory
 import com.example.tielink.data.remote.dto.DeepSeekRequest
 import com.example.tielink.data.remote.dto.Message
-import com.example.tielink.data.repository.ProviderRepository
 import com.example.tielink.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,7 +24,6 @@ data class SettingsUiState(
     val isTesting: Boolean = false,
     val testResult: String? = null,
     val isSaved: Boolean = false,
-    // Active model info (from Room Provider layer)
     val activeProviderName: String? = null,
     val activeModelName: String? = null
 )
@@ -31,9 +31,8 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val apiService: DeepSeekApiService,
-    private val appPreferences: AppPreferences,
-    private val providerRepository: ProviderRepository
+    private val apiServiceFactory: DeepSeekApiServiceFactory,
+    private val appPreferences: AppPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -41,28 +40,36 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val key = settingsRepository.getApiKey()
-            val model = settingsRepository.getModel()
-            val url = settingsRepository.getBaseUrl()
-            _uiState.update {
-                it.copy(apiKey = key, model = model, baseUrl = url)
+            combine(
+                appPreferences.getApiKeyFlow().distinctUntilChanged(),
+                appPreferences.getModelFlow().distinctUntilChanged(),
+                appPreferences.getBaseUrlFlow().distinctUntilChanged(),
+                appPreferences.getAiProviderFlow().distinctUntilChanged(),
+                appPreferences.getOllamaModelFlow().distinctUntilChanged()
+            ) { apiKey, deepSeekModel, baseUrl, provider, ollamaModel ->
+                val providerName = when (provider) {
+                    "ollama" -> "Ollama"
+                    "local" -> "本地嵌入模型"
+                    else -> "DeepSeek"
+                }
+                val activeModelName = when (provider) {
+                    "ollama" -> ollamaModel
+                    "local" -> "本地嵌入模型"
+                    else -> deepSeekModel
+                }
+                Triple(providerName, activeModelName, Triple(apiKey, deepSeekModel, baseUrl))
+            }.collect { (providerName, activeModelName, values) ->
+                val (apiKey, deepSeekModel, baseUrl) = values
+                _uiState.update {
+                    it.copy(
+                        apiKey = apiKey,
+                        model = deepSeekModel,
+                        baseUrl = baseUrl,
+                        activeProviderName = providerName,
+                        activeModelName = activeModelName
+                    )
+                }
             }
-            // Load active provider/model display info
-            loadActiveModelInfo()
-        }
-    }
-
-    private suspend fun loadActiveModelInfo() {
-        val activeProviderId = appPreferences.getActiveProviderId()
-        val activeModelName = appPreferences.getActiveModelName()
-        val providerName = if (activeProviderId != null) {
-            providerRepository.getProviderById(activeProviderId)?.name
-        } else null
-        _uiState.update {
-            it.copy(
-                activeProviderName = providerName,
-                activeModelName = activeModelName
-            )
         }
     }
 
@@ -98,16 +105,16 @@ class SettingsViewModel @Inject constructor(
                     ),
                     maxTokens = 10
                 )
-                val response = apiService.chatCompletion(request)
+                val response = apiServiceFactory.create().chatCompletion(request)
                 if (response.choices.isNotEmpty()) {
                     _uiState.update { it.copy(testResult = "", isTesting = false) }
                 } else {
-                    _uiState.update { it.copy(testResult = "返回结果为空", isTesting = false) }
+                    _uiState.update { it.copy(testResult = "杩斿洖缁撴灉涓虹┖", isTesting = false) }
                 }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        testResult = "连接失败: ${e.localizedMessage ?: "未知错误"}",
+                        testResult = "杩炴帴澶辫触: ${e.localizedMessage ?: "鏈煡閿欒"}",
                         isTesting = false
                     )
                 }
@@ -115,3 +122,4 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
+

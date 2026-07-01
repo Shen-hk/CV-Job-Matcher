@@ -1,4 +1,4 @@
-package com.example.tielink.ui.agent
+﻿package com.example.tielink.ui.agent
 
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
@@ -51,11 +52,15 @@ import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,6 +79,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -91,9 +97,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.R
+import com.example.tielink.ui.history.HistoryViewModel
 import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.ui.theme.TieLinkTheme
+import androidx.compose.material3.rememberDrawerState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,16 +114,21 @@ fun AgentChatScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToResumeOptimize: () -> Unit,
     onNavigateToTracking: () -> Unit,
+    onNavigateToHistoryRecord: (Long) -> Unit = {},
     onNavigateToJdList: () -> Unit = {},
     onNavigateToResumeLibrary: () -> Unit = {},
     onNavigateToResumePreview: (Long) -> Unit = {},
     viewModel: AgentViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val historyViewModel: HistoryViewModel = hiltViewModel()
+    val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val drawerScope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // 新消息或 streaming 过程中跟随内容增长滚到底部
+    // 鏂版秷鎭垨 streaming 杩囩▼涓窡闅忓唴瀹瑰闀挎粴鍒板簳閮?
     LaunchedEffect(state.messages.size, state.isStreaming) {
         if (state.messages.isNotEmpty()) {
             if (state.isStreaming) {
@@ -122,20 +140,20 @@ fun AgentChatScreen(
         }
     }
 
-    // toolName 来自上传卡片时非空；来自输入框附件按钮时为空串
+    // toolName 鏉ヨ嚜涓婁紶鍗＄墖鏃堕潪绌猴紱鏉ヨ嚜杈撳叆妗嗛檮浠舵寜閽椂涓虹┖涓?
     var pendingPickerToolName by remember { mutableStateOf("") }
 
-    // 使用 GetContent 而非 OpenDocument — MIUI 对 ACTION_GET_CONTENT 兼容性更好
+    // 浣跨敤 GetContent 鑰岄潪 OpenDocument 鈥?MIUI 瀵?ACTION_GET_CONTENT 鍏煎鎬ф洿濂?
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        android.util.Log.d("AgentChatScreen", "文件选择器回调: uri=$uri, pendingToolName=$pendingPickerToolName")
+        android.util.Log.d("AgentChatScreen", "鏂囦欢閫夋嫨鍣ㄥ洖璋? uri=$uri, pendingToolName=$pendingPickerToolName")
         if (uri == null) {
-            android.util.Log.w("AgentChatScreen", "文件选择器返回 null (用户取消或 MIUI 投递失败)")
+            android.util.Log.w("AgentChatScreen", "鏂囦欢閫夋嫨鍣ㄨ繑鍥?null (鐢ㄦ埛鍙栨秷鎴?MIUI 鎶曢€掑け璐?")
             return@rememberLauncherForActivityResult
         }
         val mimeType = context.contentResolver.getType(uri)
-        var fileName = "文件"
+        var fileName = "鏂囦欢"
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (cursor.moveToFirst() && nameIndex >= 0) fileName = cursor.getString(nameIndex)
@@ -144,15 +162,47 @@ fun AgentChatScreen(
         pendingPickerToolName = ""
     }
 
-    // 收集文件选择器触发事件；toolName 非空说明来自上传卡片
+    // 鏀堕泦鏂囦欢閫夋嫨鍣ㄨЕ鍙戜簨浠讹紱toolName 闈炵┖璇存槑鏉ヨ嚜涓婁紶鍗＄墖
     LaunchedEffect(Unit) {
         viewModel.openFilePicker.collect { toolName ->
-            android.util.Log.d("AgentChatScreen", "openFilePicker 收到: toolName=$toolName")
+            android.util.Log.d("AgentChatScreen", "openFilePicker 鏀跺埌: toolName=$toolName")
             pendingPickerToolName = toolName
             filePickerLauncher.launch("*/*")
         }
     }
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AgentDrawerContent(
+                historyItems = historyState.items,
+                onOpenSettings = {
+                    drawerScope.launch {
+                        drawerState.close()
+                        onNavigateToSettings()
+                    }
+                },
+                onOpenHistoryRecord = { sessionId ->
+                    drawerScope.launch {
+                        drawerState.close()
+                        onNavigateToHistoryRecord(sessionId)
+                    }
+                },
+                onOpenJdList = {
+                    drawerScope.launch {
+                        drawerState.close()
+                        onNavigateToJdList()
+                    }
+                },
+                onOpenResumeLibrary = {
+                    drawerScope.launch {
+                        drawerState.close()
+                        onNavigateToResumeLibrary()
+                    }
+                }
+            )
+        }
+    ) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -160,11 +210,11 @@ fun AgentChatScreen(
                     Text("TieLink", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Menu, contentDescription = "菜单")
+                    IconButton(onClick = { drawerScope.launch { drawerState.open() } }) {
+                        Icon(Icons.Default.Menu, contentDescription = "打开侧边栏")
                     }
                 },
-                actions = {
+                                actions = {
                     IconButton(onClick = onNavigateToJdList) {
                         Icon(Icons.Default.Work, contentDescription = "JD 库")
                     }
@@ -196,7 +246,7 @@ fun AgentChatScreen(
                     onSend = { viewModel.sendMessage() },
                     onCancel = { viewModel.cancelStream() },
                     onAttach = {
-                        pendingPickerToolName = ""   // 输入框附件按钮：手动模式
+                        pendingPickerToolName = ""   // 杈撳叆妗嗛檮浠舵寜閽細鎵嬪姩妯″紡
                         filePickerLauncher.launch("*/*")
                     }
                 )
@@ -221,7 +271,7 @@ fun AgentChatScreen(
                             Text(error, color = MaterialTheme.colorScheme.onErrorContainer,
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                             IconButton(onClick = { viewModel.dismissError() }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "关闭",
+                                Icon(Icons.Default.Close, contentDescription = "鍏抽棴",
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onErrorContainer)
                             }
@@ -232,13 +282,13 @@ fun AgentChatScreen(
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (state.messages.isEmpty()) {
-                    // ── 欢迎页（Gemini 风格）─────────────────────────────────────
+                    // 鈹€鈹€ 娆㈣繋椤碉紙Gemini 椋庢牸锛夆攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
                     WelcomePage(
                         prompts = state.suggestedPrompts,
                         onPromptClick = { viewModel.sendPrompt(it) }
                     )
                 } else {
-                    // ── 聊天视图 ───────────────────────────────────────────────
+                    // 鈹€鈹€ 鑱婂ぉ瑙嗗浘 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
@@ -264,7 +314,7 @@ fun AgentChatScreen(
                         item { Spacer(modifier = Modifier.height(4.dp)) }
                     }
 
-                    // 底部渐变遮罩
+                    // 搴曢儴娓愬彉閬僵
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -285,7 +335,7 @@ fun AgentChatScreen(
     }
 }
 
-// ─── Welcome page ────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Welcome page 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun WelcomePage(
@@ -298,10 +348,10 @@ private fun WelcomePage(
             .padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        // 上方 30% 留白，让内容落在视觉中偏上位置
+        // 涓婃柟 30% 鐣欑櫧锛岃鍐呭钀藉湪瑙嗚涓亸涓婁綅缃?
         Spacer(Modifier.fillMaxSize(0.15f))
 
-//        // 应用图标
+//        // 搴旂敤鍥炬爣
 //        androidx.compose.foundation.Image(
 //            painter = painterResource(R.mipmap.ic_launcher_round),
 //            contentDescription = null,
@@ -311,7 +361,7 @@ private fun WelcomePage(
 //        Spacer(Modifier.height(16.dp))
 
         Text(
-            text = "我是 TieLink",
+            text = "鎴戞槸 TieLink",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -320,14 +370,14 @@ private fun WelcomePage(
         Spacer(Modifier.height(6.dp))
 
         Text(
-            text = "分析匹配度、优化简历、追踪投递 — 都可以直接跟我说",
+            text = "鍒嗘瀽鍖归厤搴︺€佷紭鍖栫畝鍘嗐€佽拷韪姇閫?鈥?閮藉彲浠ョ洿鎺ヨ窡鎴戣",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(Modifier.height(24.dp))
 
-        // 建议 chips — 单列，宽度自适应文字
+        // 寤鸿 chips 鈥?鍗曞垪锛屽搴﹁嚜閫傚簲鏂囧瓧
         if (prompts.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 prompts.forEach { prompt ->
@@ -351,7 +401,7 @@ private fun WelcomePage(
     }
 }
 
-// ─── Message row — dispatches to the right layout ─────────────────────────────
+// 鈹€鈹€鈹€ Message row 鈥?dispatches to the right layout 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun MessageRow(message: AgentMessage, onNavigateToResumePreview: (Long) -> Unit = {}) {
@@ -371,7 +421,7 @@ private fun MessageRow(message: AgentMessage, onNavigateToResumePreview: (Long) 
     }
 }
 
-// ─── Agent bubble ─────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Agent bubble 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun AgentBubble(message: AgentMessage) {
@@ -398,7 +448,7 @@ private fun AgentBubble(message: AgentMessage) {
                         ThinkingDotsIndicator()
                     } else {
                         MarkdownText(
-                            text = message.content + if (message.isStreaming) "▌" else "",
+                            text = message.content + if (message.isStreaming) "..." else "",
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -408,7 +458,7 @@ private fun AgentBubble(message: AgentMessage) {
     }
 }
 
-// ─── User bubble ──────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ User bubble 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun UserBubble(message: AgentMessage) {
@@ -431,7 +481,7 @@ private fun UserBubble(message: AgentMessage) {
     }
 }
 
-// ─── Tool loading bubble ──────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Tool loading bubble 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun ToolLoadingBubble(message: AgentMessage) {
@@ -455,7 +505,7 @@ private fun ToolLoadingBubble(message: AgentMessage) {
     }
 }
 
-// ─── Collapsible thinking panel ───────────────────────────────────────────────
+// 鈹€鈹€鈹€ Collapsible thinking panel 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun ThinkingPanel(thinkingContent: String, isStreaming: Boolean) {
@@ -479,7 +529,7 @@ private fun ThinkingPanel(thinkingContent: String, isStreaming: Boolean) {
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(
-                    text = if (isStreaming) "思考中..." else "思考过程",
+                    text = if (isStreaming) "思考中..." else "思考完成",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontStyle = FontStyle.Italic,
@@ -511,7 +561,7 @@ private fun ThinkingPanel(thinkingContent: String, isStreaming: Boolean) {
     }
 }
 
-// ─── Animated dots (waiting for first token) ──────────────────────────────────
+// 鈹€鈹€鈹€ Animated dots (waiting for first token) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun ThinkingDotsIndicator() {
@@ -529,7 +579,7 @@ private fun ThinkingDotsIndicator() {
     }
 }
 
-// ─── Bottom bar components ────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Bottom bar components 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Composable
 private fun QuickActionsBar(
@@ -569,7 +619,7 @@ private fun AttachmentBar(
             if (isParsing) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.width(8.dp))
-                Text("正在解析文件...", style = MaterialTheme.typography.bodySmall,
+                Text("姝ｅ湪瑙ｆ瀽鏂囦欢...", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(16.dp),
@@ -596,29 +646,29 @@ private fun InputArea(
     onCancel: () -> Unit,
     onAttach: () -> Unit
 ) {
-    // remember 避免每帧重组时重新创建列表
+    // remember 閬垮厤姣忓抚閲嶇粍鏃堕噸鏂板垱寤哄垪琛?
     val gradientColors = remember {
         listOf(
-            Color(0xFF6C63FF), // 紫
-            Color(0xFF3B82F6), // 蓝
-            Color(0xFF06B6D4), // 青
-            Color(0xFF10B981)  // 绿
+            Color(0xFF6C63FF), // 绱?
+            Color(0xFF3B82F6), // 钃?
+            Color(0xFF06B6D4), // 闈?
+            Color(0xFF10B981)  // 缁?
         )
     }
     val inputShape = remember { RoundedCornerShape(28.dp) }
 
-    // 悬浮容器：imePadding 已逐帧跟随 IME inset 动画平滑上移
-    // 注意：不要再叠 animateContentSize() —— 会和 imePadding 的系统动画互相打架造成卡顿
+    // 鎮诞瀹瑰櫒锛歩mePadding 宸查€愬抚璺熼殢 IME inset 鍔ㄧ敾骞虫粦涓婄Щ
+    // 娉ㄦ剰锛氫笉瑕佸啀鍙?animateContentSize() 鈥斺€?浼氬拰 imePadding 鐨勭郴缁熷姩鐢讳簰鐩告墦鏋堕€犳垚鍗￠】
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
             .padding(bottom = 20.dp)
     ) {
-        // 输入框本体
-        // 关键优化：
-        // 1. shadow 去除自定义颜色 → GPU RenderNode 硬件加速（自定义颜色会回退到软件渲染）
-        // 2. elevation 从 24dp 降至 12dp，减少阴影计算面积
+        // 杈撳叆妗嗘湰浣?
+        // 鍏抽敭浼樺寲锛?
+        // 1. shadow 鍘婚櫎鑷畾涔夐鑹?鈫?GPU RenderNode 纭欢鍔犻€燂紙鑷畾涔夐鑹蹭細鍥為€€鍒拌蒋浠舵覆鏌擄級
+        // 2. elevation 浠?24dp 闄嶈嚦 12dp锛屽噺灏戦槾褰辫绠楅潰绉?
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -641,7 +691,7 @@ private fun InputArea(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        if (hasAttachment) "添加说明（可选）..." else "说点什么...",
+                        if (hasAttachment) "娣诲姞璇存槑锛堝彲閫夛級..." else "璇寸偣浠€涔?..",
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 },
@@ -655,7 +705,7 @@ private fun InputArea(
                     ) {
                         Icon(
                             Icons.Default.AttachFile,
-                            contentDescription = "上传文件",
+                            contentDescription = "涓婁紶鏂囦欢",
                             modifier = Modifier.size(20.dp),
                             tint = if (hasAttachment) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
@@ -689,28 +739,34 @@ private fun InputArea(
     }
 }
 
-// ─── Previews ──────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Previews 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun AgentBubblePreview() {
     TieLinkTheme {
-        Column(modifier = Modifier.padding(8.dp)) {
-            AgentBubble(AgentMessage(
-                role = AgentMessageRole.AGENT,
-                content = "你好！我是智简求职助手，我可以帮你优化简历、模拟面试和管理投递进度。请告诉我你需要什么帮助？",
-                thinkingContent = "用户进入了聊天界面，需要提供友好的欢迎信息并介绍我的功能范围。"
-            ))
-            AgentBubble(AgentMessage(
-                role = AgentMessageRole.AGENT,
-                content = "你的简历中缺少「数据分析」相关技能，建议补充。",
-                thinkingContent = null
-            ))
-            AgentBubble(AgentMessage(
-                role = AgentMessageRole.AGENT,
-                content = "",
-                isStreaming = true
-            ))
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AgentBubble(
+                AgentMessage(
+                    role = AgentMessageRole.AGENT,
+                    content = "我先帮你看一下简历和岗位要求。",
+                    thinkingContent = "正在匹配关键技能"
+                )
+            )
+            AgentBubble(
+                AgentMessage(
+                    role = AgentMessageRole.AGENT,
+                    content = "建议补充项目结果和量化描述。",
+                    thinkingContent = null
+                )
+            )
+            AgentBubble(
+                AgentMessage(
+                    role = AgentMessageRole.AGENT,
+                    content = "",
+                    isStreaming = true
+                )
+            )
         }
     }
 }
@@ -719,15 +775,19 @@ private fun AgentBubblePreview() {
 @Composable
 private fun UserBubblePreview() {
     TieLinkTheme {
-        Column(modifier = Modifier.padding(8.dp)) {
-            UserBubble(AgentMessage(
-                role = AgentMessageRole.USER,
-                content = "帮我优化简历"
-            ))
-            UserBubble(AgentMessage(
-                role = AgentMessageRole.USER,
-                content = "我想应聘字节跳动的Android开发岗位，请帮我分析匹配度。"
-            ))
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            UserBubble(
+                AgentMessage(
+                    role = AgentMessageRole.USER,
+                    content = "帮我优化简历"
+                )
+            )
+            UserBubble(
+                AgentMessage(
+                    role = AgentMessageRole.USER,
+                    content = "我想应聘 Android 开发岗位"
+                )
+            )
         }
     }
 }
@@ -738,11 +798,11 @@ private fun ThinkingPanelPreview() {
     TieLinkTheme {
         Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ThinkingPanel(
-                thinkingContent = "正在分析用户简历与JD的匹配度...\n关键词提取完成，开始进行语义匹配。",
+                thinkingContent = "正在分析简历与 JD 的匹配度...",
                 isStreaming = true
             )
             ThinkingPanel(
-                thinkingContent = "简历中技能清单覆盖了JD要求的80%关键词。缺少的关键词包括：Kotlin Coroutines、Jetpack Compose动画",
+                thinkingContent = "已完成初步分析，建议补充项目成果。",
                 isStreaming = false
             )
         }
@@ -804,7 +864,7 @@ private fun InputAreaPreview() {
                 onAttach = {}
             )
             InputArea(
-                text = "帮我优化简历中关于项目经验的部分",
+                text = "帮我优化简历中的项目经历",
                 isStreaming = false,
                 hasAttachment = true,
                 onTextChange = {},
@@ -820,11 +880,13 @@ private fun InputAreaPreview() {
 @Composable
 private fun ToolLoadingBubblePreview() {
     TieLinkTheme {
-        ToolLoadingBubble(AgentMessage(
-            role = AgentMessageRole.AGENT,
-            content = "正在分析简历匹配度...",
-            toolLoadingName = "match_analysis"
-        ))
+        ToolLoadingBubble(
+            AgentMessage(
+                role = AgentMessageRole.AGENT,
+                content = "正在分析简历匹配度...",
+                toolLoadingName = "match_analysis"
+            )
+        )
     }
 }
 
@@ -832,7 +894,6 @@ private fun ToolLoadingBubblePreview() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun AgentChatScreenContentPreview() {
-    // Preview of the screen's static layout — hiltViewModel() unavailable in preview
     TieLinkTheme {
         Scaffold(
             topBar = {
@@ -852,7 +913,9 @@ private fun AgentChatScreenContentPreview() {
                 Column {
                     QuickActionsBar(onResumeOptimize = {}, onTracking = {})
                     InputArea(
-                        text = "", isStreaming = false, hasAttachment = false,
+                        text = "帮我优化简历",
+                        isStreaming = false,
+                        hasAttachment = false,
                         onTextChange = {}, onSend = {}, onCancel = {}, onAttach = {}
                     )
                 }
@@ -865,18 +928,162 @@ private fun AgentChatScreenContentPreview() {
                 ) {
                     item { Spacer(modifier = Modifier.height(4.dp)) }
                     item {
-                        UserBubble(AgentMessage(role = AgentMessageRole.USER, content = "帮我优化简历"))
+                        UserBubble(
+                            AgentMessage(
+                                role = AgentMessageRole.USER,
+                                content = "帮我优化简历"
+                            )
+                        )
                     }
                     item {
-                        AgentBubble(AgentMessage(
-                            role = AgentMessageRole.AGENT,
-                            content = "好的！我分析了你的简历和JD，发现以下可以优化的地方:\n\n1. 项目经验中缺少量化数据\n2. 技能清单未覆盖「Kotlin Coroutines」\n3. 建议添加技术博客链接",
-                            thinkingContent = "分析用户简历... 已匹配15个关键词中有12个，3个缺失。"
-                        ))
+                        AgentBubble(
+                            AgentMessage(
+                                role = AgentMessageRole.AGENT,
+                                content = "我先帮你把简历拆成关键模块，再看和目标岗位的匹配度。",
+                                thinkingContent = "正在生成示例预览"
+                            )
+                        )
                     }
                     item { Spacer(modifier = Modifier.height(4.dp)) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AgentDrawerContent(
+    historyItems: List<com.example.tielink.domain.model.HistoryItem>,
+    onOpenSettings: () -> Unit,
+    onOpenHistoryRecord: (Long) -> Unit,
+    onOpenJdList: () -> Unit,
+    onOpenResumeLibrary: () -> Unit
+) {
+    ModalDrawerSheet {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "聊天记录",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "点一下就能回到上次的记录，或者切换到别的历史会话。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (historyItems.isNotEmpty()) {
+                val latest = historyItems.first()
+                DrawerActionCard(
+                    title = "继续上次记录",
+                    subtitle = latest.jdTitle,
+                    onClick = { onOpenHistoryRecord(latest.id) }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            Text(
+                text = "最近记录",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (historyItems.isEmpty()) {
+                Text(
+                    text = "还没有历史记录。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                historyItems.take(6).forEach { item ->
+                    DrawerHistoryRow(
+                        title = item.jdTitle,
+                        subtitle = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()).format(Date(item.createdAt)),
+                        onClick = { onOpenHistoryRecord(item.id) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider()
+            Spacer(modifier = Modifier.height(12.dp))
+
+            DrawerActionCard(
+                title = "模型配置",
+                subtitle = "切换 DeepSeek、Ollama 或本地模型",
+                onClick = onOpenSettings
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            DrawerActionCard(
+                title = "历史总览",
+                subtitle = "查看全部润色记录",
+                onClick = onOpenJdList
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            DrawerActionCard(
+                title = "简历库",
+                subtitle = "打开已保存的简历版本",
+                onClick = onOpenResumeLibrary
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawerActionCard(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(Icons.Default.ArrowForward, contentDescription = null)
+        }
+    }
+}
+
+@Composable
+private fun DrawerHistoryRow(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
     }
 }

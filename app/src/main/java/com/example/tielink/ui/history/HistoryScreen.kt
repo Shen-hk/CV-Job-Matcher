@@ -1,4 +1,4 @@
-package com.example.tielink.ui.history
+﻿package com.example.tielink.ui.history
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,10 +26,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +54,26 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showClearConfirm by remember { mutableStateOf(false) }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("清空历史记录") },
+            text = { Text("这会删除所有历史记录，操作不可恢复。要继续吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAll()
+                        showClearConfirm = false
+                    }
+                ) { Text("清空") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) { Text("取消") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -58,6 +83,13 @@ fun HistoryScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
+                },
+                actions = {
+                    if (state.items.isNotEmpty()) {
+                        IconButton(onClick = { showClearConfirm = true }) {
+                            Icon(Icons.Default.DeleteForever, contentDescription = "清空全部")
+                        }
+                    }
                 }
             )
         }
@@ -65,9 +97,12 @@ fun HistoryScreen(
         when {
             state.isLoading -> {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(padding).padding(32.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                    verticalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator()
                 }
@@ -75,9 +110,12 @@ fun HistoryScreen(
 
             state.items.isEmpty() -> {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(padding).padding(32.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "暂无历史记录",
@@ -86,7 +124,7 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "完成一次简历润色后，记录会显示在这里",
+                        text = "每完成一次润色或迭代优化，都会自动记录到这里。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -107,7 +145,6 @@ fun HistoryScreen(
                             onDelete = { viewModel.deleteItem(item.id) }
                         )
                     }
-                    // Bottom spacer
                     item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
@@ -180,8 +217,6 @@ private fun HistoryItemCard(
     }
 }
 
-// ─── Previews ──────────────────────────────────────────────────────────────
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun HistoryItemCardPreview() {
@@ -191,7 +226,7 @@ private fun HistoryItemCardPreview() {
                 item = HistoryItem(
                     id = 1,
                     createdAt = System.currentTimeMillis(),
-                    jdTitle = "Android开发工程师 — 字节跳动",
+                    jdTitle = "Android 开发工程师 - 字节跳动",
                     jdRawText = "岗位描述...",
                     originalResume = "原始简历...",
                     polishedResume = "优化后简历...",
@@ -205,7 +240,7 @@ private fun HistoryItemCardPreview() {
                 item = HistoryItem(
                     id = 2,
                     createdAt = System.currentTimeMillis() - 86400000,
-                    jdTitle = "iOS开发工程师 — 腾讯",
+                    jdTitle = "iOS 开发工程师 - 腾讯",
                     jdRawText = "岗位描述...",
                     originalResume = "原始简历...",
                     polishedResume = "优化后简历...",
@@ -222,7 +257,6 @@ private fun HistoryItemCardPreview() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun HistoryScreenPreview() {
-    // Preview of static layout — hiltViewModel() unavailable in preview
     TieLinkTheme {
         HistoryScreen(onNavigateBack = {}, onItemClick = {})
     }

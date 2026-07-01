@@ -1,4 +1,4 @@
-package com.example.tielink.data.remote
+﻿package com.example.tielink.data.remote
 
 import android.util.Log
 import com.example.tielink.data.local.AppPreferences
@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 
 class DeepSeekProvider constructor(
-    private val apiService: DeepSeekApiService,
+    private val apiServiceFactory: DeepSeekApiServiceFactory,
     private val preferences: AppPreferences
 ) : AiProvider {
     
@@ -20,19 +20,20 @@ class DeepSeekProvider constructor(
                 throw IllegalStateException("API Key未配置")
             }
             
+            val apiService = apiServiceFactory.create()
             val deepSeekRequest = DeepSeekRequest(
                 messages = request.messages,
                 temperature = request.temperature,
                 maxTokens = request.maxTokens
             )
             
-            Log.d(TAG, "调用DeepSeek API: messages=${request.messages.size}, temperature=${request.temperature}")
+            Log.d(TAG, "璋冪敤DeepSeek API: messages=${request.messages.size}, temperature=${request.temperature}")
             
             val response = apiService.chatCompletion(deepSeekRequest)
             val content = response.choices.firstOrNull()?.message?.content
-                ?: throw IllegalArgumentException("API返回为空")
+                ?: throw IllegalArgumentException("API杩斿洖涓虹┖")
             
-            Log.i(TAG, "DeepSeek API响应成功: ${content.length}字符")
+            Log.i(TAG, "DeepSeek API鍝嶅簲鎴愬姛: ${content.length}瀛楃")
             
             LlmResponse(
                 content = content,
@@ -40,7 +41,7 @@ class DeepSeekProvider constructor(
                 usage = null
             )
         } catch (e: Exception) {
-            Log.e(TAG, "DeepSeek API调用失败: ${e.message}", e)
+            Log.e(TAG, "DeepSeek API璋冪敤澶辫触: ${e.message}", e)
             throw e
         }
     }
@@ -60,7 +61,7 @@ class DeepSeekProvider constructor(
     }
     
     override suspend fun embed(text: String): FloatArray? {
-        Log.w(TAG, "DeepSeek不支持Embedding，返回null")
+        Log.w(TAG, "DeepSeek涓嶆敮鎸丒mbedding锛岃繑鍥瀗ull")
         return null
     }
     

@@ -15,6 +15,7 @@ import com.example.tielink.data.local.db.dao.ResumeVersionDao
 import com.example.tielink.data.local.db.dao.TrackingDao
 import com.example.tielink.data.repository.ProviderRepository
 import com.example.tielink.data.remote.DeepSeekApiService
+import com.example.tielink.data.remote.DeepSeekApiServiceFactory
 import com.example.tielink.data.remote.DeepSeekProvider
 import com.example.tielink.data.remote.OllamaProvider
 import com.example.tielink.data.remote.interceptor.ApiKeyInterceptor
@@ -169,10 +170,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDeepSeekProvider(
-        apiService: DeepSeekApiService,
+        apiServiceFactory: DeepSeekApiServiceFactory,
         appPreferences: AppPreferences
     ): DeepSeekProvider {
-        return DeepSeekProvider(apiService, appPreferences)
+        return DeepSeekProvider(apiServiceFactory, appPreferences)
     }
 
     @Provides

@@ -58,4 +58,10 @@ class HistoryViewModel @Inject constructor(
             historyRepository.deleteById(id)
         }
     }
+
+    fun clearAll() {
+        viewModelScope.launch {
+            historyRepository.deleteAll()
+        }
+    }
 }

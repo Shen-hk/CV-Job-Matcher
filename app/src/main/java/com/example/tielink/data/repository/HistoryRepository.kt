@@ -32,4 +32,9 @@ class HistoryRepository @Inject constructor(
         Log.d(TAG, "deleteById: id=$id")
         historyDao.deleteById(id)
     }
+
+    suspend fun deleteAll() {
+        Log.d(TAG, "deleteAll")
+        historyDao.deleteAll()
+    }
 }

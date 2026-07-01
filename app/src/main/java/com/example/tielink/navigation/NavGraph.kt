@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import android.net.Uri
 import androidx.navigation.NavHostController
 import com.example.tielink.ui.LocalGlobalJdViewModel
 import androidx.navigation.NavType
@@ -29,7 +30,7 @@ import java.net.URLEncoder
 object Routes {
     // ── New: Parallel workbench ──
     const val RESUME_OPTIMIZE = "resume_optimize"
-    const val TRACKING = "tracking"
+    const val TRACKING = "tracking?jdCompany={jdCompany}&jdPosition={jdPosition}"
     const val AGENT_CHAT = "agent_chat"
     const val JD_LIST = "jd_list"
     const val RESUME_LIBRARY = "resume_library"
@@ -68,6 +69,10 @@ object Routes {
 
     fun result(sessionId: Long): String = "result/$sessionId"
     fun resumeFullPreview(versionId: Long): String = "resume_full_preview/$versionId"
+
+    fun tracking(jdCompany: String = "", jdPosition: String = ""): String {
+        return "tracking?jdCompany=${Uri.encode(jdCompany)}&jdPosition=${Uri.encode(jdPosition)}"
+    }
 }
 
 @Composable
@@ -81,7 +86,10 @@ fun NavGraph(navController: NavHostController) {
             AgentChatScreen(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToResumeOptimize = { navController.navigate(Routes.RESUME_OPTIMIZE) },
-                onNavigateToTracking = { navController.navigate(Routes.TRACKING) },
+                onNavigateToTracking = { navController.navigate(Routes.tracking()) },
+                onNavigateToHistoryRecord = { sessionId ->
+                    navController.navigate(Routes.result(sessionId))
+                },
                 onNavigateToJdList = { navController.navigate(Routes.JD_LIST) },
                 onNavigateToResumeLibrary = { navController.navigate(Routes.RESUME_LIBRARY) },
                 onNavigateToResumePreview = { versionId ->
@@ -104,12 +112,28 @@ fun NavGraph(navController: NavHostController) {
         }
 
         // ── Tracking (new) ──────────────────────────────────
-        composable(Routes.TRACKING) {
+        composable(
+            route = Routes.TRACKING,
+            arguments = listOf(
+                navArgument("jdCompany") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("jdPosition") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val jdCompany = backStackEntry.arguments?.getString("jdCompany").orEmpty()
+            val jdPosition = backStackEntry.arguments?.getString("jdPosition").orEmpty()
             TrackingScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToJdInput = {
                     navController.navigate(Routes.JD_INPUT)
-                }
+                },
+                initialJdCompany = jdCompany,
+                initialJdPosition = jdPosition
             )
         }
 
@@ -258,7 +282,7 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate(Routes.polish(resumeText, jdRawText, jdStructuredJson, tp, st, fp))
                 },
                 onNavigateToTracking = { jdCompany, jdPosition ->
-                    navController.navigate(Routes.TRACKING)
+                    navController.navigate(Routes.tracking(jdCompany, jdPosition))
                 },
                 onNavigateToGreeting = { jdRawText, jdCompany ->
                     // Navigate to agent chat for greeting generation

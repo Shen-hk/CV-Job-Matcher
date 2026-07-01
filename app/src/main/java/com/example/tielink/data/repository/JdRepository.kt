@@ -1,7 +1,7 @@
 package com.example.tielink.data.repository
 
 import android.util.Log
-import com.example.tielink.data.remote.DeepSeekApiService
+import com.example.tielink.data.remote.DeepSeekApiServiceFactory
 import com.example.tielink.data.remote.dto.DeepSeekRequest
 import com.example.tielink.data.remote.dto.Message
 import com.example.tielink.domain.model.JobDescription
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 @Singleton
 class JdRepository @Inject constructor(
-    private val apiService: DeepSeekApiService,
+    private val apiServiceFactory: DeepSeekApiServiceFactory,
     private val moshi: Moshi
 ) {
     companion object {
@@ -60,7 +60,7 @@ JSON格式：
             )
 
             Log.d(TAG, "调用 DeepSeek API (JD 提取)...")
-            val response = apiService.chatCompletion(request)
+            val response = apiServiceFactory.create().chatCompletion(request)
             val content = response.choices.firstOrNull()?.message?.content
                 ?: return@withContext Result.failure(Exception("API 返回为空"))
             Log.d(TAG, "API 返回: ${content.length} 字符")
