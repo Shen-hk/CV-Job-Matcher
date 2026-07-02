@@ -34,6 +34,7 @@ object Routes {
     const val AGENT_CHAT = "agent_chat"
     const val JD_LIST = "jd_list"
     const val RESUME_LIBRARY = "resume_library"
+    const val RESUME_LIBRARY_SELECT = "resume_library_select"
 
     // ── Legacy: Linear flow (kept for backward compat) ──
     const val JD_INPUT = "jd_input"
@@ -92,6 +93,7 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToJdList = { navController.navigate(Routes.JD_LIST) },
                 onNavigateToResumeLibrary = { navController.navigate(Routes.RESUME_LIBRARY) },
+                onNavigateToResumeLibraryForChoice = { navController.navigate(Routes.RESUME_LIBRARY_SELECT) },
                 onNavigateToResumePreview = { versionId ->
                     navController.navigate(Routes.resumeFullPreview(versionId))
                 }
@@ -297,6 +299,19 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPreview = { versionId ->
                     navController.navigate(Routes.resumeFullPreview(versionId))
+                }
+            )
+        }
+
+        composable(Routes.RESUME_LIBRARY_SELECT) {
+            ResumeLibraryScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToPreview = { versionId ->
+                    navController.navigate(Routes.resumeFullPreview(versionId))
+                },
+                selectionMode = true,
+                onResumeSelected = {
+                    navController.popBackStack()
                 }
             )
         }

@@ -51,6 +51,8 @@ import java.util.Locale
 fun ResumeLibraryScreen(
     onNavigateBack: () -> Unit,
     onNavigateToPreview: (Long) -> Unit,
+    selectionMode: Boolean = false,
+    onResumeSelected: (Long) -> Unit = {},
     viewModel: ResumeLibraryViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -98,6 +100,15 @@ fun ResumeLibraryScreen(
                     }
                 }
                 else -> {
+                    if (selectionMode) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Text(
+                                text = "请选择一份简历，随后系统会自动继续优化",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -121,7 +132,15 @@ fun ResumeLibraryScreen(
                             items(items, key = { "${it.type}_${it.id}" }) { item ->
                                 ResumeItemCard(
                                     item = item,
-                                    onClick = { onNavigateToPreview(item.id) }
+                                    onClick = {
+                                        if (selectionMode && item.type == "version") {
+                                            viewModel.selectResumeForOptimize(item.id)
+                                            onResumeSelected(item.id)
+                                        } else {
+                                            onNavigateToPreview(item.id)
+                                        }
+                                    },
+                                    actionLabel = if (selectionMode && item.type == "version") "选择" else "预览"
                                 )
                             }
                         }
@@ -135,7 +154,8 @@ fun ResumeLibraryScreen(
 @Composable
 private fun ResumeItemCard(
     item: ResumeLibraryItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    actionLabel: String = "预览"
 ) {
     val icon = when (item.type) {
         "history" -> Icons.Default.Work
@@ -183,6 +203,12 @@ private fun ResumeItemCard(
                     }
                 )
             }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = actionLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

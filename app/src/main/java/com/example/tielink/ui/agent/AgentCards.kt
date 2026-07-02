@@ -60,7 +60,13 @@ import com.example.tielink.domain.model.UiCard
 
 /** Routes each UiCard variant to the right composable. */
 @Composable
-fun UiCardComposable(card: UiCard, modifier: Modifier = Modifier, onNavigateToResumePreview: (Long) -> Unit = {}) {
+fun UiCardComposable(
+    card: UiCard,
+    modifier: Modifier = Modifier,
+    onNavigateToResumePreview: (Long) -> Unit = {},
+    onNavigateToResumeLibrary: () -> Unit = {},
+    onRequestResumeUpload: () -> Unit = {}
+) {
     when (card) {
         is UiCard.MatchCard -> MatchCardComposable(card, modifier)
         is UiCard.ResumeDiffCard -> ResumeDiffCardComposable(card, modifier)
@@ -70,6 +76,12 @@ fun UiCardComposable(card: UiCard, modifier: Modifier = Modifier, onNavigateToRe
         is UiCard.GreetingCard -> GreetingCardComposable(card, modifier)
         is UiCard.InterviewTurnCard -> InterviewTurnCardComposable(card, modifier)
         is UiCard.UploadPromptCard -> UploadPromptCardComposable(card, modifier)
+        is UiCard.ResumeSourceChoiceCard -> ResumeSourceChoiceCardComposable(
+            card = card,
+            modifier = modifier,
+            onNavigateToResumeLibrary = onNavigateToResumeLibrary,
+            onRequestResumeUpload = onRequestResumeUpload
+        )
     }
 }
 
@@ -79,9 +91,9 @@ fun UiCardComposable(card: UiCard, modifier: Modifier = Modifier, onNavigateToRe
 fun MatchCardComposable(card: UiCard.MatchCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             // Header + overall score
@@ -201,9 +213,9 @@ private fun scoreLabel(score: Int): String = when {
 fun ResumeDiffCardComposable(card: UiCard.ResumeDiffCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text("简历优化建议 · ${card.section}",
@@ -289,9 +301,9 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column {
             // Header
@@ -370,9 +382,9 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
 fun EvalCardComposable(card: UiCard.EvalCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -417,9 +429,9 @@ fun EvalCardComposable(card: UiCard.EvalCard, modifier: Modifier = Modifier) {
 fun TrackingCardComposable(card: UiCard.TrackingCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -464,9 +476,9 @@ fun GreetingCardComposable(card: UiCard.GreetingCard, modifier: Modifier = Modif
     var expanded by remember { mutableStateOf(0) }
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text("求职信 · ${card.companyName} · ${card.position}",
@@ -538,8 +550,8 @@ fun InterviewTurnCardComposable(card: UiCard.InterviewTurnCard, modifier: Modifi
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -582,8 +594,8 @@ fun UploadPromptCardComposable(card: UiCard.UploadPromptCard, modifier: Modifier
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -626,6 +638,77 @@ fun UploadPromptCardComposable(card: UiCard.UploadPromptCard, modifier: Modifier
                 Icon(Icons.Filled.Upload, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("上传简历")
+            }
+        }
+    }
+}
+
+// ─── ResumeSourceChoiceCard ──────────────────────────────────────────────────
+
+@Composable
+fun ResumeSourceChoiceCardComposable(
+    card: UiCard.ResumeSourceChoiceCard,
+    modifier: Modifier = Modifier,
+    onNavigateToResumeLibrary: () -> Unit = {},
+    onRequestResumeUpload: () -> Unit = {}
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Upload,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = card.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = card.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onNavigateToResumeLibrary,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Filled.Work, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(card.libraryActionLabel)
+                }
+                FilledTonalButton(
+                    onClick = onRequestResumeUpload,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Filled.Upload, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(card.uploadActionLabel)
+                }
             }
         }
     }

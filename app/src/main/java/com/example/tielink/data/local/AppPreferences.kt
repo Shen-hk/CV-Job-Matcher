@@ -2,12 +2,15 @@ package com.example.tielink.data.local
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,37 +19,62 @@ object PrefKeys {
     val LLM_MODEL = stringPreferencesKey("llm_model")
     val LLM_BASE_URL = stringPreferencesKey("llm_base_url")
     val LAST_RESUME_TEXT = stringPreferencesKey("last_resume")
-    val HAS_SEEN_ONBOARDING = stringPreferencesKey("has_seen_onboarding")
-    
-    // Ollama配置
+    val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
+
+    // Ollama config
     val OLLAMA_BASE_URL = stringPreferencesKey("ollama_base_url")
     val OLLAMA_MODEL = stringPreferencesKey("ollama_model")
     val OLLAMA_EMBED_MODEL = stringPreferencesKey("ollama_embed_model")
-    
-    // AI Provider选择
-    val AI_PROVIDER = stringPreferencesKey("ai_provider") // "deepseek" | "ollama" | "local"
-    
-    // PDF模板偏好
-    val PDF_TEMPLATE = stringPreferencesKey("pdf_template")
-    
-    // 语言设置
-    val APP_LANGUAGE = stringPreferencesKey("app_language") // "zh" | "en"
 
-    // JD缓存
+    // AI provider selection
+    val AI_PROVIDER = stringPreferencesKey("ai_provider")
+
+    // PDF template preference
+    val PDF_TEMPLATE = stringPreferencesKey("pdf_template")
+
+    // App language
+    val APP_LANGUAGE = stringPreferencesKey("app_language")
+
+    // JD cache
     val CACHED_JD_RAW = stringPreferencesKey("cached_jd_raw")
     val CACHED_JD_JSON = stringPreferencesKey("cached_jd_json")
     val CACHED_JD_COMPANY = stringPreferencesKey("cached_jd_company")
 
-    // 面试偏好
+    // Interview preference
     val LAST_INTERVIEW_PERSONA = stringPreferencesKey("last_interview_persona")
 
-    // Agent Context
+    // Agent context
     val AGENT_CONTEXT_JSON = stringPreferencesKey("agent_context_json")
+    val AGENT_CHAT_DRAFT_JSON = stringPreferencesKey("agent_chat_draft_json")
+    val RESUME_OPTIMIZE_CONTINUE = stringPreferencesKey("resume_optimize_continue")
 
-    // Active Provider / Model selection
+    // Active provider / model selection
     val ACTIVE_PROVIDER_ID = stringPreferencesKey("active_provider_id")
     val ACTIVE_MODEL_NAME = stringPreferencesKey("active_model_name")
 }
+
+data class AppSettingsSnapshot(
+    val apiKey: String = "",
+    val model: String = AppPreferences.DEFAULT_MODEL,
+    val baseUrl: String = AppPreferences.DEFAULT_BASE_URL,
+    val lastResume: String = "",
+    val hasSeenOnboarding: Boolean = false,
+    val ollamaBaseUrl: String = AppPreferences.DEFAULT_OLLAMA_BASE_URL,
+    val ollamaModel: String = AppPreferences.DEFAULT_OLLAMA_MODEL,
+    val ollamaEmbedModel: String = AppPreferences.DEFAULT_OLLAMA_EMBED_MODEL,
+    val aiProvider: String = AppPreferences.DEFAULT_AI_PROVIDER,
+    val pdfTemplate: String = AppPreferences.DEFAULT_PDF_TEMPLATE,
+    val appLanguage: String = AppPreferences.DEFAULT_APP_LANGUAGE,
+    val cachedJdRawText: String = "",
+    val cachedJdStructuredJson: String = "",
+    val cachedJdCompanyName: String = "",
+    val lastInterviewPersona: String = AppPreferences.DEFAULT_INTERVIEW_PERSONA,
+    val agentContextJson: String = "",
+    val agentChatDraftJson: String = "",
+    val resumeOptimizeContinue: Boolean = false,
+    val activeProviderId: Long? = null,
+    val activeModelName: String? = null
+)
 
 @Singleton
 class AppPreferences @Inject constructor(
@@ -55,288 +83,259 @@ class AppPreferences @Inject constructor(
     companion object {
         const val DEFAULT_BASE_URL = "https://api.deepseek.com"
         const val DEFAULT_MODEL = "deepseek-chat"
+        const val DEFAULT_OLLAMA_BASE_URL = "http://10.0.2.2:11434"
+        const val DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
+        const val DEFAULT_OLLAMA_EMBED_MODEL = "nomic-embed-text"
+        const val DEFAULT_AI_PROVIDER = "deepseek"
+        const val DEFAULT_PDF_TEMPLATE = "CLASSIC_SINGLE"
+        const val DEFAULT_APP_LANGUAGE = "zh"
+        const val DEFAULT_INTERVIEW_PERSONA = "MILD_TECH"
     }
 
-    // ── Volatile caches (for synchronous reads from OkHttp interceptors) ──
-
     @Volatile
-    private var cachedApiKey: String? = null
+    private var snapshot = AppSettingsSnapshot()
 
-    @Volatile
-    private var cachedBaseUrl: String = DEFAULT_BASE_URL
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        // Eagerly load into volatile caches for synchronous consumers
-        runBlocking {
-            cachedApiKey = getApiKey()
-            cachedBaseUrl = getBaseUrl()
+        scope.launch {
+            dataStore.data.collect { prefs ->
+                snapshot = AppSettingsSnapshot(
+                    apiKey = prefs[PrefKeys.API_KEY] ?: "",
+                    model = prefs[PrefKeys.LLM_MODEL] ?: DEFAULT_MODEL,
+                    baseUrl = prefs[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL,
+                    lastResume = prefs[PrefKeys.LAST_RESUME_TEXT] ?: "",
+                    hasSeenOnboarding = prefs[PrefKeys.HAS_SEEN_ONBOARDING] ?: false,
+                    ollamaBaseUrl = prefs[PrefKeys.OLLAMA_BASE_URL] ?: DEFAULT_OLLAMA_BASE_URL,
+                    ollamaModel = prefs[PrefKeys.OLLAMA_MODEL] ?: DEFAULT_OLLAMA_MODEL,
+                    ollamaEmbedModel = prefs[PrefKeys.OLLAMA_EMBED_MODEL] ?: DEFAULT_OLLAMA_EMBED_MODEL,
+                    aiProvider = prefs[PrefKeys.AI_PROVIDER] ?: DEFAULT_AI_PROVIDER,
+                    pdfTemplate = prefs[PrefKeys.PDF_TEMPLATE] ?: DEFAULT_PDF_TEMPLATE,
+                    appLanguage = prefs[PrefKeys.APP_LANGUAGE] ?: DEFAULT_APP_LANGUAGE,
+                    cachedJdRawText = prefs[PrefKeys.CACHED_JD_RAW] ?: "",
+                    cachedJdStructuredJson = prefs[PrefKeys.CACHED_JD_JSON] ?: "",
+                    cachedJdCompanyName = prefs[PrefKeys.CACHED_JD_COMPANY] ?: "",
+                    lastInterviewPersona = prefs[PrefKeys.LAST_INTERVIEW_PERSONA] ?: DEFAULT_INTERVIEW_PERSONA,
+                    agentContextJson = prefs[PrefKeys.AGENT_CONTEXT_JSON] ?: "",
+                    agentChatDraftJson = prefs[PrefKeys.AGENT_CHAT_DRAFT_JSON] ?: "",
+                    resumeOptimizeContinue = prefs[PrefKeys.RESUME_OPTIMIZE_CONTINUE] == "true",
+                    activeProviderId = (prefs[PrefKeys.ACTIVE_PROVIDER_ID] ?: "").toLongOrNull()?.takeIf { it > 0 },
+                    activeModelName = prefs[PrefKeys.ACTIVE_MODEL_NAME]?.ifBlank { null }
+                )
+            }
         }
     }
 
-    fun getApiKeyFlow(): Flow<String> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.API_KEY] ?: ""
-        }
+    fun getApiKeyFlow(): Flow<String> = dataStore.data.map { it[PrefKeys.API_KEY] ?: "" }
+
+    fun getModelFlow(): Flow<String> = dataStore.data.map { it[PrefKeys.LLM_MODEL] ?: DEFAULT_MODEL }
+
+    fun getBaseUrlFlow(): Flow<String> = dataStore.data.map { it[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL }
+
+    fun getOllamaBaseUrlFlow(): Flow<String> = dataStore.data.map { it[PrefKeys.OLLAMA_BASE_URL] ?: DEFAULT_OLLAMA_BASE_URL }
+
+    fun getOllamaModelFlow(): Flow<String> = dataStore.data.map { it[PrefKeys.OLLAMA_MODEL] ?: DEFAULT_OLLAMA_MODEL }
+
+    fun getOllamaEmbedModelFlow(): Flow<String> = dataStore.data.map { it[PrefKeys.OLLAMA_EMBED_MODEL] ?: DEFAULT_OLLAMA_EMBED_MODEL }
+
+    fun getAiProviderFlow(): Flow<String> = dataStore.data.map { it[PrefKeys.AI_PROVIDER] ?: DEFAULT_AI_PROVIDER }
+
+    fun getActiveProviderIdFlow(): Flow<Long?> = dataStore.data.map { prefs ->
+        val id = prefs[PrefKeys.ACTIVE_PROVIDER_ID] ?: ""
+        id.toLongOrNull()?.takeIf { it > 0 }
     }
 
-    fun getModelFlow(): Flow<String> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.LLM_MODEL] ?: DEFAULT_MODEL
-        }
+    fun getActiveModelNameFlow(): Flow<String?> = dataStore.data.map { prefs ->
+        prefs[PrefKeys.ACTIVE_MODEL_NAME]?.ifBlank { null }
     }
 
-    fun getBaseUrlFlow(): Flow<String> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL
-        }
-    }
+    fun snapshot(): AppSettingsSnapshot = snapshot
 
-    fun getOllamaBaseUrlFlow(): Flow<String> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.OLLAMA_BASE_URL] ?: "http://10.0.2.2:11434"
-        }
-    }
-
-    fun getOllamaModelFlow(): Flow<String> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.OLLAMA_MODEL] ?: "qwen2.5:7b"
-        }
-    }
-
-    fun getOllamaEmbedModelFlow(): Flow<String> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.OLLAMA_EMBED_MODEL] ?: "nomic-embed-text"
-        }
-    }
-
-    fun getAiProviderFlow(): Flow<String> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.AI_PROVIDER] ?: "deepseek"
-        }
-    }
-
-    fun getActiveProviderIdFlow(): Flow<Long?> {
-        return dataStore.data.map { prefs ->
-            val id = prefs[PrefKeys.ACTIVE_PROVIDER_ID] ?: ""
-            id.toLongOrNull()?.takeIf { it > 0 }
-        }
-    }
-
-    fun getActiveModelNameFlow(): Flow<String?> {
-        return dataStore.data.map { prefs ->
-            prefs[PrefKeys.ACTIVE_MODEL_NAME]?.ifBlank { null }
-        }
-    }
-
-    suspend fun getApiKey(): String {
-        val key = dataStore.data.first()[PrefKeys.API_KEY] ?: ""
-        cachedApiKey = key
-        return key
-    }
+    suspend fun getApiKey(): String = snapshot.apiKey
 
     suspend fun setApiKey(key: String) {
-        cachedApiKey = key
+        snapshot = snapshot.copy(apiKey = key)
         dataStore.edit { prefs ->
             prefs[PrefKeys.API_KEY] = key
         }
     }
 
-    // ── Model ──────────────────────────────────────────────────
-
-    suspend fun getModel(): String {
-        return dataStore.data.first()[PrefKeys.LLM_MODEL] ?: DEFAULT_MODEL
-    }
+    suspend fun getModel(): String = snapshot.model
 
     suspend fun setModel(model: String) {
+        snapshot = snapshot.copy(model = model)
         dataStore.edit { prefs ->
             prefs[PrefKeys.LLM_MODEL] = model
         }
     }
 
-    // ── Base URL ───────────────────────────────────────────────
+    fun getBaseUrlSync(): String = snapshot.baseUrl
 
-    fun getBaseUrlSync(): String = cachedBaseUrl
-
-    suspend fun getBaseUrl(): String {
-        val url = dataStore.data.first()[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL
-        cachedBaseUrl = url
-        return url
-    }
+    suspend fun getBaseUrl(): String = snapshot.baseUrl
 
     suspend fun setBaseUrl(url: String) {
-        cachedBaseUrl = url
+        snapshot = snapshot.copy(baseUrl = url)
         dataStore.edit { prefs ->
             prefs[PrefKeys.LLM_BASE_URL] = url
         }
     }
 
-    // ── Last Resume (cache) ────────────────────────────────────
-
-    suspend fun getLastResume(): String {
-        return dataStore.data.first()[PrefKeys.LAST_RESUME_TEXT] ?: ""
-    }
+    suspend fun getLastResume(): String = snapshot.lastResume
 
     suspend fun setLastResume(text: String) {
+        snapshot = snapshot.copy(lastResume = text)
         dataStore.edit { prefs ->
             prefs[PrefKeys.LAST_RESUME_TEXT] = text
         }
     }
 
-    // ── Onboarding ─────────────────────────────────────────────
-
-    suspend fun hasSeenOnboarding(): Boolean {
-        return dataStore.data.first()[PrefKeys.HAS_SEEN_ONBOARDING] == "true"
-    }
+    suspend fun hasSeenOnboarding(): Boolean = snapshot.hasSeenOnboarding
 
     suspend fun setOnboardingSeen() {
+        snapshot = snapshot.copy(hasSeenOnboarding = true)
         dataStore.edit { prefs ->
-            prefs[PrefKeys.HAS_SEEN_ONBOARDING] = "true"
+            prefs[PrefKeys.HAS_SEEN_ONBOARDING] = true
         }
     }
 
-    // ── Ollama配置 ────────────────────────────────────────────
-
-    suspend fun getOllamaBaseUrl(): String {
-        return dataStore.data.first()[PrefKeys.OLLAMA_BASE_URL] ?: "http://10.0.2.2:11434"
-    }
+    suspend fun getOllamaBaseUrl(): String = snapshot.ollamaBaseUrl
 
     suspend fun setOllamaBaseUrl(url: String) {
+        snapshot = snapshot.copy(ollamaBaseUrl = url)
         dataStore.edit { prefs ->
             prefs[PrefKeys.OLLAMA_BASE_URL] = url
         }
     }
 
-    suspend fun getOllamaModel(): String {
-        return dataStore.data.first()[PrefKeys.OLLAMA_MODEL] ?: "qwen2.5:7b"
-    }
+    suspend fun getOllamaModel(): String = snapshot.ollamaModel
 
     suspend fun setOllamaModel(model: String) {
+        snapshot = snapshot.copy(ollamaModel = model)
         dataStore.edit { prefs ->
             prefs[PrefKeys.OLLAMA_MODEL] = model
         }
     }
 
-    suspend fun getOllamaEmbedModel(): String {
-        return dataStore.data.first()[PrefKeys.OLLAMA_EMBED_MODEL] ?: "nomic-embed-text"
-    }
+    suspend fun getOllamaEmbedModel(): String = snapshot.ollamaEmbedModel
 
     suspend fun setOllamaEmbedModel(model: String) {
+        snapshot = snapshot.copy(ollamaEmbedModel = model)
         dataStore.edit { prefs ->
             prefs[PrefKeys.OLLAMA_EMBED_MODEL] = model
         }
     }
 
-    // ── AI Provider ───────────────────────────────────────────
-
-    suspend fun getAiProvider(): String {
-        return dataStore.data.first()[PrefKeys.AI_PROVIDER] ?: "deepseek"
-    }
+    suspend fun getAiProvider(): String = snapshot.aiProvider
 
     suspend fun setAiProvider(provider: String) {
+        snapshot = snapshot.copy(aiProvider = provider)
         dataStore.edit { prefs ->
             prefs[PrefKeys.AI_PROVIDER] = provider
         }
     }
 
-    // ── PDF模板 ───────────────────────────────────────────────
-
-    suspend fun getPdfTemplate(): String {
-        return dataStore.data.first()[PrefKeys.PDF_TEMPLATE] ?: "CLASSIC_SINGLE"
-    }
+    suspend fun getPdfTemplate(): String = snapshot.pdfTemplate
 
     suspend fun setPdfTemplate(template: String) {
+        snapshot = snapshot.copy(pdfTemplate = template)
         dataStore.edit { prefs ->
             prefs[PrefKeys.PDF_TEMPLATE] = template
         }
     }
 
-    // ── 语言设置 ─────────────────────────────────────────────
-
-    suspend fun getAppLanguage(): String {
-        return dataStore.data.first()[PrefKeys.APP_LANGUAGE] ?: "zh"
-    }
+    suspend fun getAppLanguage(): String = snapshot.appLanguage
 
     suspend fun setAppLanguage(language: String) {
+        snapshot = snapshot.copy(appLanguage = language)
         dataStore.edit { prefs ->
             prefs[PrefKeys.APP_LANGUAGE] = language
         }
     }
 
-    // ── JD 缓存 ──────────────────────────────────────────────
-
-    suspend fun getCachedJdRawText(): String {
-        return dataStore.data.first()[PrefKeys.CACHED_JD_RAW] ?: ""
-    }
+    suspend fun getCachedJdRawText(): String = snapshot.cachedJdRawText
 
     suspend fun setCachedJdRawText(text: String) {
+        snapshot = snapshot.copy(cachedJdRawText = text)
         dataStore.edit { prefs ->
             prefs[PrefKeys.CACHED_JD_RAW] = text
         }
     }
 
-    suspend fun getCachedJdStructuredJson(): String {
-        return dataStore.data.first()[PrefKeys.CACHED_JD_JSON] ?: ""
-    }
+    suspend fun getCachedJdStructuredJson(): String = snapshot.cachedJdStructuredJson
 
     suspend fun setCachedJdStructuredJson(json: String) {
+        snapshot = snapshot.copy(cachedJdStructuredJson = json)
         dataStore.edit { prefs ->
             prefs[PrefKeys.CACHED_JD_JSON] = json
         }
     }
 
-    suspend fun getCachedJdCompanyName(): String {
-        return dataStore.data.first()[PrefKeys.CACHED_JD_COMPANY] ?: ""
-    }
+    suspend fun getCachedJdCompanyName(): String = snapshot.cachedJdCompanyName
 
     suspend fun setCachedJdCompanyName(name: String) {
+        snapshot = snapshot.copy(cachedJdCompanyName = name)
         dataStore.edit { prefs ->
             prefs[PrefKeys.CACHED_JD_COMPANY] = name
         }
     }
 
-    // ── 面试偏好 ──────────────────────────────────────────────
-
-    suspend fun getLastInterviewPersona(): String {
-        return dataStore.data.first()[PrefKeys.LAST_INTERVIEW_PERSONA] ?: "MILD_TECH"
-    }
+    suspend fun getLastInterviewPersona(): String = snapshot.lastInterviewPersona
 
     suspend fun setLastInterviewPersona(persona: String) {
+        snapshot = snapshot.copy(lastInterviewPersona = persona)
         dataStore.edit { prefs ->
             prefs[PrefKeys.LAST_INTERVIEW_PERSONA] = persona
         }
     }
 
-    // ── Agent Context ───────────────────────────────────────────
-
-    suspend fun getAgentContextJson(): String {
-        return dataStore.data.first()[PrefKeys.AGENT_CONTEXT_JSON] ?: ""
-    }
+    suspend fun getAgentContextJson(): String = snapshot.agentContextJson
 
     suspend fun setAgentContextJson(json: String) {
+        snapshot = snapshot.copy(agentContextJson = json)
         dataStore.edit { prefs ->
             prefs[PrefKeys.AGENT_CONTEXT_JSON] = json
         }
     }
 
-    // ── Active Provider / Model ──────────────────────────────────
+    suspend fun getAgentChatDraftJson(): String = snapshot.agentChatDraftJson
 
-    suspend fun getActiveProviderId(): Long? {
-        val str = dataStore.data.first()[PrefKeys.ACTIVE_PROVIDER_ID] ?: ""
-        return str.toLongOrNull()?.takeIf { it > 0 }
+    suspend fun setAgentChatDraftJson(json: String) {
+        snapshot = snapshot.copy(agentChatDraftJson = json)
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.AGENT_CHAT_DRAFT_JSON] = json
+        }
     }
 
+    fun getResumeOptimizeContinueFlow(): Flow<Boolean> {
+        return dataStore.data.map { prefs -> prefs[PrefKeys.RESUME_OPTIMIZE_CONTINUE] == "true" }
+    }
+
+    suspend fun shouldContinueResumeOptimize(): Boolean = snapshot.resumeOptimizeContinue
+
+    suspend fun setResumeOptimizeContinue(continueFlow: Boolean) {
+        snapshot = snapshot.copy(resumeOptimizeContinue = continueFlow)
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.RESUME_OPTIMIZE_CONTINUE] = if (continueFlow) "true" else ""
+        }
+    }
+
+    suspend fun clearResumeOptimizeContinue() {
+        setResumeOptimizeContinue(false)
+    }
+
+    suspend fun getActiveProviderId(): Long? = snapshot.activeProviderId
+
     suspend fun setActiveProviderId(id: Long?) {
+        snapshot = snapshot.copy(activeProviderId = id?.takeIf { it > 0 })
         dataStore.edit { prefs ->
             prefs[PrefKeys.ACTIVE_PROVIDER_ID] = id?.toString() ?: ""
         }
     }
 
-    suspend fun getActiveModelName(): String? {
-        val name = dataStore.data.first()[PrefKeys.ACTIVE_MODEL_NAME] ?: ""
-        return name.ifBlank { null }
-    }
+    suspend fun getActiveModelName(): String? = snapshot.activeModelName
 
     suspend fun setActiveModelName(name: String?) {
+        snapshot = snapshot.copy(activeModelName = name?.ifBlank { null })
         dataStore.edit { prefs ->
             prefs[PrefKeys.ACTIVE_MODEL_NAME] = name ?: ""
         }

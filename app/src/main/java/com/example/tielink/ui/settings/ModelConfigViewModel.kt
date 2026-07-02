@@ -32,18 +32,17 @@ class ModelConfigViewModel @Inject constructor(
     val uiState: StateFlow<ModelConfigUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    aiProvider = appPreferences.getAiProvider(),
-                    deepSeekApiKey = appPreferences.getApiKey(),
-                    deepSeekBaseUrl = appPreferences.getBaseUrl(),
-                    deepSeekModel = appPreferences.getModel(),
-                    ollamaBaseUrl = appPreferences.getOllamaBaseUrl(),
-                    ollamaModel = appPreferences.getOllamaModel(),
-                    ollamaEmbedModel = appPreferences.getOllamaEmbedModel()
-                )
-            }
+        val snapshot = appPreferences.snapshot()
+        _uiState.update {
+            it.copy(
+                aiProvider = snapshot.aiProvider,
+                deepSeekApiKey = snapshot.apiKey,
+                deepSeekBaseUrl = snapshot.baseUrl,
+                deepSeekModel = snapshot.model,
+                ollamaBaseUrl = snapshot.ollamaBaseUrl,
+                ollamaModel = snapshot.ollamaModel,
+                ollamaEmbedModel = snapshot.ollamaEmbedModel
+            )
         }
     }
 

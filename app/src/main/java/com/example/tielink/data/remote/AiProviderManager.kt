@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.domain.nlp.EmbeddingEngine
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +21,7 @@ class AiProviderManager @Inject constructor(
     }
     
     fun getProvider(): AiProvider {
-        val providerName = runBlocking { preferences.getAiProvider() }
+        val providerName = preferences.snapshot().aiProvider
         val priority = when (providerName) {
             "ollama" -> Priority.OLLAMA
             "local" -> Priority.LOCAL
@@ -106,12 +105,13 @@ class AiProviderManager @Inject constructor(
      * AgentUseCase 使用这个方法，不再调用 chatWithFallbackStream。
      */
     suspend fun chatStream(request: LlmRequest): Flow<StreamEvent> {
-        val providerName = preferences.getAiProvider()
-        val apiKey = preferences.getApiKey()
-        val model = preferences.getModel()
-        val baseUrl = preferences.getBaseUrl()
-        val ollamaUrl = preferences.getOllamaBaseUrl()
-        val ollamaModel = preferences.getOllamaModel()
+        val snapshot = preferences.snapshot()
+        val providerName = snapshot.aiProvider
+        val apiKey = snapshot.apiKey
+        val model = snapshot.model
+        val baseUrl = snapshot.baseUrl
+        val ollamaUrl = snapshot.ollamaBaseUrl
+        val ollamaModel = snapshot.ollamaModel
 
         return when (providerName) {
             "ollama" -> StreamingApiService.streamOllamaChat(
@@ -130,7 +130,7 @@ class AiProviderManager @Inject constructor(
                         temperature = request.temperature,
                         maxTokens = request.maxTokens
                     )
-                } else if (preferences.getOllamaBaseUrl().isNotBlank()) {
+                } else if (snapshot.ollamaBaseUrl.isNotBlank()) {
                     StreamingApiService.streamOllamaChat(
                         baseUrl = ollamaUrl,
                         model = ollamaModel,

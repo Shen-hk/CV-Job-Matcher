@@ -1,7 +1,6 @@
 package com.example.tielink.data.remote.interceptor
 
 import com.example.tielink.data.local.AppPreferences
-import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 
@@ -10,9 +9,7 @@ class ApiKeyInterceptor(
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        // Read cached API key synchronously.
-        // AppPreferences maintains a @Volatile cache updated on app start.
-        val apiKey = runBlocking { appPreferences.getApiKey() }
+        val apiKey = appPreferences.snapshot().apiKey
 
         val originalRequest = chain.request()
         val authenticatedRequest = if (apiKey.isNotBlank()) {

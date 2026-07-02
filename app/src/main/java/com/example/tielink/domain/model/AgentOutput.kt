@@ -5,6 +5,15 @@ package com.example.tielink.domain.model
  * 用于解耦工具调用和 UI 渲染
  */
 sealed class AgentOutput {
+    data class ProcessPhase(
+        val stage: AgentProcessStage,
+        val title: String,
+        val detail: String = "",
+        val sourceLabel: String? = null,
+        val sourceBreakdown: List<String> = emptyList(),
+        val canCancel: Boolean = false
+    ) : AgentOutput()
+
     data class StreamText(val chunk: String) : AgentOutput()
     data class Thinking(val chunk: String) : AgentOutput()
     data class ToolStart(val toolName: String, val description: String) : AgentOutput()
@@ -98,6 +107,13 @@ sealed class UiCard {
         val description: String,
         val toolName: String = "",
         val onUpload: () -> Unit = {}
+    ) : UiCard()
+
+    data class ResumeSourceChoiceCard(
+        val title: String,
+        val description: String,
+        val libraryActionLabel: String = "从简历库选择",
+        val uploadActionLabel: String = "上传新简历"
     ) : UiCard()
 }
 

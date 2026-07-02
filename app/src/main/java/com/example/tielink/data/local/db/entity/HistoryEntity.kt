@@ -12,11 +12,17 @@ data class HistoryEntity(
     @ColumnInfo(name = "created_at")
     val createdAt: Long,
 
+    @ColumnInfo(name = "updated_at", defaultValue = "0")
+    val updatedAt: Long = createdAt,
+
     @ColumnInfo(name = "jd_raw_text")
     val jdRawText: String,
 
     @ColumnInfo(name = "jd_title")
     val jdTitle: String,
+
+    @ColumnInfo(name = "custom_title", defaultValue = "")
+    val customTitle: String = "",
 
     @ColumnInfo(name = "original_resume")
     val originalResume: String,
@@ -52,5 +58,8 @@ data class HistoryEntity(
     val sourceType: String = "text",
 
     @ColumnInfo(name = "template_style")
-    val templateStyle: String = "classic"
+    val templateStyle: String = "classic",
+
+    @ColumnInfo(name = "is_pinned", defaultValue = "0")
+    val isPinned: Boolean = false
 )

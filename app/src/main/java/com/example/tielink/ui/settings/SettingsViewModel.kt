@@ -11,8 +11,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -39,37 +37,23 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            combine(
-                appPreferences.getApiKeyFlow().distinctUntilChanged(),
-                appPreferences.getModelFlow().distinctUntilChanged(),
-                appPreferences.getBaseUrlFlow().distinctUntilChanged(),
-                appPreferences.getAiProviderFlow().distinctUntilChanged(),
-                appPreferences.getOllamaModelFlow().distinctUntilChanged()
-            ) { apiKey, deepSeekModel, baseUrl, provider, ollamaModel ->
-                val providerName = when (provider) {
+        val snapshot = appPreferences.snapshot()
+        _uiState.update {
+            it.copy(
+                apiKey = snapshot.apiKey,
+                model = snapshot.model,
+                baseUrl = snapshot.baseUrl,
+                activeProviderName = when (snapshot.aiProvider) {
                     "ollama" -> "Ollama"
                     "local" -> "本地嵌入模型"
                     else -> "DeepSeek"
-                }
-                val activeModelName = when (provider) {
-                    "ollama" -> ollamaModel
+                },
+                activeModelName = when (snapshot.aiProvider) {
+                    "ollama" -> snapshot.ollamaModel
                     "local" -> "本地嵌入模型"
-                    else -> deepSeekModel
+                    else -> snapshot.model
                 }
-                Triple(providerName, activeModelName, Triple(apiKey, deepSeekModel, baseUrl))
-            }.collect { (providerName, activeModelName, values) ->
-                val (apiKey, deepSeekModel, baseUrl) = values
-                _uiState.update {
-                    it.copy(
-                        apiKey = apiKey,
-                        model = deepSeekModel,
-                        baseUrl = baseUrl,
-                        activeProviderName = providerName,
-                        activeModelName = activeModelName
-                    )
-                }
-            }
+            )
         }
     }
 

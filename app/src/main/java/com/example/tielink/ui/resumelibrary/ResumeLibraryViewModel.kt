@@ -2,13 +2,15 @@ package com.example.tielink.ui.resumelibrary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.tielink.data.local.AppPreferences
+import com.example.tielink.data.local.db.dao.ResumeVersionDao
 import com.example.tielink.data.local.db.entity.HistoryEntity
 import com.example.tielink.data.local.db.entity.ResumeVersionEntity
-import com.example.tielink.data.local.db.dao.ResumeVersionDao
+import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.ResumeLibraryItem
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +29,9 @@ data class ResumeLibraryUiState(
 @HiltViewModel
 class ResumeLibraryViewModel @Inject constructor(
     private val historyDao: com.example.tielink.data.local.db.dao.HistoryDao,
-    private val resumeVersionDao: ResumeVersionDao
+    private val resumeVersionDao: ResumeVersionDao,
+    private val resumeVersionRepository: ResumeVersionRepository,
+    private val appPreferences: AppPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ResumeLibraryUiState())
@@ -57,7 +61,11 @@ class ResumeLibraryViewModel @Inject constructor(
                     )
                 }
                 versionItems.forEach { v ->
-                    val tagList = try { stringListAdapter.fromJson(v.tags) ?: emptyList() } catch (_: Exception) { emptyList<String>() }
+                    val tagList = try {
+                        stringListAdapter.fromJson(v.tags) ?: emptyList()
+                    } catch (_: Exception) {
+                        emptyList<String>()
+                    }
                     add(
                         ResumeLibraryItem(
                             id = v.id,
@@ -76,8 +84,15 @@ class ResumeLibraryViewModel @Inject constructor(
     }
 
     private fun historyTitle(jdTitle: String, polishedResume: String): String {
-        if (jdTitle.isNotBlank()) return "${jdTitle} · 润色版"
+        if (jdTitle.isNotBlank()) return "$jdTitle · 润色记录"
         val firstLine = polishedResume.lines().firstOrNull { it.isNotBlank() }?.take(30) ?: "简历"
         return "$firstLine..."
+    }
+
+    fun selectResumeForOptimize(versionId: Long) {
+        viewModelScope.launch {
+            runCatching { resumeVersionRepository.setActive(versionId) }
+            runCatching { appPreferences.setResumeOptimizeContinue(true) }
+        }
     }
 }

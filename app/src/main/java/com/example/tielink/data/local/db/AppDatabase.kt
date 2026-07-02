@@ -30,7 +30,7 @@ import com.example.tielink.data.local.db.entity.TrackingEntity
         ProviderEntity::class,
         ProviderModelEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -166,6 +166,61 @@ abstract class AppDatabase : RoomDatabase() {
 
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_provider_models_provider_id ON provider_models(providerId)")
             }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Schema for version 11 was stabilized before the history refinements below.
+                // Keep this migration as a bridge so upgrades can move from 10 -> 12 safely.
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addColumnIfMissing(
+                    db = db,
+                    tableName = "history",
+                    columnName = "updated_at",
+                    columnSql = "INTEGER NOT NULL DEFAULT 0"
+                )
+                addColumnIfMissing(
+                    db = db,
+                    tableName = "history",
+                    columnName = "custom_title",
+                    columnSql = "TEXT NOT NULL DEFAULT ''"
+                )
+                addColumnIfMissing(
+                    db = db,
+                    tableName = "history",
+                    columnName = "is_pinned",
+                    columnSql = "INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL("UPDATE history SET updated_at = created_at WHERE updated_at = 0")
+            }
+        }
+
+        private fun addColumnIfMissing(
+            db: SupportSQLiteDatabase,
+            tableName: String,
+            columnName: String,
+            columnSql: String
+        ) {
+            if (hasColumn(db, tableName, columnName)) return
+            db.execSQL("ALTER TABLE $tableName ADD COLUMN $columnName $columnSql")
+        }
+
+        private fun hasColumn(
+            db: SupportSQLiteDatabase,
+            tableName: String,
+            columnName: String
+        ): Boolean {
+            db.query("PRAGMA table_info($tableName)").use { cursor ->
+                val nameIndex = cursor.getColumnIndexOrThrow("name")
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nameIndex) == columnName) return true
+                }
+            }
+            return false
         }
     }
 }

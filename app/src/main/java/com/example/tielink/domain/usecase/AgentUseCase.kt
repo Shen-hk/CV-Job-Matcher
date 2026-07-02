@@ -1,4 +1,4 @@
-package com.example.tielink.domain.usecase
+﻿package com.example.tielink.domain.usecase
 
 import android.content.Context
 import android.util.Log
@@ -11,9 +11,11 @@ import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.JdLibraryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.repository.TrackingRepository
-import com.example.tielink.domain.model.AgentContext
 import com.example.tielink.domain.model.AgentIntent
+import com.example.tielink.domain.model.AgentMessage
+import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentOutput
+import com.example.tielink.domain.model.IntentType
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.nlp.IntentClassifier
@@ -38,6 +40,7 @@ class AgentUseCase @Inject constructor(
     private val promptRegistry: PromptRegistry,
     private val agentContextRepository: AgentContextRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
+    private val agentToolCoordinator: AgentToolCoordinator,
     private val jdLibraryRepository: JdLibraryRepository,
     private val matchScoreDetailUseCase: MatchScoreDetailUseCase,
     private val skillGapAnalyzer: SkillGapAnalyzer,
@@ -52,6 +55,13 @@ class AgentUseCase @Inject constructor(
         // TODO: 调试开关，测试完记得改回 false
         private const val DEBUG_SHOW_ALL_CARDS = false
     }
+
+    private data class IntentRouteDecision(
+        val decision: String,
+        val clarificationNeeded: Boolean = false,
+        val clarificationPrompt: String? = null
+    )
+
     /**
      * 处理用户输入，返回 AgentOutput 流
      */
@@ -68,14 +78,14 @@ class AgentUseCase @Inject constructor(
         // ──────────────────────────────────────────────────────────────────────
 
         // 1. 意图识别
-        val intent = IntentClassifier.classify(userText)
+        val intent = resolveIntent(userText, conversationHistory)
         Log.d(TAG, "识别意图: ${intent.type}, 工具调用: ${intent.toolCall}")
 
         // 1a. 自动保存 JD：检测到长文本包含岗位关键词时，后台提取并写入 JD 库
         if (intent.type == com.example.tielink.domain.model.IntentType.JD_ANALYZE
-            || looksLikeJd(userText)
+            || agentToolCoordinator.shouldAutoSaveJd(userText)
         ) {
-            withContext(Dispatchers.IO) { tryAutoSaveJd(userText) }
+            withContext(Dispatchers.IO) { agentToolCoordinator.tryAutoSaveJd(userText) }
         }
 
         // 2. 如果需要澄清，发出澄清请求
@@ -96,10 +106,10 @@ class AgentUseCase @Inject constructor(
             val needsResume = toolName in listOf("resume_tool", "match_tool")
             if (needsResume && resumeVersionRepository.getActive() == null) {
                 val (title, desc) = when (toolName) {
-                    "resume_tool" -> "需要您的简历" to "请上传简历文件，支持 PDF、Word 或纯文本格式"
-                    else -> "需要简历才能分析匹配度" to "请上传简历文件，支持 PDF、Word 或纯文本格式"
+                    "resume_tool" -> "需要您的简历" to "请选择已有简历继续优化，或者上传一份新的简历"
+                    else -> "需要简历才能分析匹配度" to "请选择已有简历继续分析，或者上传一份新的简历"
                 }
-                emit(AgentOutput.ToolResult(UiCard.UploadPromptCard(title = title, description = desc, toolName = toolName)))
+                emit(AgentOutput.ToolResult(UiCard.ResumeSourceChoiceCard(title = title, description = desc)))
                 emit(AgentOutput.Done)
                 return@flow
             }
@@ -113,13 +123,47 @@ class AgentUseCase @Inject constructor(
                 else -> "正在调用 ${intent.toolCall.function}..."
             }
             emit(AgentOutput.ToolStart(toolName = toolName, description = toolDesc))
+            emit(
+                AgentOutput.ProcessPhase(
+                    stage = when (toolName) {
+                        "platform_tool" -> com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION
+                        "draw_tool", "image_tool" -> com.example.tielink.domain.model.AgentProcessStage.DRAWING
+                        else -> com.example.tielink.domain.model.AgentProcessStage.RETRIEVING
+                    },
+                    title = when (toolName) {
+                        "platform_tool" -> "文本生成中"
+                        "draw_tool", "image_tool" -> "绘图中"
+                        else -> "检索中"
+                    },
+                    detail = toolDesc,
+                    sourceLabel = when (toolName) {
+                        "match_tool" -> "简历库 · 当前JD"
+                        "resume_tool" -> "当前简历"
+                        "interview_tool" -> "模拟面试会话"
+                        "tracking_tool" -> "投递记录"
+                        "platform_tool" -> "JD + 简历"
+                        "jd_tool" -> "JD 文本"
+                        else -> null
+                    },
+                    sourceBreakdown = when (toolName) {
+                        "match_tool" -> listOf("简历库", "JD", "匹配分析")
+                        "resume_tool" -> listOf("当前简历", "优化建议")
+                        "interview_tool" -> listOf("会话记录", "最近问答")
+                        "tracking_tool" -> listOf("投递记录", "最新状态")
+                        "platform_tool" -> listOf("JD", "简历", "话术生成")
+                        "jd_tool" -> listOf("JD 文本", "结构化提取")
+                        else -> emptyList()
+                    },
+                    canCancel = true
+                )
+            )
 
-            val toolResult = executeTool(toolName, userText, appContext)
+            val toolResult = agentToolCoordinator.executeTool(toolName, userText)
 
             // 3b. resume_tool：简历已存在，无论是否生成 diff 建议，都展示简历预览卡
             if (toolName == "resume_tool") {
                 if (toolResult != null) emit(AgentOutput.ToolResult(toolResult))
-                val previewCard = buildResumePreviewCard()
+                val previewCard = agentToolCoordinator.buildResumePreviewCard()
                 if (previewCard != null) {
                     emit(AgentOutput.ToolResult(previewCard))
                 } else if (toolResult == null) {
@@ -135,7 +179,7 @@ class AgentUseCase @Inject constructor(
                 emit(AgentOutput.ToolResult(toolResult))
                 // match_tool 完成后追加简历预览卡
                 if (toolName == "match_tool") {
-                    buildResumePreviewCard()?.let { emit(AgentOutput.ToolResult(it)) }
+                    agentToolCoordinator.buildResumePreviewCard()?.let { emit(AgentOutput.ToolResult(it)) }
                 }
                 emit(AgentOutput.Done)
                 return@flow
@@ -169,11 +213,31 @@ class AgentUseCase @Inject constructor(
         try {
             val streamFlow = aiProviderManager.chatStream(request)
             val textBuilder = StringBuilder()
+            emit(
+                AgentOutput.ProcessPhase(
+                    stage = com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION,
+                    title = "文本生成中",
+                    detail = "正在流式输出答案",
+                    sourceLabel = null,
+                    sourceBreakdown = emptyList(),
+                    canCancel = true
+                )
+            )
 
             streamFlow.collect { event ->
                 when (event) {
                     is com.example.tielink.data.remote.StreamEvent.Start -> { /* no-op */ }
                     is com.example.tielink.data.remote.StreamEvent.Thinking -> {
+                        emit(
+                            AgentOutput.ProcessPhase(
+                                stage = com.example.tielink.domain.model.AgentProcessStage.THINKING,
+                                title = "思考中",
+                                detail = "正在推理回复内容",
+                                sourceLabel = null,
+                                sourceBreakdown = emptyList(),
+                                canCancel = true
+                            )
+                        )
                         emit(AgentOutput.Thinking(event.text))
                     }
                     is com.example.tielink.data.remote.StreamEvent.Content -> {
@@ -195,6 +259,207 @@ class AgentUseCase @Inject constructor(
             Log.e(TAG, "LLM 调用异常", e)
             emit(AgentOutput.Error(e.localizedMessage ?: "AI 服务不可用，请检查 API Key 设置"))
         }
+    }
+
+    private suspend fun resolveIntent(
+        userText: String,
+        conversationHistory: List<AgentMessage>
+    ): AgentIntent {
+        val ruleIntent = IntentClassifier.classify(userText)
+        if (ruleIntent.type != IntentType.CHAT || ruleIntent.toolCall != null || ruleIntent.clarificationNeeded) {
+            return ruleIntent
+        }
+
+        return runCatching {
+            withContext(Dispatchers.IO) {
+                routeIntentWithModel(userText, conversationHistory)
+            }
+        }.getOrElse {
+            Log.w(TAG, "模型路由失败，回退到规则分类: ${it.message}")
+            ruleIntent
+        }
+    }
+
+    private suspend fun routeIntentWithModel(
+        userText: String,
+        conversationHistory: List<AgentMessage>
+    ): AgentIntent {
+        val recentContext = conversationHistory
+            .takeLast(6)
+            .joinToString(separator = "\n") { message ->
+                val label = when (message.role) {
+                    AgentMessageRole.USER -> "user"
+                    AgentMessageRole.AGENT -> "assistant"
+                    AgentMessageRole.SYSTEM -> "system"
+                }
+                val cardName = message.card?.javaClass?.simpleName
+                buildString {
+                    append(label)
+                    append(": ")
+                    append(message.content.ifBlank { "(empty)" })
+                    if (cardName != null) {
+                        append(" [card=")
+                        append(cardName)
+                        append("]")
+                    }
+                    if (message.toolLoadingName != null) {
+                        append(" [loading=")
+                        append(message.toolLoadingName)
+                        append("]")
+                    }
+                }
+            }
+
+        val activeResume = resumeVersionRepository.getActive()?.name ?: "none"
+        val activeJd = agentContextRepository.getAgentContext().currentJdText?.take(120) ?: "none"
+        val systemPrompt = """
+            你是一个意图路由器。你的任务是判断用户当前应该触发哪个工具/卡片，而不是直接回答用户。
+            可选 decision 只能是下面之一：
+            jd_tool, match_tool, resume_tool, interview_tool, tracking_tool, platform_tool, debrief_tool, chat
+
+            路由原则：
+            - 用户说“优化简历”“润色简历”“改简历”“给我弹简历卡片” -> resume_tool
+            - 用户说“匹配度”“JD 匹配”“岗位分析” -> match_tool 或 jd_tool
+            - 用户说“模拟面试”“面试练习” -> interview_tool
+            - 用户说“投递记录”“跟进投递”“申请状态” -> tracking_tool
+            - 用户说“打招呼”“话术”“外部平台回复” -> platform_tool
+            - 用户说“复盘”“录音分析” -> debrief_tool
+            - 用户表达不清、无法安全判断时，设置 clarificationNeeded=true，并给出最短澄清问题
+            - 如果只是正常聊天，decision=chat
+
+            输出必须是严格 JSON，不要包含多余文字：
+            {"decision":"resume_tool","clarificationNeeded":false,"clarificationPrompt":null}
+        """.trimIndent()
+
+        val userPrompt = buildString {
+            appendLine("当前用户输入：")
+            appendLine(userText)
+            appendLine()
+            appendLine("上下文摘要：")
+            appendLine("当前简历：$activeResume")
+            appendLine("当前JD：$activeJd")
+            if (recentContext.isNotBlank()) {
+                appendLine("最近对话：")
+                appendLine(recentContext)
+            }
+            appendLine()
+            appendLine("请根据上面的信息选择最合适的 decision。")
+        }
+
+        val response = aiProviderManager.chatWithFallback(
+            LlmRequest(
+                messages = listOf(
+                    Message(role = "system", content = systemPrompt),
+                    Message(role = "user", content = userPrompt)
+                ),
+                temperature = 0.0,
+                maxTokens = 256
+            )
+        )
+
+        val decision = moshi.adapter(IntentRouteDecision::class.java).fromJson(sanitizeJson(response.content))
+        if (decision == null) {
+            return chatIntent()
+        }
+
+        return when (decision.decision.lowercase()) {
+            "jd_tool" -> buildIntent(IntentType.JD_ANALYZE, userText)
+            "match_tool" -> buildIntent(IntentType.MATCH, userText)
+            "resume_tool" -> buildIntent(IntentType.RESUME_EDIT, userText)
+            "interview_tool" -> buildIntent(IntentType.INTERVIEW, userText)
+            "tracking_tool" -> buildIntent(IntentType.TRACKING, userText)
+            "platform_tool" -> buildIntent(IntentType.PLATFORM, userText)
+            "debrief_tool" -> buildIntent(IntentType.DEBRIEF, userText)
+            else -> {
+                if (decision.clarificationNeeded) {
+                    AgentIntent(
+                        type = IntentType.CHAT,
+                        clarificationNeeded = true,
+                        clarificationPrompt = decision.clarificationPrompt ?: "你想让我帮你弹哪张卡？"
+                    )
+                } else {
+                    chatIntent()
+                }
+            }
+        }
+    }
+
+    private fun buildIntent(type: IntentType, userText: String): AgentIntent {
+        return when (type) {
+            IntentType.JD_ANALYZE -> AgentIntent(
+                type = type,
+                toolCall = com.example.tielink.domain.model.ToolCall(
+                    toolName = "jd_tool",
+                    function = "analyze_jd",
+                    params = mapOf("text" to userText)
+                )
+            )
+            IntentType.MATCH -> AgentIntent(
+                type = type,
+                toolCall = com.example.tielink.domain.model.ToolCall(
+                    toolName = "match_tool",
+                    function = "calculate_match",
+                    params = emptyMap()
+                )
+            )
+            IntentType.RESUME_EDIT -> AgentIntent(
+                type = type,
+                toolCall = com.example.tielink.domain.model.ToolCall(
+                    toolName = "resume_tool",
+                    function = "edit_section",
+                    params = mapOf("instruction" to userText)
+                )
+            )
+            IntentType.INTERVIEW -> AgentIntent(
+                type = type,
+                toolCall = com.example.tielink.domain.model.ToolCall(
+                    toolName = "interview_tool",
+                    function = "start_interview",
+                    params = emptyMap()
+                )
+            )
+            IntentType.TRACKING -> AgentIntent(
+                type = type,
+                toolCall = com.example.tielink.domain.model.ToolCall(
+                    toolName = "tracking_tool",
+                    function = "create_application",
+                    params = emptyMap()
+                )
+            )
+            IntentType.PLATFORM -> AgentIntent(
+                type = type,
+                toolCall = com.example.tielink.domain.model.ToolCall(
+                    toolName = "platform_tool",
+                    function = "generate_greeting",
+                    params = emptyMap()
+                )
+            )
+            IntentType.DEBRIEF -> AgentIntent(
+                type = type,
+                toolCall = com.example.tielink.domain.model.ToolCall(
+                    toolName = "debrief_tool",
+                    function = "upload_recording",
+                    params = emptyMap()
+                )
+            )
+            IntentType.CHAT -> AgentIntent(type = type)
+        }
+    }
+
+    private fun chatIntent(): AgentIntent {
+        return AgentIntent(type = IntentType.CHAT)
+    }
+
+    private fun sanitizeJson(content: String): String {
+        val trimmed = content.trim()
+        if (!trimmed.contains("```")) return trimmed
+
+        val fenced = Regex("```(?:json)?\\s*([\\s\\S]*?)\\s*```", RegexOption.IGNORE_CASE)
+            .find(trimmed)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim()
+        return fenced ?: trimmed.substringAfter("```json", trimmed).substringBefore("```").trim()
     }
 
     /**

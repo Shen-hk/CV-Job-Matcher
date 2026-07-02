@@ -32,7 +32,8 @@ object IntentClassifier {
             "优化经历", "改经历", "改描述", "改写经历",
             "润色", "美化", "措辞", "改措辞", "量化", "帮我量化",
             "star", "star法则", "star改写", "行动", "成果",
-            "简历不好", "简历差", "简历太", "改改简历"
+            "简历不好", "简历差", "简历太", "改改简历",
+            "optimize resume", "resume optimization", "resume edit", "polish resume"
         ),
         IntentType.INTERVIEW to listOf(
             // 精确命中

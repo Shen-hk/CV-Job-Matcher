@@ -33,6 +33,28 @@ class HistoryRepository @Inject constructor(
         historyDao.deleteById(id)
     }
 
+    suspend fun deleteByIds(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        Log.d(TAG, "deleteByIds: count=${ids.size}")
+        historyDao.deleteByIds(ids)
+    }
+
+    suspend fun rename(id: Long, title: String) {
+        Log.d(TAG, "rename: id=$id, title=$title")
+        historyDao.updateTitle(id, title, System.currentTimeMillis())
+    }
+
+    suspend fun updatePinned(id: Long, isPinned: Boolean) {
+        Log.d(TAG, "updatePinned: id=$id, isPinned=$isPinned")
+        historyDao.updatePinned(id, isPinned, System.currentTimeMillis())
+    }
+
+    suspend fun updatePinnedByIds(ids: List<Long>, isPinned: Boolean) {
+        if (ids.isEmpty()) return
+        Log.d(TAG, "updatePinnedByIds: count=${ids.size}, isPinned=$isPinned")
+        historyDao.updatePinnedByIds(ids, isPinned, System.currentTimeMillis())
+    }
+
     suspend fun deleteAll() {
         Log.d(TAG, "deleteAll")
         historyDao.deleteAll()

@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.data.remote.dto.DeepSeekRequest
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.runBlocking
 
 class DeepSeekProvider constructor(
     private val apiServiceFactory: DeepSeekApiServiceFactory,
@@ -15,7 +14,7 @@ class DeepSeekProvider constructor(
     
     override suspend fun chatCompletion(request: LlmRequest): LlmResponse {
         return try {
-            val apiKey = preferences.getApiKey()
+            val apiKey = preferences.snapshot().apiKey
             if (apiKey.isBlank()) {
                 throw IllegalStateException("API Key未配置")
             }
@@ -47,9 +46,10 @@ class DeepSeekProvider constructor(
     }
 
     override fun chatCompletionStream(request: LlmRequest): Flow<StreamEvent> {
-        val apiKey = runBlocking { preferences.getApiKey() }
-        val baseUrl = preferences.getBaseUrlSync()
-        val model = runBlocking { preferences.getModel() }
+        val snapshot = preferences.snapshot()
+        val apiKey = snapshot.apiKey
+        val baseUrl = snapshot.baseUrl
+        val model = snapshot.model
         return StreamingApiService.streamOpenAiChat(
             baseUrl = baseUrl,
             apiKey = apiKey,
@@ -66,11 +66,7 @@ class DeepSeekProvider constructor(
     }
     
     override fun isAvailable(): Boolean {
-        return try {
-            runBlocking { preferences.getApiKey().isNotBlank() }
-        } catch (e: Exception) {
-            false
-        }
+        return preferences.snapshot().apiKey.isNotBlank()
     }
 
     companion object {

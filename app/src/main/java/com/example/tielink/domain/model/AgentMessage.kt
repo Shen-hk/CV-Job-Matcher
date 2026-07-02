@@ -27,6 +27,27 @@ data class ContextBarState(
     val resumeVersionId: Long? = null
 )
 
+enum class AgentProcessStage {
+    IDLE,
+    THINKING,
+    RETRIEVING,
+    DRAWING,
+    TEXT_GENERATION,
+    INTERRUPTED
+}
+
+data class AgentProcessState(
+    val stage: AgentProcessStage = AgentProcessStage.IDLE,
+    val title: String = "",
+    val detail: String = "",
+    val sourceLabel: String? = null,
+    val sourceBreakdown: List<String> = emptyList(),
+    val canCancel: Boolean = false
+) {
+    val isActive: Boolean
+        get() = stage != AgentProcessStage.IDLE
+}
+
 data class AgentChatUiState(
     val messages: List<AgentMessage> = emptyList(),
     val inputText: String = "",
@@ -34,10 +55,26 @@ data class AgentChatUiState(
     val isStreaming: Boolean = false,
     val error: String? = null,
     val contextBar: ContextBarState = ContextBarState(),
+    val processState: AgentProcessState = AgentProcessState(),
     val pendingAttachmentName: String? = null,
     val pendingAttachmentText: String? = null,
     val isParsingFile: Boolean = false,
     val thinkingBuffer: String = "",
     /** Shown below the welcome message; cleared after first user message */
     val suggestedPrompts: List<String> = emptyList()
+)
+
+data class PersistedAgentMessage(
+    val role: AgentMessageRole,
+    val content: String,
+    val timestamp: Long,
+    val thinkingContent: String? = null
+)
+
+data class PersistedAgentChatDraft(
+    val messages: List<PersistedAgentMessage> = emptyList(),
+    val inputText: String = "",
+    val pendingAttachmentName: String? = null,
+    val pendingAttachmentText: String? = null,
+    val lastSavedAt: Long = System.currentTimeMillis()
 )
