@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.UiCard
 
@@ -65,7 +66,8 @@ fun UiCardComposable(
     modifier: Modifier = Modifier,
     onNavigateToResumePreview: (Long) -> Unit = {},
     onNavigateToResumeLibrary: () -> Unit = {},
-    onRequestResumeUpload: () -> Unit = {}
+    onRequestResumeUpload: () -> Unit = {},
+    onDynamicAction: (DynamicCardAction) -> Unit = {}
 ) {
     when (card) {
         is UiCard.MatchCard -> MatchCardComposable(card, modifier)
@@ -82,6 +84,7 @@ fun UiCardComposable(
             onNavigateToResumeLibrary = onNavigateToResumeLibrary,
             onRequestResumeUpload = onRequestResumeUpload
         )
+        is UiCard.DynamicCard -> DynamicCardComposable(card, modifier, onDynamicAction)
     }
 }
 
@@ -708,6 +711,126 @@ fun ResumeSourceChoiceCardComposable(
                     Icon(Icons.Filled.Upload, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(card.uploadActionLabel)
+                }
+            }
+        }
+    }
+}
+
+// ─── DynamicCard ─────────────────────────────────────────────────────────────
+
+@Composable
+fun DynamicCardComposable(
+    card: UiCard.DynamicCard,
+    modifier: Modifier = Modifier,
+    onAction: (DynamicCardAction) -> Unit = {}
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = card.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                card.subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            card.sections.forEachIndexed { index, section ->
+                if (index > 0) HorizontalDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    section.title?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    when (section.type) {
+                        "text" -> section.text?.let {
+                            Text(text = it, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        "metrics" -> section.items.forEach { item ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = item.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = item.value,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        "tags" -> section.items.forEach { item ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = if (item.value.isBlank()) item.label
+                                    else "${item.label} · ${item.value}",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                        "progress" -> section.items.forEach { item ->
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(item.label, style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        item.value,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    progress = { (item.progress ?: 0).coerceIn(0, 100) / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (card.actions.isNotEmpty()) {
+                HorizontalDivider()
+                card.actions.forEach { action ->
+                    FilledTonalButton(
+                        onClick = { onAction(action) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(action.label)
+                    }
                 }
             }
         }

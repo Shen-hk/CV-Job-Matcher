@@ -5,7 +5,10 @@ import android.util.Log
 import com.example.tielink.data.remote.AiProviderManager
 import com.example.tielink.data.remote.LlmRequest
 import com.example.tielink.data.remote.PromptRegistry
+import com.example.tielink.data.remote.StreamEvent
+import com.example.tielink.data.remote.dto.MessageFunctionCall
 import com.example.tielink.data.remote.dto.Message
+import com.example.tielink.data.remote.dto.MessageToolCall
 import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.JdLibraryRepository
@@ -52,6 +55,8 @@ class AgentUseCase @Inject constructor(
     companion object {
         private const val TAG = "AgentUseCase"
         private const val MAX_CONTEXT_MESSAGES = 20
+        private const val MAX_TOOL_ROUNDS = 6
+        private const val MAX_TOOL_CALLS_PER_ROUND = 4
         // TODO: 调试开关，测试完记得改回 false
         private const val DEBUG_SHOW_ALL_CARDS = false
     }
@@ -70,194 +75,174 @@ class AgentUseCase @Inject constructor(
         conversationHistory: List<com.example.tielink.domain.model.AgentMessage>,
         appContext: Context
     ): Flow<AgentOutput> = flow {
-        // ── 调试模式：依次弹出所有卡片类型，方便 UI 验证 ──────────────────────
         if (DEBUG_SHOW_ALL_CARDS) {
             emitDebugCards()
             return@flow
         }
-        // ──────────────────────────────────────────────────────────────────────
-
-        // 1. 意图识别
-        val intent = resolveIntent(userText, conversationHistory)
-        Log.d(TAG, "识别意图: ${intent.type}, 工具调用: ${intent.toolCall}")
-
-        // 1a. 自动保存 JD：检测到长文本包含岗位关键词时，后台提取并写入 JD 库
-        if (intent.type == com.example.tielink.domain.model.IntentType.JD_ANALYZE
-            || agentToolCoordinator.shouldAutoSaveJd(userText)
-        ) {
-            withContext(Dispatchers.IO) { agentToolCoordinator.tryAutoSaveJd(userText) }
-        }
-
-        // 2. 如果需要澄清，发出澄清请求
-        if (intent.clarificationNeeded) {
-            emit(AgentOutput.ClarificationRequest(
-                question = intent.clarificationPrompt ?: "请确认你的意图",
-                options = listOf("是", "否", "取消")
-            ))
-            return@flow
-        }
-
-        // 3. 如果有工具调用，先执行工具
-        if (intent.toolCall != null) {
-            val toolName = intent.toolCall.toolName
-
-            // 3a. 前置条件检查 —— 缺简历时直接给上传卡，绝不进入 ToolStart/loading
-            //     （区分「缺前置条件」与「有前置条件但工具无产出」两种情况）
-            val needsResume = toolName in listOf("resume_tool", "match_tool")
-            if (needsResume && resumeVersionRepository.getActive() == null) {
-                val (title, desc) = when (toolName) {
-                    "resume_tool" -> "需要您的简历" to "请选择已有简历继续优化，或者上传一份新的简历"
-                    else -> "需要简历才能分析匹配度" to "请选择已有简历继续分析，或者上传一份新的简历"
-                }
-                emit(AgentOutput.ToolResult(UiCard.ResumeSourceChoiceCard(title = title, description = desc)))
-                emit(AgentOutput.Done)
-                return@flow
-            }
-
-            val toolDesc = when (toolName) {
-                "match_tool" -> "正在分析简历与岗位匹配度..."
-                "resume_tool" -> "简历正在优化中..."
-                "interview_tool" -> "正在加载面试会话..."
-                "tracking_tool" -> "正在读取投递记录..."
-                "platform_tool" -> "正在生成打招呼话术..."
-                else -> "正在调用 ${intent.toolCall.function}..."
-            }
-            emit(AgentOutput.ToolStart(toolName = toolName, description = toolDesc))
-            emit(
-                AgentOutput.ProcessPhase(
-                    stage = when (toolName) {
-                        "platform_tool" -> com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION
-                        "draw_tool", "image_tool" -> com.example.tielink.domain.model.AgentProcessStage.DRAWING
-                        else -> com.example.tielink.domain.model.AgentProcessStage.RETRIEVING
-                    },
-                    title = when (toolName) {
-                        "platform_tool" -> "文本生成中"
-                        "draw_tool", "image_tool" -> "绘图中"
-                        else -> "检索中"
-                    },
-                    detail = toolDesc,
-                    sourceLabel = when (toolName) {
-                        "match_tool" -> "简历库 · 当前JD"
-                        "resume_tool" -> "当前简历"
-                        "interview_tool" -> "模拟面试会话"
-                        "tracking_tool" -> "投递记录"
-                        "platform_tool" -> "JD + 简历"
-                        "jd_tool" -> "JD 文本"
-                        else -> null
-                    },
-                    sourceBreakdown = when (toolName) {
-                        "match_tool" -> listOf("简历库", "JD", "匹配分析")
-                        "resume_tool" -> listOf("当前简历", "优化建议")
-                        "interview_tool" -> listOf("会话记录", "最近问答")
-                        "tracking_tool" -> listOf("投递记录", "最新状态")
-                        "platform_tool" -> listOf("JD", "简历", "话术生成")
-                        "jd_tool" -> listOf("JD 文本", "结构化提取")
-                        else -> emptyList()
-                    },
-                    canCancel = true
-                )
-            )
-
-            val toolResult = agentToolCoordinator.executeTool(toolName, userText)
-
-            // 3b. resume_tool：简历已存在，无论是否生成 diff 建议，都展示简历预览卡
-            if (toolName == "resume_tool") {
-                if (toolResult != null) emit(AgentOutput.ToolResult(toolResult))
-                val previewCard = agentToolCoordinator.buildResumePreviewCard()
-                if (previewCard != null) {
-                    emit(AgentOutput.ToolResult(previewCard))
-                } else if (toolResult == null) {
-                    // 理论上简历存在就能构建预览卡；兜底防止 loading 气泡残留
-                    emit(AgentOutput.ToolCancelled(toolName))
-                    emit(AgentOutput.StreamText("简历已就绪，但暂时没有可自动优化的内容，你可以告诉我想优化哪一部分。\n\n"))
-                }
-                if (toolResult != null || previewCard != null) {
-                    emit(AgentOutput.Done)
-                    return@flow
-                }
-            } else if (toolResult != null) {
-                emit(AgentOutput.ToolResult(toolResult))
-                // match_tool 完成后追加简历预览卡
-                if (toolName == "match_tool") {
-                    agentToolCoordinator.buildResumePreviewCard()?.let { emit(AgentOutput.ToolResult(it)) }
-                }
-                emit(AgentOutput.Done)
-                return@flow
-            }
-
-            // 3c. 工具有前置条件但无产出（如 match 缺 JD、面试无会话）——
-            //     移除 loading 气泡，给一段引导文字后交给 LLM 继续对话
-            emit(AgentOutput.ToolCancelled(toolName))
-            val hint = when (toolName) {
-                "match_tool" -> "（还没有设置目标岗位 JD，无法计算匹配度。你可以把岗位描述发给我，我来帮你分析）"
-                "interview_tool" -> "（需要先在模拟面试页面开启会话才能加载面试卡片）"
-                "tracking_tool" -> "（暂无投递记录，请先在投递追踪页面添加记录）"
-                "platform_tool" -> "（需要先设置目标岗位 JD 才能生成打招呼话术卡片，以下是文字建议）"
-                else -> null
-            }
-            if (hint != null) emit(AgentOutput.StreamText(hint + "\n\n"))
-        }
-
-        // 4. 构建系统提示词
         val systemPrompt = withContext(Dispatchers.IO) { buildSystemPrompt(appContext) }
+        val messages = buildMessages(systemPrompt, conversationHistory, userText).toMutableList()
+        val tools = agentToolCoordinator.definitions()
+        val seenCalls = mutableSetOf<String>()
+        var finalText = ""
 
-        // 5. 构建 LLM 请求
-        val messages = buildMessages(systemPrompt, conversationHistory, userText)
-        val request = LlmRequest(
-            messages = messages,
-            temperature = 0.7,
-            maxTokens = 4096
-        )
-
-        // 6. 流式调用 LLM（整块放入 try-catch）
         try {
-            val streamFlow = aiProviderManager.chatStream(request)
-            val textBuilder = StringBuilder()
-            emit(
-                AgentOutput.ProcessPhase(
-                    stage = com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION,
-                    title = "文本生成中",
-                    detail = "正在流式输出答案",
-                    sourceLabel = null,
-                    sourceBreakdown = emptyList(),
-                    canCancel = true
+            for (round in 0 until MAX_TOOL_ROUNDS) {
+                emit(
+                    AgentOutput.ProcessPhase(
+                        stage = com.example.tielink.domain.model.AgentProcessStage.THINKING,
+                        title = "思考中",
+                        detail = if (round == 0) "正在理解请求并选择可用工具" else "正在结合工具结果继续处理",
+                        canCancel = true
+                    )
                 )
-            )
 
-            streamFlow.collect { event ->
-                when (event) {
-                    is com.example.tielink.data.remote.StreamEvent.Start -> { /* no-op */ }
-                    is com.example.tielink.data.remote.StreamEvent.Thinking -> {
+                val response = aiProviderManager.chatWithFallback(
+                    LlmRequest(
+                        messages = messages,
+                        temperature = 0.7,
+                        maxTokens = 4096,
+                        tools = tools,
+                        toolChoice = "auto"
+                    )
+                )
+
+                if (response.toolCalls.isEmpty()) {
+                    finalText = response.content.trim()
+                    if (finalText.isNotBlank()) {
                         emit(
                             AgentOutput.ProcessPhase(
-                                stage = com.example.tielink.domain.model.AgentProcessStage.THINKING,
-                                title = "思考中",
-                                detail = "正在推理回复内容",
-                                sourceLabel = null,
-                                sourceBreakdown = emptyList(),
+                                stage = com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION,
+                                title = "文本生成中",
+                                detail = "正在整理最终回复",
                                 canCancel = true
                             )
                         )
-                        emit(AgentOutput.Thinking(event.text))
+                        emit(AgentOutput.StreamText(finalText))
                     }
-                    is com.example.tielink.data.remote.StreamEvent.Content -> {
-                        textBuilder.append(event.text)
-                        emit(AgentOutput.StreamText(event.text))
+                    break
+                }
+
+                val calls = response.toolCalls.take(MAX_TOOL_CALLS_PER_ROUND)
+                val assistantToolCalls = calls.map { call ->
+                    MessageToolCall(
+                        id = call.id,
+                        function = MessageFunctionCall(
+                            name = call.name,
+                            arguments = call.arguments
+                        )
+                    )
+                }
+                messages += Message(
+                    role = "assistant",
+                    content = response.content.ifBlank { null },
+                    toolCalls = assistantToolCalls
+                )
+
+                for (call in calls) {
+                    val signature = "${call.name}:${call.arguments}"
+                    if (!seenCalls.add(signature)) {
+                        messages += Message(
+                            role = "tool",
+                            content = "拒绝重复执行完全相同的工具调用，请根据已有结果继续回答。",
+                            toolCallId = call.id,
+                            name = call.name
+                        )
+                        continue
                     }
-                    is com.example.tielink.data.remote.StreamEvent.Done -> {
-                        withContext(Dispatchers.IO) {
-                            handleMemoryExtraction(userText, textBuilder.toString(), appContext)
-                        }
-                        emit(AgentOutput.Done)
+
+                    val description = agentToolCoordinator.descriptionFor(call.name)
+                    emit(AgentOutput.ToolStart(call.name, description))
+                    emit(
+                        AgentOutput.ProcessPhase(
+                            stage = if (call.name == "render_card") {
+                                com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION
+                            } else {
+                                com.example.tielink.domain.model.AgentProcessStage.RETRIEVING
+                            },
+                            title = if (call.name == "render_card") "卡片生成中" else "工具执行中",
+                            detail = description,
+                            sourceLabel = call.name,
+                            canCancel = true
+                        )
+                    )
+
+                    val result = withContext(Dispatchers.IO) {
+                        agentToolCoordinator.execute(call, userText)
                     }
-                    is com.example.tielink.data.remote.StreamEvent.Error -> {
-                        emit(AgentOutput.Error(event.message))
-                    }
+                    result.cards.forEach { emit(AgentOutput.ToolResult(it)) }
+                    messages += Message(
+                        role = "tool",
+                        content = result.content,
+                        toolCallId = call.id,
+                        name = call.name
+                    )
+                }
+
+                if (round == MAX_TOOL_ROUNDS - 1) {
+                    finalText = "已经完成可执行的工具步骤；为避免循环，我先停在这里。"
+                    emit(AgentOutput.StreamText(finalText))
                 }
             }
+
+            if (finalText.isNotBlank()) {
+                withContext(Dispatchers.IO) {
+                    handleMemoryExtraction(userText, finalText, appContext)
+                }
+            }
+            emit(AgentOutput.Done)
         } catch (e: Exception) {
-            Log.e(TAG, "LLM 调用异常", e)
-            emit(AgentOutput.Error(e.localizedMessage ?: "AI 服务不可用，请检查 API Key 设置"))
+            Log.w(TAG, "原生工具调用不可用，回退到普通流式聊天: ${e.message}")
+            try {
+                emitStreamingFallback(
+                    LlmRequest(
+                        messages = buildMessages(systemPrompt, conversationHistory, userText),
+                        temperature = 0.7,
+                        maxTokens = 4096
+                    ),
+                    userText,
+                    appContext
+                )
+            } catch (fallbackError: Exception) {
+                Log.e(TAG, "LLM 调用异常", fallbackError)
+                emit(
+                    AgentOutput.Error(
+                        fallbackError.localizedMessage ?: "AI 服务不可用，请检查 API Key 设置"
+                    )
+                )
+            }
+        }
+    }
+
+    private suspend fun FlowCollector<AgentOutput>.emitStreamingFallback(
+        request: LlmRequest,
+        userText: String,
+        appContext: Context
+    ) {
+        val textBuilder = StringBuilder()
+        emit(
+            AgentOutput.ProcessPhase(
+                stage = com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION,
+                title = "文本生成中",
+                detail = "当前模型不支持工具协议，已切换为普通回答",
+                canCancel = true
+            )
+        )
+        aiProviderManager.chatStream(request).collect { event ->
+            when (event) {
+                is StreamEvent.Start -> Unit
+                is StreamEvent.Thinking -> emit(AgentOutput.Thinking(event.text))
+                is StreamEvent.Content -> {
+                    textBuilder.append(event.text)
+                    emit(AgentOutput.StreamText(event.text))
+                }
+                is StreamEvent.Done -> {
+                    withContext(Dispatchers.IO) {
+                        handleMemoryExtraction(userText, textBuilder.toString(), appContext)
+                    }
+                    emit(AgentOutput.Done)
+                }
+                is StreamEvent.Error -> emit(AgentOutput.Error(event.message))
+            }
         }
     }
 
@@ -470,6 +455,18 @@ class AgentUseCase @Inject constructor(
         val basePrompt = config.system
 
         val sb = StringBuilder(basePrompt)
+        sb.append(
+            """
+
+            【工具使用规则】
+            - 你可以自主选择并调用已提供的工具；只有确实需要应用数据或动作时才调用。
+            - 工具结果返回后，结合结果继续回答；不要编造未返回的数据。
+            - calculate_match、optimize_resume 等业务工具已经自带专用卡片，不要再用 render_card 重复包装。
+            - 仅当比较、指标、标签或进度等结构化信息明显比纯文字更清楚时，才调用 render_card。
+            - render_card 只能生成协议允许的数据组件，不能生成代码、HTML 或脚本。
+            - 缺少简历、JD、面试会话等前置条件时，说明缺少什么并引导用户补充，不要反复调用同一工具。
+            """.trimIndent()
+        )
 
         val agentContext = agentContextRepository.getAgentContext()
         agentContext.currentJdText?.let { sb.append("\n\n【当前岗位】\n${it.take(500)}") }

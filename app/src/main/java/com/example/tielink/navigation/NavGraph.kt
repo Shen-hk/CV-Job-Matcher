@@ -25,6 +25,7 @@ import com.example.tielink.ui.resumeoptimize.ResumeOptimizeScreen
 import com.example.tielink.ui.settings.ModelConfigScreen
 import com.example.tielink.ui.settings.SettingsScreen
 import com.example.tielink.ui.tracking.TrackingScreen
+import com.example.tielink.domain.model.isAgentChat
 import java.net.URLEncoder
 
 object Routes {
@@ -32,6 +33,7 @@ object Routes {
     const val RESUME_OPTIMIZE = "resume_optimize"
     const val TRACKING = "tracking?jdCompany={jdCompany}&jdPosition={jdPosition}"
     const val AGENT_CHAT = "agent_chat"
+    const val AGENT_CHAT_ROUTE = "agent_chat?historyId={historyId}"
     const val JD_LIST = "jd_list"
     const val RESUME_LIBRARY = "resume_library"
     const val RESUME_LIBRARY_SELECT = "resume_library_select"
@@ -69,6 +71,7 @@ object Routes {
     }
 
     fun result(sessionId: Long): String = "result/$sessionId"
+    fun agentChatHistory(historyId: Long): String = "agent_chat?historyId=$historyId"
     fun resumeFullPreview(versionId: Long): String = "resume_full_preview/$versionId"
 
     fun tracking(jdCompany: String = "", jdPosition: String = ""): String {
@@ -83,7 +86,18 @@ fun NavGraph(navController: NavHostController) {
         startDestination = Routes.AGENT_CHAT  // Agent as main entry point
     ) {
         // ── Agent Chat (new main entry) ────────────────────
-        composable(Routes.AGENT_CHAT) {
+        composable(
+            route = Routes.AGENT_CHAT_ROUTE,
+            arguments = listOf(
+                navArgument("historyId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val historyId = backStackEntry.arguments
+                ?.getLong("historyId")
+                ?.takeIf { it > 0 }
             AgentChatScreen(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToResumeOptimize = { navController.navigate(Routes.RESUME_OPTIMIZE) },
@@ -96,7 +110,8 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToResumeLibraryForChoice = { navController.navigate(Routes.RESUME_LIBRARY_SELECT) },
                 onNavigateToResumePreview = { versionId ->
                     navController.navigate(Routes.resumeFullPreview(versionId))
-                }
+                },
+                initialHistoryId = historyId
             )
         }
 
@@ -226,7 +241,7 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onPolishSuccess = { sessionId ->
                     navController.navigate(Routes.result(sessionId)) {
-                        popUpTo(Routes.AGENT_CHAT) { inclusive = false }
+                        popUpTo(Routes.AGENT_CHAT_ROUTE) { inclusive = false }
                     }
                 }
             )
@@ -242,7 +257,7 @@ fun NavGraph(navController: NavHostController) {
             ResultScreen(
                 onNavigateBack = {
                     navController.navigate(Routes.AGENT_CHAT) {
-                        popUpTo(Routes.AGENT_CHAT) { inclusive = true }
+                        popUpTo(Routes.AGENT_CHAT_ROUTE) { inclusive = true }
                     }
                 },
                 onNavigateToHistory = {
@@ -255,8 +270,12 @@ fun NavGraph(navController: NavHostController) {
         composable(Routes.HISTORY) {
             HistoryScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onItemClick = { sessionId ->
-                    navController.navigate(Routes.result(sessionId))
+                onItemClick = { item ->
+                    if (item.isAgentChat) {
+                        navController.navigate(Routes.agentChatHistory(item.id))
+                    } else {
+                        navController.navigate(Routes.result(item.id))
+                    }
                 }
             )
         }

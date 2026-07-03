@@ -43,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.domain.model.HistoryItem
 import com.example.tielink.domain.model.displayTitle
+import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.ui.theme.TieLinkTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -52,7 +53,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     onNavigateBack: () -> Unit,
-    onItemClick: (Long) -> Unit,
+    onItemClick: (HistoryItem) -> Unit,
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -126,7 +127,7 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "每完成一次润色或迭代优化，都会自动记录到这里。",
+                        text = "聊天会话和简历优化记录会自动保存在这里。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -143,7 +144,7 @@ fun HistoryScreen(
                     items(state.items, key = { it.id }) { item ->
                         HistoryItemCard(
                             item = item,
-                            onClick = { onItemClick(item.id) },
+                            onClick = { onItemClick(item) },
                             onDelete = { viewModel.deleteItem(item.id) }
                         )
                     }
@@ -186,6 +187,14 @@ private fun HistoryItemCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (item.isAgentChat) {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "聊天会话",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 if (item.jdSkills.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(

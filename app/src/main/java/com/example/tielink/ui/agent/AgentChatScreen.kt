@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.domain.model.AgentMessageRole
+import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.ui.history.HistoryViewModel
 import kotlinx.coroutines.launch
 
@@ -73,6 +74,7 @@ fun AgentChatScreen(
     onNavigateToResumeLibrary: () -> Unit = {},
     onNavigateToResumeLibraryForChoice: () -> Unit = {},
     onNavigateToResumePreview: (Long) -> Unit = {},
+    initialHistoryId: Long? = null,
     viewModel: AgentViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -82,6 +84,13 @@ fun AgentChatScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val inlineProcessMessageId = state.messages.lastOrNull {
+        it.role == AgentMessageRole.AGENT && it.card == null && it.toolLoadingName == null
+    }?.id
+
+    LaunchedEffect(initialHistoryId) {
+        initialHistoryId?.let(viewModel::openHistorySession)
+    }
 
     LaunchedEffect(state.messages.size, state.isStreaming) {
         if (state.messages.isNotEmpty()) {
@@ -173,7 +182,12 @@ fun AgentChatScreen(
                 onOpenHistoryRecord = { sessionId ->
                     drawerScope.launch {
                         drawerState.close()
-                        onNavigateToHistoryRecord(sessionId)
+                        val item = historyState.items.firstOrNull { it.id == sessionId }
+                        if (item?.isAgentChat == true) {
+                            viewModel.openHistorySession(sessionId)
+                        } else {
+                            onNavigateToHistoryRecord(sessionId)
+                        }
                     }
                 },
                 onOpenJdList = {
@@ -272,7 +286,7 @@ fun AgentChatScreen(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            item { Spacer(modifier = Modifier.height(64.dp)) }
+                            item { Spacer(modifier = Modifier.height(4.dp)) }
 
                             items(
                                 items = state.messages,
@@ -288,7 +302,7 @@ fun AgentChatScreen(
                             ) { message ->
                                 MessageRow(
                                     message = message,
-                                    inlineProcessState = if (message.id == state.messages.lastOrNull { it.role == AgentMessageRole.AGENT }?.id) {
+                                    inlineProcessState = if (message.id == inlineProcessMessageId) {
                                         state.processState
                                     } else {
                                         null
@@ -296,11 +310,12 @@ fun AgentChatScreen(
                                     onCancelInlineProcess = { viewModel.cancelStream() },
                                     onNavigateToResumePreview = onNavigateToResumePreview,
                                     onNavigateToResumeLibrary = onNavigateToResumeLibraryForChoice,
-                                    onRequestResumeUpload = { viewModel.requestFilePicker("resume_tool") }
+                                    onRequestResumeUpload = { viewModel.requestFilePicker("resume_tool") },
+                                    onDynamicAction = viewModel::runDynamicCardAction
                                 )
                             }
 
-                            item { Spacer(modifier = Modifier.height(64.dp)) }
+                            item { Spacer(modifier = Modifier.height(4.dp)) }
                         }
 
                         Box(

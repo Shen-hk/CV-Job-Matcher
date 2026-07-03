@@ -42,7 +42,10 @@ object StreamingApiService {
         .writeTimeout(60, TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor { msg ->
             Log.d(TAG, msg)
-        }.apply { level = HttpLoggingInterceptor.Level.HEADERS })
+        }.apply {
+            redactHeader("Authorization")
+            level = HttpLoggingInterceptor.Level.BASIC
+        })
         .build()
 
     fun streamOpenAiChat(

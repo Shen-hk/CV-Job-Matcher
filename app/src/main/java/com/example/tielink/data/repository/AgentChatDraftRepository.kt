@@ -17,18 +17,21 @@ class AgentChatDraftRepository @Inject constructor(
 
     private val adapter = moshi.adapter(PersistedAgentChatDraft::class.java)
 
+    fun decode(json: String): PersistedAgentChatDraft? {
+        if (json.isBlank()) return null
+        return runCatching { adapter.fromJson(json) }.getOrNull()
+    }
+
+    fun encode(draft: PersistedAgentChatDraft): String = adapter.toJson(draft)
+
     suspend fun load(): PersistedAgentChatDraft {
         val json = appPreferences.getAgentChatDraftJson()
         if (json.isBlank()) return PersistedAgentChatDraft()
-        return try {
-            adapter.fromJson(json) ?: PersistedAgentChatDraft()
-        } catch (_: Exception) {
-            PersistedAgentChatDraft()
-        }
+        return decode(json) ?: PersistedAgentChatDraft()
     }
 
     suspend fun save(draft: PersistedAgentChatDraft) {
-        appPreferences.setAgentChatDraftJson(adapter.toJson(draft))
+        appPreferences.setAgentChatDraftJson(encode(draft))
     }
 
     suspend fun clear() {

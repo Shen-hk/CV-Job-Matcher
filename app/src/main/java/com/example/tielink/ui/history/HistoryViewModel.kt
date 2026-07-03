@@ -9,6 +9,7 @@ import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.domain.model.HistoryItem
 import com.example.tielink.domain.model.displayTitle
+import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.domain.model.matches
 import com.example.tielink.domain.model.previewText
 import com.squareup.moshi.Moshi
@@ -82,7 +83,9 @@ class HistoryViewModel @Inject constructor(
                         polishedResume = entity.polishedResume,
                         jdSkills = skills,
                         optimizationNote = entity.matchNote,
-                        isPinned = entity.isPinned
+                        isPinned = entity.isPinned,
+                        sourceType = entity.sourceType,
+                        chatDraftJson = entity.resumeJson
                     )
                 }
                 _uiState.update {
@@ -238,6 +241,7 @@ class HistoryViewModel @Inject constructor(
                 item.originalResume.length +
                 item.polishedResume.length +
                 item.optimizationNote.length +
+                item.chatDraftJson.length +
                 item.jdSkills.sumOf { it.length }
             ).toLong() * 2L
     }
@@ -255,6 +259,14 @@ class HistoryViewModel @Inject constructor(
     }
 
     private fun buildExportContent(item: HistoryItem): String {
+        if (item.isAgentChat) {
+            return buildString {
+                appendLine(item.displayTitle)
+                appendLine("更新时间：${item.updatedAt}")
+                appendLine()
+                appendLine(item.polishedResume)
+            }
+        }
         return buildString {
             appendLine(item.displayTitle)
             appendLine("更新时间：${item.updatedAt}")

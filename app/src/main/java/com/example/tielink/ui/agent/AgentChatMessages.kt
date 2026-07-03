@@ -64,6 +64,7 @@ import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
+import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.ui.theme.TieLinkTheme
 
 @Composable
@@ -160,7 +161,8 @@ fun MessageRow(
     onCancelInlineProcess: () -> Unit = {},
     onNavigateToResumePreview: (Long) -> Unit = {},
     onNavigateToResumeLibrary: () -> Unit = {},
-    onRequestResumeUpload: () -> Unit = {}
+    onRequestResumeUpload: () -> Unit = {},
+    onDynamicAction: (DynamicCardAction) -> Unit = {}
 ) {
     when {
         message.toolLoadingName != null -> ToolLoadingBubble(message)
@@ -171,7 +173,8 @@ fun MessageRow(
                     modifier = Modifier.fillMaxWidth(),
                     onNavigateToResumePreview = onNavigateToResumePreview,
                     onNavigateToResumeLibrary = onNavigateToResumeLibrary,
-                    onRequestResumeUpload = onRequestResumeUpload
+                    onRequestResumeUpload = onRequestResumeUpload,
+                    onDynamicAction = onDynamicAction
                 )
             }
         }
@@ -196,7 +199,7 @@ fun AgentBubble(
             Spacer(Modifier.height(6.dp))
         }
 
-        if (message.content.isNotBlank() || message.isStreaming) {
+        if (message.content.isNotBlank() || message.isStreaming || inlineProcessState?.isActive == true) {
             Surface(
                 shape = RoundedCornerShape(topStart = 8.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,

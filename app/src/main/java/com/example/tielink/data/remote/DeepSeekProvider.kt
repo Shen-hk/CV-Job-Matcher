@@ -21,23 +21,38 @@ class DeepSeekProvider constructor(
             
             val apiService = apiServiceFactory.create()
             val deepSeekRequest = DeepSeekRequest(
+                model = preferences.snapshot().model.ifBlank { "deepseek-chat" },
                 messages = request.messages,
                 temperature = request.temperature,
-                maxTokens = request.maxTokens
+                maxTokens = request.maxTokens,
+                tools = request.tools.takeIf { it.isNotEmpty() },
+                toolChoice = request.toolChoice.takeIf { request.tools.isNotEmpty() }
             )
             
             Log.d(TAG, "璋冪敤DeepSeek API: messages=${request.messages.size}, temperature=${request.temperature}")
             
             val response = apiService.chatCompletion(deepSeekRequest)
-            val content = response.choices.firstOrNull()?.message?.content
+            val message = response.choices.firstOrNull()?.message
                 ?: throw IllegalArgumentException("API杩斿洖涓虹┖")
+            val content = message.content.orEmpty()
+            val toolCalls = message.toolCalls.orEmpty().map { call ->
+                LlmToolCall(
+                    id = call.id,
+                    name = call.function.name,
+                    arguments = call.function.arguments
+                )
+            }
+            if (content.isBlank() && toolCalls.isEmpty()) {
+                throw IllegalArgumentException("API杩斿洖涓虹┖")
+            }
             
             Log.i(TAG, "DeepSeek API鍝嶅簲鎴愬姛: ${content.length}瀛楃")
             
             LlmResponse(
                 content = content,
-                model = "deepseek-chat",
-                usage = null
+                model = preferences.snapshot().model.ifBlank { "deepseek-chat" },
+                usage = null,
+                toolCalls = toolCalls
             )
         } catch (e: Exception) {
             Log.e(TAG, "DeepSeek API璋冪敤澶辫触: ${e.message}", e)

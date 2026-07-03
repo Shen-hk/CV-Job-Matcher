@@ -68,10 +68,12 @@ data class PersistedAgentMessage(
     val role: AgentMessageRole,
     val content: String,
     val timestamp: Long,
-    val thinkingContent: String? = null
+    val thinkingContent: String? = null,
+    val card: PersistedCardSnapshot? = null
 )
 
 data class PersistedAgentChatDraft(
+    val schemaVersion: Int = 2,
     val messages: List<PersistedAgentMessage> = emptyList(),
     val inputText: String = "",
     val pendingAttachmentName: String? = null,

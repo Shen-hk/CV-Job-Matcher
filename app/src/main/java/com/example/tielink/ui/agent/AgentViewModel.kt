@@ -7,8 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.repository.AgentChatDraftRepository
 import com.example.tielink.data.repository.AgentContextRepository
+import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.local.AppPreferences
+import com.example.tielink.data.local.db.entity.HistoryEntity
 import com.example.tielink.domain.model.AgentChatUiState
 import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
@@ -16,15 +18,20 @@ import com.example.tielink.domain.model.AgentOutput
 import com.example.tielink.domain.model.ContextBarState
 import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
+import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.model.PersistedAgentChatDraft
 import com.example.tielink.domain.model.PersistedAgentMessage
+import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
+import com.example.tielink.domain.model.UiCard
+import com.example.tielink.domain.model.UiCardSnapshotCodec
 import com.example.tielink.domain.usecase.AgentUseCase
 import com.example.tielink.util.FileParser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -37,6 +44,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 @HiltViewModel
@@ -44,6 +53,7 @@ class AgentViewModel @Inject constructor(
     private val agentUseCase: AgentUseCase,
     private val agentChatDraftRepository: AgentChatDraftRepository,
     private val agentContextRepository: AgentContextRepository,
+    private val historyRepository: HistoryRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val appPreferences: AppPreferences,
     @ApplicationContext private val appContext: Context
@@ -63,6 +73,9 @@ class AgentViewModel @Inject constructor(
 
     private var streamJob: Job? = null
     private var persistDraftJob: Job? = null
+    private val persistMutex = Mutex()
+    private var currentHistoryId: Long? = null
+    private var currentSessionCreatedAt: Long = System.currentTimeMillis()
 
     private val activeResume = resumeVersionRepository.getActiveFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -154,7 +167,8 @@ class AgentViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            restorePersistedDraft()
+            // 首页每次创建 ViewModel 都从空白会话开始；旧草稿只做一次清理，不再自动恢复。
+            agentChatDraftRepository.clear()
             loadContextBar()
             if (_uiState.value.messages.isEmpty()) {
                 loadWelcomeMessage()
@@ -184,22 +198,34 @@ class AgentViewModel @Inject constructor(
         }
     }
 
-    private suspend fun restorePersistedDraft() {
-        val draft = agentChatDraftRepository.load()
+    private suspend fun restoreDraft(draft: PersistedAgentChatDraft) {
         if (draft.messages.isEmpty() && draft.inputText.isBlank() && draft.pendingAttachmentText.isNullOrBlank()) {
             return
         }
+        val restoredMessages = draft.messages.mapNotNull { persisted ->
+            val restoredCard = persisted.card
+                ?.let(UiCardSnapshotCodec::decode)
+                ?.let { enrichRestoredCard(it) }
+            if (
+                persisted.card != null &&
+                restoredCard == null &&
+                persisted.content.isBlank() &&
+                persisted.thinkingContent.isNullOrBlank()
+            ) {
+                return@mapNotNull null
+            }
+            val message = AgentMessage(
+                role = persisted.role,
+                content = persisted.content,
+                timestamp = persisted.timestamp,
+                thinkingContent = persisted.thinkingContent,
+                isStreaming = false
+            )
+            message.copy(card = restoredCard?.let { bindCardActions(it, message.id) })
+        }
         _uiState.update {
             it.copy(
-                messages = draft.messages.map { persisted ->
-                    AgentMessage(
-                        role = persisted.role,
-                        content = persisted.content,
-                        timestamp = persisted.timestamp,
-                        thinkingContent = persisted.thinkingContent,
-                        isStreaming = false
-                    )
-                },
+                messages = restoredMessages,
                 inputText = draft.inputText,
                 pendingAttachmentName = draft.pendingAttachmentName,
                 pendingAttachmentText = draft.pendingAttachmentText,
@@ -246,6 +272,11 @@ class AgentViewModel @Inject constructor(
         sendMessage()
     }
 
+    fun runDynamicCardAction(action: DynamicCardAction) {
+        if (_uiState.value.isLoading) return
+        sendPrompt(action.prompt)
+    }
+
     fun requestFilePicker(toolName: String = "") {
         _openFilePicker.tryEmit(toolName)
     }
@@ -256,6 +287,37 @@ class AgentViewModel @Inject constructor(
     }
 
     fun startNewSession(prefillPrompt: String = "") {
+        if (_uiState.value.isLoading) return
+        viewModelScope.launch {
+            persistDraftJob?.cancel()
+            archiveCurrentSessionNow()
+            currentHistoryId = null
+            currentSessionCreatedAt = System.currentTimeMillis()
+            resetSessionState(prefillPrompt)
+        }
+    }
+
+    fun openHistorySession(historyId: Long) {
+        if (_uiState.value.isLoading) return
+        viewModelScope.launch {
+            persistDraftJob?.cancel()
+            archiveCurrentSessionNow()
+            val entity = historyRepository.getById(historyId)
+            val draft = entity
+                ?.takeIf { it.sourceType == "agent_chat" }
+                ?.resumeJson
+                ?.let(agentChatDraftRepository::decode)
+                ?: return@launch
+
+            currentHistoryId = entity.id
+            currentSessionCreatedAt = entity.createdAt
+            resetSessionState()
+            restoreDraft(draft)
+            if (_uiState.value.messages.isEmpty()) loadWelcomeMessage()
+        }
+    }
+
+    private fun resetSessionState(prefillPrompt: String = "") {
         streamJob?.cancel()
         streamJob = null
         streamingContentBuf.clear()
@@ -275,7 +337,6 @@ class AgentViewModel @Inject constructor(
                 thinkingBuffer = ""
             )
         }
-        schedulePersistDraft(immediate = true)
         loadWelcomeMessage()
     }
 
@@ -315,8 +376,13 @@ class AgentViewModel @Inject constructor(
             canCancel = true
         )
         val userMessage = AgentMessage(role = AgentMessageRole.USER, content = finalText)
-        _uiState.update { it.copy(messages = it.messages + userMessage) }
-        schedulePersistDraft()
+        val placeholderMessage = AgentMessage(
+            role = AgentMessageRole.AGENT,
+            content = "",
+            isStreaming = true
+        )
+        _uiState.update { it.copy(messages = it.messages + userMessage + placeholderMessage) }
+        schedulePersistDraft(immediate = true)
 
         // Reset streaming buffers
         streamingContentBuf.clear()
@@ -372,35 +438,11 @@ class AgentViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(processState = processStateForTool(output.toolName, output.description))
                         }
-                        // Insert a transient tool-loading bubble;
-                        // if a "润色中" processing placeholder is still present, replace it
-                        val loadingMsg = AgentMessage(
-                            role = AgentMessageRole.AGENT,
-                            content = output.description,
-                            toolLoadingName = output.toolName
-                        )
-                        _uiState.update { state ->
-                            val msgs = state.messages.toMutableList()
-                            val processingIdx = msgs.indexOfLast {
-                                it.role == AgentMessageRole.AGENT &&
-                                        it.content == "收到文件啦，正在润色中 ✨" &&
-                                        it.card == null
-                            }
-                            if (processingIdx >= 0) {
-                                msgs[processingIdx] = loadingMsg
-                            } else {
-                                msgs.add(loadingMsg)
-                            }
-                            state.copy(messages = msgs)
-                        }
                         schedulePersistDraft()
                     }
                     is AgentOutput.ToolCancelled -> {
-                        // 工具因缺少前置条件被取消，移除 loading 气泡，交由 LLM 回复
                         _uiState.update { state ->
-                            val msgs = state.messages.toMutableList()
-                            msgs.removeAll { it.toolLoadingName != null }
-                            state.copy(messages = msgs, processState = AgentProcessState())
+                            state.copy(processState = AgentProcessState())
                         }
                         schedulePersistDraft()
                     }
@@ -413,21 +455,21 @@ class AgentViewModel @Inject constructor(
                             card = rawCard
                         )
                         val msgId = placeholderMsg.id
-                        val card = when (rawCard) {
-                            is com.example.tielink.domain.model.UiCard.ResumeDiffCard -> rawCard.copy(
-                                onAccept = { acceptResumeDiff(msgId, rawCard.before, rawCard.after) },
-                                onRollback = { rollbackResumeDiff(msgId) }
-                            )
-                            is com.example.tielink.domain.model.UiCard.UploadPromptCard -> rawCard.copy(
-                                onUpload = { _openFilePicker.tryEmit(rawCard.toolName) }
-                            )
-                            else -> rawCard
-                        }
+                        val card = bindCardActions(rawCard, msgId)
                         val cardMsg = placeholderMsg.copy(card = card)
                         _uiState.update { state ->
                             val msgs = state.messages.toMutableList()
-                            val lastIdx = msgs.indexOfLast { it.toolLoadingName != null }
-                            if (lastIdx >= 0) msgs[lastIdx] = cardMsg else msgs.add(cardMsg)
+                            val emptyStreamingIndex = msgs.indexOfLast {
+                                it.role == AgentMessageRole.AGENT &&
+                                    it.isStreaming &&
+                                    it.content.isBlank() &&
+                                    it.thinkingContent.isNullOrBlank() &&
+                                    it.card == null
+                            }
+                            if (emptyStreamingIndex >= 0) {
+                                msgs.removeAt(emptyStreamingIndex)
+                            }
+                            msgs.add(cardMsg)
                             state.copy(messages = msgs)
                         }
                         schedulePersistDraft()
@@ -474,6 +516,25 @@ class AgentViewModel @Inject constructor(
         }
     }
 
+    private suspend fun enrichRestoredCard(card: UiCard): UiCard {
+        if (card !is UiCard.ResumePreviewCard || card.resumeData != null) return card
+        val version = resumeVersionRepository.getById(card.versionId) ?: return card
+        val fullText = version.rawText.ifBlank { version.cleanedText }
+        if (fullText.isBlank()) return card
+        return card.copy(resumeData = ResumeData.fromPolishedText(fullText))
+    }
+
+    private fun bindCardActions(card: UiCard, messageId: Long): UiCard = when (card) {
+        is UiCard.ResumeDiffCard -> card.copy(
+            onAccept = { acceptResumeDiff(messageId, card.before, card.after) },
+            onRollback = { rollbackResumeDiff(messageId) }
+        )
+        is UiCard.UploadPromptCard -> card.copy(
+            onUpload = { _openFilePicker.tryEmit(card.toolName) }
+        )
+        else -> card
+    }
+
     /** Push buffered streaming content to UI if 120ms has elapsed. */
     private fun throttledStreamUpdate() {
         val now = System.currentTimeMillis()
@@ -512,7 +573,11 @@ class AgentViewModel @Inject constructor(
             val msgs = state.messages.toMutableList()
             val lastMsg = msgs.lastOrNull()
             if (lastMsg?.role == AgentMessageRole.AGENT && lastMsg.isStreaming) {
-                msgs[msgs.lastIndex] = lastMsg.copy(isStreaming = false)
+                if (lastMsg.content.isBlank() && lastMsg.thinkingContent.isNullOrBlank()) {
+                    msgs.removeAt(msgs.lastIndex)
+                } else {
+                    msgs[msgs.lastIndex] = lastMsg.copy(isStreaming = false)
+                }
             }
             state.copy(
                 messages = msgs,
@@ -647,8 +712,7 @@ class AgentViewModel @Inject constructor(
             val msgs = state.messages.toMutableList()
             val lastMsg = msgs.lastOrNull()
             if (lastMsg?.role == AgentMessageRole.AGENT && lastMsg.isStreaming) {
-                if (lastMsg.content.isBlank()) msgs.removeAt(msgs.lastIndex)
-                else msgs[msgs.lastIndex] = lastMsg.copy(isStreaming = false)
+                msgs[msgs.lastIndex] = lastMsg.copy(isStreaming = false)
             }
             state.copy(
                 messages = msgs,
@@ -682,6 +746,7 @@ class AgentViewModel @Inject constructor(
             }
             state.copy(messages = msgs)
         }
+        schedulePersistDraft(immediate = true)
     }
 
     private fun acceptResumeDiff(msgId: Long, before: String, newText: String) {
@@ -724,9 +789,6 @@ class AgentViewModel @Inject constructor(
         super.onCleared()
         streamJob?.cancel()
         persistDraftJob?.cancel()
-        viewModelScope.launch {
-            persistDraftNow()
-        }
     }
 
     private fun schedulePersistDraft(immediate: Boolean = false) {
@@ -740,30 +802,103 @@ class AgentViewModel @Inject constructor(
     }
 
     private suspend fun persistDraftNow() {
-        val state = _uiState.value
+        archiveCurrentSessionNow()
+    }
+
+    private fun buildPersistedDraft(state: AgentChatUiState): PersistedAgentChatDraft {
         val persistedMessages = state.messages
-            .filter { it.toolLoadingName == null && it.card == null }
-            .filter { it.content.isNotBlank() || !it.thinkingContent.isNullOrBlank() }
-            .map {
+            .filter { it.toolLoadingName == null }
+            .mapNotNull {
+                val cardSnapshot = it.card?.let(UiCardSnapshotCodec::encode)
+                if (it.card != null && cardSnapshot == null) return@mapNotNull null
+                if (
+                    it.content.isBlank() &&
+                    it.thinkingContent.isNullOrBlank() &&
+                    cardSnapshot == null
+                ) {
+                    return@mapNotNull null
+                }
                 PersistedAgentMessage(
                     role = it.role,
                     content = it.content,
                     timestamp = it.timestamp,
-                    thinkingContent = it.thinkingContent
+                    thinkingContent = it.thinkingContent,
+                    card = cardSnapshot
                 )
             }
 
-        val draft = PersistedAgentChatDraft(
+        return PersistedAgentChatDraft(
             messages = persistedMessages,
             inputText = state.inputText,
             pendingAttachmentName = state.pendingAttachmentName,
             pendingAttachmentText = state.pendingAttachmentText
         )
+    }
 
-        if (draft.messages.isEmpty() && draft.inputText.isBlank() && draft.pendingAttachmentText.isNullOrBlank()) {
-            agentChatDraftRepository.clear()
-        } else {
-            agentChatDraftRepository.save(draft)
+    private suspend fun archiveCurrentSessionNow() = withContext(NonCancellable) {
+        persistMutex.withLock {
+            archiveCurrentSessionLocked()
+        }
+    }
+
+    private suspend fun archiveCurrentSessionLocked() {
+        val state = _uiState.value
+        val draft = buildPersistedDraft(state)
+        val hasConversation = draft.messages.any { it.role == AgentMessageRole.USER }
+        if (!hasConversation) return
+
+        val now = System.currentTimeMillis()
+        val firstUserText = draft.messages
+            .firstOrNull { it.role == AgentMessageRole.USER }
+            ?.content
+            .orEmpty()
+        val generatedTitle = firstUserText
+            .lineSequence()
+            .firstOrNull { it.isNotBlank() }
+            .orEmpty()
+            .removePrefix("【已上传文件：")
+            .removeSuffix("】")
+            .trim()
+            .take(36)
+            .ifBlank { "新的聊天" }
+        val lastAgentMessage = draft.messages.lastOrNull { it.role == AgentMessageRole.AGENT }
+        val preview = lastAgentMessage?.content
+            ?.lineSequence()
+            ?.firstOrNull { it.isNotBlank() }
+            ?.take(120)
+            ?: lastAgentMessage?.card?.let { "卡片：${it.type}" }
+            ?: "会话已保存"
+        val transcript = draft.messages.joinToString("\n\n") { message ->
+            val role = if (message.role == AgentMessageRole.USER) "我" else "TieLink"
+            val body = message.content.ifBlank {
+                message.card?.let { "[卡片：${it.type}]" }.orEmpty()
+            }
+            "$role：$body"
+        }
+        val draftJson = agentChatDraftRepository.encode(draft)
+        val existing = currentHistoryId?.let { historyRepository.getById(it) }
+        val entity = existing?.copy(
+            updatedAt = now,
+            polishedResume = transcript,
+            resumeJson = draftJson,
+            matchNote = preview,
+            sourceType = "agent_chat"
+        ) ?: HistoryEntity(
+            createdAt = currentSessionCreatedAt,
+            updatedAt = now,
+            jdRawText = "",
+            jdTitle = generatedTitle,
+            originalResume = "",
+            polishedResume = transcript,
+            resumeJson = draftJson,
+            jdSkills = "[]",
+            matchNote = preview,
+            sourceType = "agent_chat"
+        )
+
+        val savedId = historyRepository.insert(entity)
+        if (existing == null) {
+            currentHistoryId = savedId
         }
     }
 }

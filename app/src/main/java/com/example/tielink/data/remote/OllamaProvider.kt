@@ -46,10 +46,47 @@ class OllamaProvider constructor(
                     request.messages.forEach { msg ->
                         put(JSONObject().apply {
                             put("role", msg.role)
-                            put("content", msg.content)
+                            put("content", msg.content.orEmpty())
+                            msg.toolCallId?.let { put("tool_call_id", it) }
+                            msg.name?.let {
+                                put("name", it)
+                                put("tool_name", it)
+                            }
+                            if (!msg.toolCalls.isNullOrEmpty()) {
+                                put("tool_calls", JSONArray().apply {
+                                    msg.toolCalls.forEach { toolCall ->
+                                        put(JSONObject().apply {
+                                            put("id", toolCall.id)
+                                            put("type", toolCall.type)
+                                            put("function", JSONObject().apply {
+                                                put("name", toolCall.function.name)
+                                                put(
+                                                    "arguments",
+                                                    runCatching { JSONObject(toolCall.function.arguments) }
+                                                        .getOrElse { toolCall.function.arguments }
+                                                )
+                                            })
+                                        })
+                                    }
+                                })
+                            }
                         })
                     }
                 })
+                if (request.tools.isNotEmpty()) {
+                    put("tools", JSONArray().apply {
+                        request.tools.forEach { tool ->
+                            put(JSONObject().apply {
+                                put("type", tool.type)
+                                put("function", JSONObject().apply {
+                                    put("name", tool.function.name)
+                                    put("description", tool.function.description)
+                                    put("parameters", JSONObject(tool.function.parameters))
+                                })
+                            })
+                        }
+                    })
+                }
                 put("temperature", request.temperature)
                 put("stream", false)
             }
@@ -70,7 +107,34 @@ class OllamaProvider constructor(
             val responseBody = response.body?.string() ?: throw Exception("响应为空")
             val jsonResponse = JSONObject(responseBody)
 
-            val content = jsonResponse.getJSONObject("message")?.getString("content") ?: ""
+            val message = jsonResponse.getJSONObject("message")
+            val content = message.optString("content", "")
+            val toolCallsJson = message.optJSONArray("tool_calls")
+            val toolCalls = buildList {
+                if (toolCallsJson != null) {
+                    for (index in 0 until toolCallsJson.length()) {
+                        val call = toolCallsJson.optJSONObject(index) ?: continue
+                        val function = call.optJSONObject("function") ?: continue
+                        val name = function.optString("name")
+                        if (name.isBlank()) continue
+                        val rawArguments = function.opt("arguments")
+                        val arguments = when (rawArguments) {
+                            is JSONObject -> rawArguments.toString()
+                            is String -> rawArguments
+                            else -> "{}"
+                        }
+                        add(
+                            LlmToolCall(
+                                id = call.optString("id").ifBlank {
+                                    "ollama_${System.currentTimeMillis()}_$index"
+                                },
+                                name = name,
+                                arguments = arguments
+                            )
+                        )
+                    }
+                }
+            }
             val actualModel = jsonResponse.getString("model")
 
             Log.i(TAG, "Ollama API响应成功: ${content.length}字符, model=$actualModel")
@@ -78,7 +142,8 @@ class OllamaProvider constructor(
             LlmResponse(
                 content = content,
                 model = actualModel,
-                usage = null
+                usage = null,
+                toolCalls = toolCalls
             )
         } catch (e: Exception) {
             Log.e(TAG, "Ollama API调用失败: ${e.message}", e)

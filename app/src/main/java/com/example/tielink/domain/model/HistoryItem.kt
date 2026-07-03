@@ -14,8 +14,13 @@ data class HistoryItem(
     val polishedResume: String,
     val jdSkills: List<String>,
     val optimizationNote: String,
-    val isPinned: Boolean
+    val isPinned: Boolean,
+    val sourceType: String = "text",
+    val chatDraftJson: String = ""
 )
+
+val HistoryItem.isAgentChat: Boolean
+    get() = sourceType == "agent_chat"
 
 val HistoryItem.displayTitle: String
     get() = customTitle.ifBlank { jdTitle }

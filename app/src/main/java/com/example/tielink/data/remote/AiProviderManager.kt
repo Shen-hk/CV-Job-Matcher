@@ -3,7 +3,9 @@ package com.example.tielink.data.remote
 import android.util.Log
 import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.domain.nlp.EmbeddingEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -78,11 +80,20 @@ class AiProviderManager @Inject constructor(
         }
     }
     
-    suspend fun chatWithFallback(request: LlmRequest): LlmResponse {
-        val providers = listOf(
-            deepSeekProvider to "DeepSeek",
-            ollamaProvider to "Ollama"
-        ).filter { it.first.isAvailable() }
+    suspend fun chatWithFallback(request: LlmRequest): LlmResponse = withContext(Dispatchers.IO) {
+        val orderedProviders = when (preferences.snapshot().aiProvider) {
+            "ollama" -> listOf(
+                ollamaProvider to "Ollama",
+                deepSeekProvider to "DeepSeek"
+            )
+            else -> listOf(
+                deepSeekProvider to "DeepSeek",
+                ollamaProvider to "Ollama"
+            )
+        }
+        val providers = orderedProviders.filter { (provider, _) ->
+            runCatching { provider.isAvailable() }.getOrDefault(false)
+        }
         
         if (providers.isEmpty()) {
             throw IllegalStateException("没有可用的AI服务，请检查网络连接或配置")
@@ -91,7 +102,7 @@ class AiProviderManager @Inject constructor(
         for ((provider, name) in providers) {
             try {
                 Log.d(TAG, "尝试使用$name...")
-                return provider.chatCompletion(request)
+                return@withContext provider.chatCompletion(request)
             } catch (e: Exception) {
                 Log.w(TAG, name + "调用失败: " + e.message + ", 尝试下一个...")
             }

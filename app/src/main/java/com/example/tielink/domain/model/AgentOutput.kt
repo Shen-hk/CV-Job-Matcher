@@ -115,7 +115,38 @@ sealed class UiCard {
         val libraryActionLabel: String = "从简历库选择",
         val uploadActionLabel: String = "上传新简历"
     ) : UiCard()
+
+    /**
+     * 由模型用受限组件协议组装的卡片。模型只提供数据，不生成或执行 Compose 代码。
+     */
+    data class DynamicCard(
+        val title: String,
+        val subtitle: String? = null,
+        val sections: List<DynamicCardSection>,
+        val actions: List<DynamicCardAction> = emptyList()
+    ) : UiCard()
 }
+
+data class DynamicCardSection(
+    /** text | metrics | tags | progress */
+    val type: String,
+    val title: String? = null,
+    val text: String? = null,
+    val items: List<DynamicCardItem> = emptyList()
+)
+
+data class DynamicCardItem(
+    val label: String,
+    val value: String,
+    /** 仅供 progress 类型使用，渲染时会限制到 0..100。 */
+    val progress: Int? = null
+)
+
+data class DynamicCardAction(
+    val label: String,
+    /** 动作通过同一 Agent/Tool 策略再次路由，避免卡片绕过权限边界。 */
+    val prompt: String
+)
 
 data class GreetingVersion(
     val style: String, // "简洁版" / "详细版" / "亮点突出版"

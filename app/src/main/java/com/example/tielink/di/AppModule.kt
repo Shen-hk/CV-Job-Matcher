@@ -78,7 +78,9 @@ object AppModule {
     @Singleton
     fun provideOkHttpClient(apiKeyInterceptor: ApiKeyInterceptor): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // 简历、JD 和工具参数都可能包含隐私数据，禁止写入完整请求/响应体。
+            redactHeader("Authorization")
+            level = HttpLoggingInterceptor.Level.BASIC
         }
         return OkHttpClient.Builder()
             .addInterceptor(apiKeyInterceptor)
