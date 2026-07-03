@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">TieLink</string>
+    <string name="boss_import_accessibility_label">TieLink BOSS 岗位导入</string>
+    <string name="boss_import_accessibility_description">按用户设置的关键词读取 BOSS 岗位详情，并保存到 TieLink JD 库。</string>
 </resources>

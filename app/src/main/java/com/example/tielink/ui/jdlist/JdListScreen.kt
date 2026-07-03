@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -85,6 +86,7 @@ fun JdListScreen(
 
     // [+] menu
     var showAddMenu by remember { mutableStateOf(false) }
+    var showBossImportDialog by remember { mutableStateOf(false) }
     // text input dialog
     var showTextDialog by remember { mutableStateOf(false) }
     var textInput by remember { mutableStateOf("") }
@@ -128,6 +130,14 @@ fun JdListScreen(
                                     ocrLauncher.launch("image/*")
                                 },
                                 leadingIcon = { Icon(Icons.Default.CameraAlt, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("BOSS 一键导入") },
+                                onClick = {
+                                    showAddMenu = false
+                                    showBossImportDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Search, null) }
                             )
                         }
                     }
@@ -238,6 +248,10 @@ fun JdListScreen(
             }
         }
 
+        if (showBossImportDialog) {
+            BossImportDialog(onDismiss = { showBossImportDialog = false })
+        }
+
         // JD detail dialog
         detailJd?.let { jd ->
             JdDetailDialog(
@@ -267,6 +281,7 @@ private fun JdCard(
     val sourceLabel = when (jd.sourceType) {
         "ai_auto" -> "AI 自动保存"
         "ocr" -> "图片 OCR"
+        "boss_auto" -> "BOSS 自动导入"
         else -> "手动录入"
     }
 
@@ -382,6 +397,7 @@ private fun JdDetailDialog(jd: JdLibraryEntity, onDismiss: () -> Unit, onDelete:
     val sourceLabel = when (jd.sourceType) {
         "ai_auto" -> "AI 自动保存"
         "ocr" -> "图片 OCR"
+        "boss_auto" -> "BOSS 自动导入"
         else -> "手动录入"
     }
     val skills = jd.skills.takeIf { it.isNotBlank() }?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
