@@ -30,7 +30,7 @@ import com.example.tielink.data.local.db.entity.TrackingEntity
         ProviderEntity::class,
         ProviderModelEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -196,6 +196,20 @@ abstract class AppDatabase : RoomDatabase() {
                     columnSql = "INTEGER NOT NULL DEFAULT 0"
                 )
                 db.execSQL("UPDATE history SET updated_at = created_at WHERE updated_at = 0")
+            }
+        }
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE resume_versions ADD COLUMN original_file_path TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE resume_versions ADD COLUMN original_mime_type TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE resume_versions ADD COLUMN is_polished INTEGER NOT NULL DEFAULT 1"
+                )
             }
         }
 

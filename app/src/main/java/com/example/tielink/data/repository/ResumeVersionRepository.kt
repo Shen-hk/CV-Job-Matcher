@@ -59,7 +59,9 @@ class ResumeVersionRepository @Inject constructor(
         return ResumeVersion(
             id = id, name = name, rawText = rawText, cleanedText = cleanedText,
             jdMatchedWith = jdMatchedWith, matchScore = matchScore, tags = tags,
-            isActive = isActive, createdAt = createdAt, updatedAt = updatedAt
+            isActive = isActive, originalFilePath = originalFilePath,
+            originalMimeType = originalMimeType, isPolished = isPolished,
+            createdAt = createdAt, updatedAt = updatedAt
         )
     }
 
@@ -68,7 +70,9 @@ class ResumeVersionRepository @Inject constructor(
         return ResumeVersionEntity(
             id = id, name = name, rawText = rawText, cleanedText = cleanedText,
             jdMatchedWith = jdMatchedWith, matchScore = matchScore, tags = tagsJson,
-            isActive = isActive, createdAt = createdAt, updatedAt = updatedAt
+            isActive = isActive, originalFilePath = originalFilePath,
+            originalMimeType = originalMimeType, isPolished = isPolished,
+            createdAt = createdAt, updatedAt = updatedAt
         )
     }
 }

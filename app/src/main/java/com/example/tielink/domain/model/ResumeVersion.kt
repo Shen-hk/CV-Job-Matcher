@@ -12,6 +12,9 @@ data class ResumeVersion(
     val matchScore: Float = 0f,         // 与该JD的匹配度
     val tags: List<String> = emptyList(), // "技术", "管理", "外企" 等标签
     val isActive: Boolean = false,       // 是否当前激活版本
+    val originalFilePath: String = "",
+    val originalMimeType: String = "",
+    val isPolished: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

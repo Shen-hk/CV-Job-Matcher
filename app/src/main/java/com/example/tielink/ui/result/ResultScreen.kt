@@ -20,6 +20,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -175,16 +176,19 @@ fun ResultScreen(
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("预览中转", fontWeight = FontWeight.Medium) },
+                topBar = {
+                    TopAppBar(
+                    title = { Text("简历作品台", fontWeight = FontWeight.Medium) },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回聊天")
                         }
                     },
                     actions = {
-                        IconButton(onClick = viewModel::exportPdf, enabled = !state.isExporting) {
+                        IconButton(
+                            onClick = viewModel::exportPdf,
+                            enabled = !state.isExporting && !state.isOriginalFile
+                        ) {
                             if (state.isExporting) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                             else Icon(Icons.Default.Share, "导出PDF")
                         }
@@ -209,38 +213,152 @@ fun ResultScreen(
                     var sidebarExpanded by rememberSaveable { mutableStateOf(false) }
                     var activeSidebarTab by rememberSaveable { mutableStateOf("ai") }
 
-                    Card(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = BrandBlueLight)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
                     ) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(
-                                text = "这是预览中转页，不是终点页",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = BrandBlue
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = "你可以先看结果，再返回聊天继续追问或继续优化。",
-                                fontSize = 12.sp,
-                                color = TextPrimary,
-                                lineHeight = 16.sp
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = onNavigateBack, modifier = Modifier.weight(1f)) {
-                                    Text("回聊天继续")
+                    if (!state.isOriginalFile) {
+                        Card(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF102A43))
+                        ) {
+                            Column(Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = Color.White.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            "VIBE RESUME",
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                            color = Color(0xFF7EE7D8),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    if (state.matchScore > 0) {
+                                        Text(
+                                            "${state.matchScore}% 匹配",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                    }
                                 }
-                                OutlinedButton(onClick = onNavigateToHistory, modifier = Modifier.weight(1f)) {
-                                    Text("看历史记录")
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    state.jdTitle.ifBlank { "你的 Vibe 简历" },
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "结构化完成 · 可编辑 · 可导出 PDF",
+                                    color = Color.White.copy(alpha = 0.68f),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(Modifier.height(14.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { showFullScreenPreview = true },
+                                        enabled = state.resumeData != null,
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF2DD4BF),
+                                            contentColor = Color(0xFF082F35)
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.Fullscreen, null, Modifier.size(17.dp))
+                                        Spacer(Modifier.width(5.dp))
+                                        Text("全屏看作品")
+                                    }
+                                    OutlinedButton(
+                                        onClick = onNavigateBack,
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                                    ) {
+                                        Text("继续问 Agent")
+                                    }
                                 }
                             }
                         }
+                        state.resumeData?.let { data ->
+                            ResumeImpactStrip(
+                                data = data,
+                                polishedText = state.polishedResume,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
                     }
 
-                    Row(Modifier.fillMaxSize().padding(padding)) {
+                    if (state.isOriginalFile) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+                            )
+                        ) {
+                            Column(Modifier.padding(20.dp)) {
+                                Text(
+                                    state.jdTitle,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "原始文件已完整保留",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = BrandBlue,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "当前未对 PDF/DOCX 的内容和排版做任何重组，也不会把全文放进个人信息。你可以直接查看原文件，或主动选择 AI 润色后生成 Vibe HTML 预览。",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary
+                                )
+                                Spacer(Modifier.height(18.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    OutlinedButton(
+                                        onClick = viewModel::openOriginalFile,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("查看原文件")
+                                    }
+                                    Button(
+                                        onClick = viewModel::polishOriginalResume,
+                                        enabled = !state.isIterativePolishing,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        if (state.isIterativePolishing) {
+                                            CircularProgressIndicator(
+                                                Modifier.size(18.dp),
+                                                strokeWidth = 2.dp,
+                                                color = Color.White
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("润色中...")
+                                        } else {
+                                            Icon(Icons.Default.AutoAwesome, null, Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("AI 润色")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                    Row(Modifier.fillMaxWidth().weight(1f)) {
                         // ── Left Smart Sidebar ────────────────
                         SmartSidebar(
                             expanded = sidebarExpanded,
@@ -267,6 +385,8 @@ fun ResultScreen(
                         ContentEditTab(
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                             resumeData = state.resumeData,
+                            originalText = state.originalResume,
+                            polishedText = state.polishedResume,
                             useVibeTemplate = state.useVibeTemplate,
                             expandedSection = state.expandedSection,
                             onToggleSection = { viewModel.setExpandedSection(it) },
@@ -287,6 +407,8 @@ fun ResultScreen(
                             onRemoveSkill = viewModel::removeSkill
                         )
                     }
+                    }
+                    }
                 }
             }
         }
@@ -296,6 +418,81 @@ fun ResultScreen(
             visible = state.showCompletionAnimation,
             onDismiss = { viewModel.dismissCompletionAnimation() }
         )
+    }
+}
+
+@Composable
+private fun ResumeImpactStrip(
+    data: ResumeData,
+    polishedText: String,
+    modifier: Modifier = Modifier
+) {
+    val sectionCount = listOf(
+        data.summary.isNotBlank(),
+        data.experiences.isNotEmpty(),
+        data.education.isNotEmpty(),
+        data.projects.isNotEmpty(),
+        data.skills.isNotEmpty()
+    ).count { it }
+    val quantifiedCount = remember(polishedText) {
+        Regex("""\d+(?:\.\d+)?\s*(?:%|倍|万|千|人|项|个|次|天|月|年)""")
+            .findAll(polishedText)
+            .map { it.value }
+            .distinct()
+            .count()
+    }
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ResumeImpactMetric(
+            modifier = Modifier.weight(1f),
+            value = "$sectionCount/5",
+            label = "结构板块",
+            accent = Color(0xFF0E7490)
+        )
+        ResumeImpactMetric(
+            modifier = Modifier.weight(1f),
+            value = "${quantifiedCount}处",
+            label = "量化表达",
+            accent = Color(0xFFB45309)
+        )
+        ResumeImpactMetric(
+            modifier = Modifier.weight(1f),
+            value = "${data.skills.size}项",
+            label = "技能关键词",
+            accent = Color(0xFF047857)
+        )
+    }
+}
+
+@Composable
+private fun ResumeImpactMetric(
+    modifier: Modifier,
+    value: String,
+    label: String,
+    accent: Color
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = accent.copy(alpha = 0.08f)
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(
+                value,
+                color = accent,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp
+            )
+            Text(
+                label,
+                color = TextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -594,6 +791,8 @@ private fun HistoryPanel(history: List<String>) {
 private fun ContentEditTab(
     modifier: Modifier = Modifier,
     resumeData: ResumeData?,
+    originalText: String,
+    polishedText: String,
     useVibeTemplate: Boolean,
     expandedSection: String?,
     onToggleSection: (String?) -> Unit,
@@ -636,6 +835,18 @@ private fun ContentEditTab(
             )
 
             Spacer(Modifier.height(12.dp))
+
+            if (
+                originalText.isNotBlank() &&
+                polishedText.isNotBlank() &&
+                originalText.trim() != polishedText.trim()
+            ) {
+                ResumeTransformationCard(
+                    originalText = originalText,
+                    polishedText = polishedText
+                )
+                Spacer(Modifier.height(12.dp))
+            }
 
             if (resumeData != null) {
                 // ── 个人信息 ─────────────────────────────────
@@ -698,6 +909,114 @@ private fun ContentEditTab(
             }
 
             Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun ResumeTransformationCard(
+    originalText: String,
+    polishedText: String
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = BgWhite),
+        border = BorderStroke(1.dp, BorderLight)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFE6FFFA)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        null,
+                        Modifier.size(18.dp),
+                        tint = Color(0xFF0F766E)
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "本次优化变化",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        "查看 AI 如何重组表达，而不只是看最终稿",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+                Text(
+                    if (expanded) "收起" else "展开",
+                    color = BrandBlue,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
+                    HorizontalDivider(color = BorderLight)
+                    Spacer(Modifier.height(12.dp))
+                    TransformationTextBlock(
+                        label = "原始表达",
+                        text = originalText,
+                        background = Color(0xFFFFF7ED),
+                        labelColor = Color(0xFFB45309)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    TransformationTextBlock(
+                        label = "Vibe 优化后",
+                        text = polishedText,
+                        background = Color(0xFFECFDF5),
+                        labelColor = Color(0xFF047857)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransformationTextBlock(
+    label: String,
+    text: String,
+    background: Color,
+    labelColor: Color
+) {
+    Surface(shape = RoundedCornerShape(10.dp), color = background) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(
+                label.uppercase(),
+                color = labelColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                text = text.trim().take(700),
+                color = TextPrimary,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                maxLines = 12,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

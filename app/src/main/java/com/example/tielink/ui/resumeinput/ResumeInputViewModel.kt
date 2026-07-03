@@ -12,6 +12,7 @@ import com.example.tielink.data.repository.ResumeRepository
 import com.example.tielink.domain.model.JobDescription
 import com.example.tielink.domain.usecase.MatchAnalysisUseCase
 import com.example.tielink.util.FileParser
+import com.example.tielink.util.OriginalResumeFileStore
 import com.example.tielink.util.TextCleaner
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -106,11 +107,19 @@ class ResumeInputViewModel @Inject constructor(
             _uiState.update { it.copy(isFileProcessing = true, error = null) }
 
             val result = withContext(Dispatchers.IO) {
-                FileParser.extractText(context, uri, mimeType)
+                runCatching {
+                    val storedFile = OriginalResumeFileStore.copyFromUri(
+                        context,
+                        uri,
+                        fileName ?: "我的简历"
+                    ).getOrThrow()
+                    val text = FileParser.extractText(context, uri, mimeType).getOrThrow()
+                    storedFile to text
+                }
             }
 
             result.fold(
-                onSuccess = { text ->
+                onSuccess = { (storedFile, text) ->
                     val isDocx = mimeType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
                             fileName?.lowercase()?.endsWith(".docx") == true
                     val isPdf = mimeType == "application/pdf" ||
@@ -122,15 +131,12 @@ class ResumeInputViewModel @Inject constructor(
                         else -> "text"
                     }
 
-                    val templatePath: String? = null  // No longer caching templates; all output uses clean template
-
                     _uiState.update {
                         it.copy(
-                            resumeText = if (it.resumeText.isBlank()) text
-                            else "${it.resumeText}\n\n$text",
+                            resumeText = text,
                             isFileProcessing = false,
                             fileName = fileName,
-                            templatePath = templatePath,
+                            templatePath = storedFile.absolutePath,
                             sourceType = sourceType,
                             isLoaded = true
                         )

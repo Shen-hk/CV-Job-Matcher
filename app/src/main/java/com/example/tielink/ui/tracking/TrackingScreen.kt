@@ -1,6 +1,8 @@
 package com.example.tielink.ui.tracking
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.WorkHistory
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,9 +57,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.data.repository.TimelineEvent
 import com.example.tielink.data.repository.TrackingItem
@@ -104,7 +111,7 @@ fun TrackingScreen(
         },
         topBar = {
             TopAppBar(
-                title = { Text("投递管理") },
+                title = { Text("投递节奏", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -144,6 +151,10 @@ fun TrackingScreen(
                     modifier = Modifier.padding(12.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            TrackingOverviewCard(items = state.items)
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -275,7 +286,20 @@ fun TrackingScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("📋", style = MaterialTheme.typography.displayMedium)
+                        Surface(
+                            modifier = Modifier.size(58.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.WorkHistory,
+                                    null,
+                                    Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             if (state.activeFilter != null) "该状态下暂无投递记录"
@@ -302,6 +326,120 @@ fun TrackingScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TrackingOverviewCard(items: List<TrackingItem>) {
+    val interviewCount = items.count { it.status == "待面试" || it.status == "已面试" }
+    val offerCount = items.count { it.status == "已offer" }
+    val activeCount = items.count { it.status != "已拒" && it.status != "已offer" }
+    val progress = if (items.isEmpty()) 0f else {
+        items.sumOf { item ->
+            STATUS_OPTIONS.indexOf(item.status).coerceIn(0, 4)
+        }.toFloat() / (items.size * 4f)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF102A43), Color(0xFF174C5B), Color(0xFF16756B))
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "APPLICATION PULSE",
+                        color = Color(0xFF7EE7D8),
+                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (items.isEmpty()) "从第一份投递开始" else "$activeCount 个机会正在推进",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                Icon(
+                    Icons.Default.QueryStats,
+                    null,
+                    Modifier.size(34.dp),
+                    tint = Color.White.copy(alpha = 0.72f)
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(7.dp)
+                    .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .height(7.dp)
+                        .background(Color(0xFF2DD4BF), RoundedCornerShape(50))
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TrackingMetric(
+                    modifier = Modifier.weight(1f),
+                    value = items.size.toString(),
+                    label = "累计投递"
+                )
+                TrackingMetric(
+                    modifier = Modifier.weight(1f),
+                    value = interviewCount.toString(),
+                    label = "面试机会"
+                )
+                TrackingMetric(
+                    modifier = Modifier.weight(1f),
+                    value = offerCount.toString(),
+                    label = "Offer",
+                    icon = Icons.Default.EmojiEvents
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackingMetric(
+    modifier: Modifier,
+    value: String,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White.copy(alpha = 0.10f)
+    ) {
+        Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(value, color = Color.White, fontWeight = FontWeight.ExtraBold)
+                if (icon != null) {
+                    Spacer(Modifier.width(4.dp))
+                    Icon(icon, null, Modifier.size(14.dp), tint = Color(0xFFFBBF24))
+                }
+            }
+            Text(label, color = Color.White.copy(alpha = 0.62f), style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -499,46 +637,61 @@ private fun TrackingItemCard(
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
 
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Status indicator dot
             Surface(
-                modifier = Modifier.size(10.dp),
-                shape = CircleShape,
-                color = statusColor
-            ) { }
+                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(13.dp),
+                color = statusColor.copy(alpha = 0.12f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        item.companyName.trim().take(1).ifBlank { "企" },
+                        color = statusColor,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(11.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${item.companyName} - ${item.positionName}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
+                    text = item.positionName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = item.companyName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // Timeline
                 if (item.timeline.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = item.timeline.joinToString(" → ") {
                             it.status
                         },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
                 Text(
-                    text = "创建: ${dateFormat.format(Date(item.createdAt))}",
+                    text = dateFormat.format(Date(item.createdAt)),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
                 )
             }
 

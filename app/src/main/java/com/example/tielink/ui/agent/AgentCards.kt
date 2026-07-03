@@ -334,21 +334,17 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // 全屏按钮：导航到全屏预览页（仅当 resumeData 有值时可用）
+                // 原文件和 HTML 简历都可进入全屏预览页。
                 IconButton(
                     onClick = {
                         (card.onNavigateToResult ?: { onNavigateToResumePreview(card.versionId) }).invoke()
                     },
-                    enabled = card.resumeData != null,
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         Icons.Filled.Fullscreen, "全屏预览",
                         modifier = Modifier.size(18.dp),
-                        tint = if (card.resumeData != null)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -363,15 +359,15 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
                 )
             } else {
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
                     modifier = Modifier.padding(12.dp),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = card.previewText.take(600) + if (card.previewText.length > 600) "…" else "",
+                        text = "原始文件已完整保留，尚未进行 AI 解析或格式重排。\n点击右上角可查看原文件并选择 AI 润色。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.fillMaxWidth().padding(10.dp)
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.fillMaxWidth().padding(14.dp)
                     )
                 }
             }

@@ -19,6 +19,7 @@ import com.example.tielink.domain.usecase.SkillGapAnalyzer
 import com.example.tielink.domain.usecase.StarFormatter
 import com.example.tielink.domain.usecase.StarResult
 import com.example.tielink.util.FileParser
+import com.example.tielink.util.OriginalResumeFileStore
 import com.example.tielink.util.TextCleaner
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -75,7 +76,9 @@ data class ResumeOptimizeUiState(
     // Source type & file
     val sourceType: String = "text",
     val isFileProcessing: Boolean = false,
-    val fileName: String? = null
+    val fileName: String? = null,
+    val originalFilePath: String = "",
+    val originalMimeType: String = ""
 )
 
 @HiltViewModel
@@ -340,7 +343,10 @@ class ResumeOptimizeViewModel @Inject constructor(
                 rawText = state.resumeText,
                 cleanedText = text,
                 matchScore = state.matchScore.toFloat(),
-                tags = tags
+                tags = tags,
+                originalFilePath = state.originalFilePath,
+                originalMimeType = state.originalMimeType,
+                isPolished = state.polishedText.isNotBlank() || state.originalFilePath.isBlank()
             )
             resumeVersionRepository.save(version)
             refreshVersions()
@@ -355,6 +361,14 @@ class ResumeOptimizeViewModel @Inject constructor(
                     resumeText = version.rawText,
                     cleanedText = version.cleanedText,
                     currentVersion = version,
+                    originalFilePath = version.originalFilePath,
+                    originalMimeType = version.originalMimeType,
+                    fileName = version.name.takeIf { version.originalFilePath.isNotBlank() },
+                    sourceType = when (version.originalMimeType) {
+                        "application/pdf" -> "pdf"
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> "docx"
+                        else -> "text"
+                    },
                     isVersionSelectorOpen = false
                 )
             }
@@ -391,27 +405,45 @@ class ResumeOptimizeViewModel @Inject constructor(
             _uiState.update { it.copy(isFileProcessing = true, error = null) }
 
             val result = withContext(Dispatchers.IO) {
-                FileParser.extractText(context, uri, mimeType)
+                OriginalResumeFileStore.copyFromUri(
+                    context,
+                    uri,
+                    fileName ?: "我的简历"
+                )
             }
 
             result.fold(
-                onSuccess = { text ->
+                onSuccess = { storedFile ->
                     val sourceType = when {
                         mimeType?.contains("pdf") == true || fileName?.lowercase()?.endsWith(".pdf") == true -> "pdf"
                         mimeType?.contains("docx") == true || fileName?.lowercase()?.endsWith(".docx") == true -> "docx"
                         else -> "text"
                     }
+                    val versionId = resumeVersionRepository.insertAndActivate(
+                        ResumeVersion(
+                            name = fileName?.substringBeforeLast(".").orEmpty()
+                                .ifBlank { "我的简历" },
+                            rawText = "",
+                            originalFilePath = storedFile.absolutePath,
+                            originalMimeType = mimeType.orEmpty(),
+                            isPolished = false
+                        )
+                    )
+                    val savedVersion = resumeVersionRepository.getById(versionId)
                     _uiState.update {
                         it.copy(
-                            resumeText = if (it.resumeText.isBlank()) text else "${it.resumeText}\n\n$text",
-                            cleanedText = TextCleaner.clean(text),
+                            resumeText = "",
+                            cleanedText = "",
                             isFileProcessing = false,
                             fileName = fileName,
-                            sourceType = sourceType
+                            sourceType = sourceType,
+                            originalFilePath = storedFile.absolutePath,
+                            originalMimeType = mimeType.orEmpty(),
+                            currentVersion = savedVersion
                         )
                     }
-                    appPreferences.setLastResume(text)
-                    Log.i(TAG, "文件处理完成: sourceType=$sourceType, textLen=${text.length}")
+                    refreshVersions()
+                    Log.i(TAG, "原文件保存完成: sourceType=$sourceType")
                 },
                 onFailure = { e ->
                     Log.e(TAG, "文件处理失败: ${e.message}", e)
@@ -433,9 +465,60 @@ class ResumeOptimizeViewModel @Inject constructor(
                 currentVersion = null,
                 fileName = null,
                 sourceType = "text",
+                originalFilePath = "",
+                originalMimeType = "",
                 skillGaps = emptyList(),
                 quantifySuggestions = emptyList(),
                 starResult = null
+            )
+        }
+    }
+
+    fun openOriginalFile(context: Context) {
+        val state = _uiState.value
+        OriginalResumeFileStore.open(
+            context,
+            state.originalFilePath,
+            state.originalMimeType
+        ).onFailure { error ->
+            _uiState.update { it.copy(error = "无法打开原文件: ${error.message}") }
+        }
+    }
+
+    fun prepareForPolish(context: Context, onReady: (String) -> Unit) {
+        val state = _uiState.value
+        if (state.originalFilePath.isBlank()) {
+            if (state.resumeText.isNotBlank()) onReady(state.resumeText)
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFileProcessing = true, error = null) }
+            val result = withContext(Dispatchers.IO) {
+                FileParser.extractText(
+                    context,
+                    Uri.fromFile(java.io.File(state.originalFilePath)),
+                    state.originalMimeType
+                )
+            }
+            result.fold(
+                onSuccess = { text ->
+                    _uiState.update {
+                        it.copy(
+                            resumeText = text,
+                            cleanedText = TextCleaner.clean(text),
+                            isFileProcessing = false
+                        )
+                    }
+                    onReady(text)
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isFileProcessing = false,
+                            error = "读取原文件失败: ${error.message}"
+                        )
+                    }
+                }
             )
         }
     }

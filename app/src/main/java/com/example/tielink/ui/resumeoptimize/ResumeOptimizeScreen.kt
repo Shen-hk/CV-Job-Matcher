@@ -263,18 +263,46 @@ fun ResumeOptimizeScreen(
             }
             state.fileName?.let { name ->
                 Spacer(Modifier.height(4.dp))
-                Text("已加载: $name", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text("已保存原文件: $name", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
 
             Spacer(Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = state.resumeText,
-                onValueChange = viewModel::updateResumeText,
-                modifier = Modifier.fillMaxWidth().height(200.dp),
-                placeholder = { Text("在此粘贴简历文本…\n\n支持：文本粘贴 / PDF上传 / DOCX上传 / 图片OCR识别") },
-                maxLines = 20
-            )
+            if (state.originalFilePath.isNotBlank()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(
+                            "原始排版已保留",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "当前不会把提取文字拆进个人信息。AI 润色后才会转换为 Vibe HTML 简历。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedButton(onClick = { viewModel.openOriginalFile(context) }) {
+                            Text("查看原文件")
+                        }
+                    }
+                }
+            } else {
+                OutlinedTextField(
+                    value = state.resumeText,
+                    onValueChange = viewModel::updateResumeText,
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    placeholder = { Text("在此粘贴简历文本…\n\n支持：文本粘贴 / PDF上传 / DOCX上传 / 图片OCR识别") },
+                    maxLines = 20
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
 
@@ -282,12 +310,19 @@ fun ResumeOptimizeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        onNavigateToPolish(
-                            state.resumeText, jdState.rawText, jdState.structuredJson,
-                            null, state.sourceType, true
-                        )
+                        viewModel.prepareForPolish(context) { resumeText ->
+                            onNavigateToPolish(
+                                resumeText,
+                                jdState.rawText,
+                                jdState.structuredJson,
+                                state.originalFilePath.ifBlank { null },
+                                state.sourceType,
+                                true
+                            )
+                        }
                     },
-                    enabled = state.resumeText.isNotBlank(),
+                    enabled = (state.resumeText.isNotBlank() || state.originalFilePath.isNotBlank()) &&
+                        !state.isFileProcessing,
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.AutoAwesome, null, Modifier.size(18.dp))
@@ -296,7 +331,9 @@ fun ResumeOptimizeScreen(
                 }
                 OutlinedButton(
                     onClick = { viewModel.analyzeMatch(jdState.rawText, jdState.structuredJson) },
-                    enabled = state.resumeText.isNotBlank() && jdState.isSet,
+                    enabled = state.resumeText.isNotBlank() &&
+                        state.originalFilePath.isBlank() &&
+                        jdState.isSet,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("匹配度分析")

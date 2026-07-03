@@ -277,8 +277,16 @@ fun AgentChatScreen(
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
                     if (state.messages.isEmpty()) {
                         WelcomePage(
+                            contextBar = state.contextBar,
                             prompts = state.suggestedPrompts,
-                            onPromptClick = { viewModel.sendPrompt(it) }
+                            onPromptClick = { viewModel.sendPrompt(it) },
+                            onOpenJd = onNavigateToJdList,
+                            onOpenResume = onNavigateToResumeLibrary,
+                            onUploadResume = {
+                                pendingPickerToolName = "resume_tool"
+                                filePickerLauncher.launch("*/*")
+                            },
+                            onOpenTracking = onNavigateToTracking
                         )
                     } else {
                         LazyColumn(

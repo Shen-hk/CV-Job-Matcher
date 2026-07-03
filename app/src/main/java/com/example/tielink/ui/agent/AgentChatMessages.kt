@@ -26,12 +26,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.NorthEast
+import androidx.compose.material.icons.filled.Radar
+import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,6 +61,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -64,58 +74,183 @@ import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
+import com.example.tielink.domain.model.ContextBarState
 import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.ui.theme.TieLinkTheme
 
 @Composable
 fun WelcomePage(
+    contextBar: ContextBarState,
     prompts: List<String>,
-    onPromptClick: (String) -> Unit
+    onPromptClick: (String) -> Unit,
+    onOpenJd: () -> Unit,
+    onOpenResume: () -> Unit,
+    onUploadResume: () -> Unit,
+    onOpenTracking: () -> Unit
 ) {
+    val hasJd = contextBar.jdTitle != null
+    val hasResume = contextBar.resumeVersionName != null
+    val readyCount = listOf(hasJd, hasResume).count { it }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
     ) {
-        Spacer(Modifier.fillMaxSize(0.16f))
+        Spacer(Modifier.height(10.dp))
 
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(26.dp),
+            color = Color.Transparent
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF102A43), Color(0xFF174C5B), Color(0xFF16756B))
+                        )
+                    )
+                    .padding(20.dp)
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color.White.copy(alpha = 0.12f)
+                        ) {
+                            Row(
+                                Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.AutoAwesome,
+                                    null,
+                                    Modifier.size(14.dp),
+                                    tint = Color(0xFF7EE7D8)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    "CAREER AGENT",
+                                    color = Color(0xFFD7FFF8),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.2.sp
+                                )
+                            }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            "$readyCount / 2 已就绪",
+                            color = Color.White.copy(alpha = 0.72f),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        "把岗位变成\n你的下一次机会",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        lineHeight = 34.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.6).sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "岗位理解、简历重塑、投递节奏，由一个 Agent 串成完整闭环。",
+                        color = Color.White.copy(alpha = 0.74f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            WorkspaceContextCard(
+                modifier = Modifier.weight(1f),
+                eyebrow = "目标岗位",
+                value = contextBar.jdTitle ?: "还未选择 JD",
+                detail = contextBar.jdCompany ?: if (hasJd) "岗位信息已连接" else "导入后可分析匹配度",
+                icon = Icons.Default.Work,
+                ready = hasJd,
+                onClick = onOpenJd
+            )
+            WorkspaceContextCard(
+                modifier = Modifier.weight(1f),
+                eyebrow = "当前简历",
+                value = contextBar.resumeVersionName ?: "还未上传简历",
+                detail = if (hasResume) "简历版本已连接" else "原格式保存，按需润色",
+                icon = Icons.Default.Description,
+                ready = hasResume,
+                onClick = onOpenResume
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
         Text(
-            text = "Hi, 我是 TieLink",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
+            "开始一条工作流",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
         )
-
         Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            WorkspaceAction(
+                modifier = Modifier.weight(1f),
+                title = "岗位雷达",
+                caption = "导入 JD",
+                icon = Icons.Default.Radar,
+                color = Color(0xFF0E7490),
+                onClick = onOpenJd
+            )
+            WorkspaceAction(
+                modifier = Modifier.weight(1f),
+                title = "简历重塑",
+                caption = "上传原件",
+                icon = Icons.Default.UploadFile,
+                color = Color(0xFFB45309),
+                onClick = onUploadResume
+            )
+            WorkspaceAction(
+                modifier = Modifier.weight(1f),
+                title = "投递节奏",
+                caption = "查看看板",
+                icon = Icons.Default.CheckCircle,
+                color = Color(0xFF047857),
+                onClick = onOpenTracking
+            )
+        }
 
-        Text(
-            text = "告诉我你想优化简历、分析岗位，或者追踪投递。",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(18.dp))
 
         if (prompts.isNotEmpty()) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "你可以直接这样问",
-                    style = MaterialTheme.typography.labelLarge,
+                    text = "让 Agent 接着做",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                prompts.forEach { prompt ->
+                prompts.take(3).forEach { prompt ->
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(
                             1.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                            MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -125,24 +260,17 @@ fun WelcomePage(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "•",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
                             Text(
                                 text = prompt,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                Icons.Default.NorthEast,
+                                null,
+                                Modifier.size(17.dp),
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -150,7 +278,96 @@ fun WelcomePage(
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun WorkspaceContextCard(
+    modifier: Modifier,
+    eyebrow: String,
+    value: String,
+    detail: String,
+    icon: ImageVector,
+    ready: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(Modifier.padding(13.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    icon,
+                    null,
+                    Modifier.size(17.dp),
+                    tint = if (ready) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    eyebrow.uppercase(),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.7.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.height(9.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceAction(
+    modifier: Modifier,
+    title: String,
+    caption: String,
+    icon: ImageVector,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = color.copy(alpha = 0.08f)
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Box(
+                Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(color),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, Modifier.size(18.dp), tint = Color.White)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+            Text(
+                caption,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
     }
 }
 
@@ -490,8 +707,17 @@ private fun AgentChatMessagesPreview() {
     TieLinkTheme {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             WelcomePage(
+                contextBar = ContextBarState(
+                    jdTitle = "Android 高级工程师",
+                    jdCompany = "示例科技",
+                    resumeVersionName = "移动端主简历"
+                ),
                 prompts = listOf("帮我优化简历", "分析岗位匹配度"),
-                onPromptClick = {}
+                onPromptClick = {},
+                onOpenJd = {},
+                onOpenResume = {},
+                onUploadResume = {},
+                onOpenTracking = {}
             )
             MessageRow(
                 message = AgentMessage(

@@ -23,6 +23,8 @@ import com.example.tielink.domain.model.PolishResult
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.nlp.SemanticMatcher
 import com.example.tielink.util.HtmlPdfExporter
+import com.example.tielink.util.FileParser
+import com.example.tielink.util.OriginalResumeFileStore
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,6 +58,10 @@ data class ResultUiState(
     val exportFile: File? = null,
     // Structured resume data (from JSON)
     val resumeData: ResumeData? = null,
+    val isOriginalFile: Boolean = false,
+    val originalFilePath: String = "",
+    val originalMimeType: String = "",
+    val currentVersionId: Long = -1L,
     // Cover Letter
     val isGeneratingCoverLetter: Boolean = false,
     val coverLetter: String? = null,
@@ -108,13 +114,27 @@ class ResultViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = "简历版本未找到") }
                     return@launch
                 }
-                val rawText = version.rawText.ifBlank { version.cleanedText }
-                val resumeData = ResumeData.fromPolishedText(rawText)
+                val displayText = if (version.isPolished) {
+                    version.cleanedText.ifBlank { version.rawText }
+                } else {
+                    version.rawText
+                }
+                val resumeData = if (version.isPolished) {
+                    ResumeData.fromPolishedText(displayText)
+                } else {
+                    null
+                }
                 _uiState.update {
                     it.copy(
-                        polishedResume = rawText,
+                        polishedResume = displayText,
+                        originalResume = version.rawText,
                         jdTitle = version.name,
                         resumeData = resumeData,
+                        isOriginalFile = !version.isPolished && version.originalFilePath.isNotBlank(),
+                        originalFilePath = version.originalFilePath,
+                        originalMimeType = version.originalMimeType,
+                        currentVersionId = versionId,
+                        useVibeTemplate = version.isPolished,
                         currentSessionId = versionId,
                         isLoading = false
                     )
@@ -170,6 +190,9 @@ class ResultViewModel @Inject constructor(
                         missingKeywords = missing,
                         suggestions = suggestions,
                         resumeData = resumeData,
+                        isOriginalFile = false,
+                        originalFilePath = e.originalFilePath.orEmpty(),
+                        useVibeTemplate = e.originalFilePath?.isNotBlank() == true,
                         currentSessionId = sessionId,
                         isLoading = false
                     )
@@ -278,6 +301,90 @@ class ResultViewModel @Inject constructor(
                 Log.e(TAG, "迭代润色异常: ${e.message}", e)
                 _uiState.update { it.copy(isIterativePolishing = false) }
             }
+        }
+    }
+
+    fun openOriginalFile() {
+        val state = _uiState.value
+        OriginalResumeFileStore.open(
+            application,
+            state.originalFilePath,
+            state.originalMimeType
+        ).onFailure { error ->
+            _uiState.update { it.copy(error = "无法打开原文件: ${error.message}") }
+        }
+    }
+
+    fun polishOriginalResume() {
+        val state = _uiState.value
+        if (!state.isOriginalFile || state.originalFilePath.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isIterativePolishing = true, error = null) }
+            val sourceText = if (state.originalResume.isNotBlank()) {
+                state.originalResume
+            } else {
+                withContext(Dispatchers.IO) {
+                    FileParser.extractText(
+                        application,
+                        Uri.fromFile(File(state.originalFilePath)),
+                        state.originalMimeType
+                    )
+                }.getOrElse { error ->
+                    _uiState.update {
+                        it.copy(
+                            isIterativePolishing = false,
+                            error = "读取原文件失败: ${error.message}"
+                        )
+                    }
+                    return@launch
+                }
+            }
+            polishRepository.polishResume(
+                jdText = state.jdRawText,
+                resumeText = sourceText,
+                fullPolish = true
+            ).fold(
+                onSuccess = { rawOutput ->
+                    val polishResult = PolishResult.fromLlmOutput(rawOutput)
+                    val resumeData = (if (polishResult.resumeJson.isNotBlank()) {
+                        ResumeData.fromJsonString(polishResult.resumeJson)
+                    } else {
+                        ResumeData.fromPolishedText(polishResult.polishedResume)
+                    })?.withAutoDetectedLinks()
+
+                    val version = resumeVersionRepository.getById(state.currentVersionId)
+                    if (version != null) {
+                        resumeVersionRepository.save(
+                            version.copy(
+                                rawText = sourceText,
+                                cleanedText = polishResult.polishedResume,
+                                isPolished = true,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                    _uiState.update {
+                        it.copy(
+                            originalResume = sourceText,
+                            polishedResume = polishResult.polishedResume,
+                            optimizationNote = polishResult.optimizationNote,
+                            resumeData = resumeData,
+                            isOriginalFile = false,
+                            useVibeTemplate = true,
+                            isIterativePolishing = false,
+                            showCompletionAnimation = true
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isIterativePolishing = false,
+                            error = "AI 润色失败: ${error.message}"
+                        )
+                    }
+                }
+            )
         }
     }
 

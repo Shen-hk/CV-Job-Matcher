@@ -149,10 +149,10 @@ fun InputArea(
 ) {
     val gradientColors = remember {
         listOf(
-            Color(0xFF6C63FF),
-            Color(0xFF3B82F6),
-            Color(0xFF06B6D4),
-            Color(0xFF10B981)
+            Color(0xFF102A43),
+            Color(0xFF0E7490),
+            Color(0xFF14B8A6),
+            Color(0xFFF59E0B)
         )
     }
     val inputShape = remember { RoundedCornerShape(28.dp) }

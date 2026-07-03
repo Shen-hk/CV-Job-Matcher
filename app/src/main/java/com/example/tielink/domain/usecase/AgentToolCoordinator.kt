@@ -377,9 +377,17 @@ class AgentToolCoordinator @Inject constructor(
 
     suspend fun buildResumePreviewCard(): UiCard.ResumePreviewCard? {
         val resume = resumeVersionRepository.getActive() ?: return null
-        val rawText = resume.rawText.ifBlank { resume.cleanedText }
+        val rawText = if (resume.isPolished) {
+            resume.cleanedText.ifBlank { resume.rawText }
+        } else {
+            resume.rawText
+        }
         if (rawText.isBlank()) return null
-        val resumeData = com.example.tielink.domain.model.ResumeData.fromPolishedText(rawText)
+        val resumeData = if (resume.isPolished) {
+            com.example.tielink.domain.model.ResumeData.fromPolishedText(rawText)
+        } else {
+            null
+        }
         return UiCard.ResumePreviewCard(
             versionName = resume.name,
             versionId = resume.id,

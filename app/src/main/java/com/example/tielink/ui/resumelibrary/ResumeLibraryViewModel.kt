@@ -71,7 +71,16 @@ class ResumeLibraryViewModel @Inject constructor(
                             id = v.id,
                             type = "version",
                             title = v.name,
-                            subtitle = tagList.joinToString(" · "),
+                            subtitle = if (!v.isPolished && v.originalFilePath.isNotBlank()) {
+                                val format = when {
+                                    v.originalMimeType.contains("pdf", ignoreCase = true) -> "PDF"
+                                    v.originalMimeType.contains("word", ignoreCase = true) -> "DOCX"
+                                    else -> "文件"
+                                }
+                                "原始 $format · 未润色"
+                            } else {
+                                tagList.joinToString(" · ")
+                            },
                             matchScore = v.matchScore.toInt(),
                             createdAt = v.createdAt
                         )

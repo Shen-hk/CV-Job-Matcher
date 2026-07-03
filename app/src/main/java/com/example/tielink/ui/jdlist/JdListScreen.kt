@@ -5,6 +5,8 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +43,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,6 +64,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,6 +95,8 @@ fun JdListScreen(
     // text input dialog
     var showTextDialog by remember { mutableStateOf(false) }
     var textInput by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    var sourceFilter by remember { mutableStateOf("全部") }
 
     val ocrLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -173,12 +180,49 @@ fun JdListScreen(
                     }
                 }
                 else -> {
+                    val visibleJds = remember(state.jdList, searchQuery, sourceFilter) {
+                        state.jdList.filter { jd ->
+                            val matchesQuery = searchQuery.isBlank() ||
+                                jd.companyName.contains(searchQuery, ignoreCase = true) ||
+                                jd.positionName.contains(searchQuery, ignoreCase = true) ||
+                                jd.skills.contains(searchQuery, ignoreCase = true)
+                            val matchesSource = when (sourceFilter) {
+                                "BOSS" -> jd.sourceType == "boss_auto"
+                                "AI" -> jd.sourceType == "ai_auto"
+                                "手动" -> jd.sourceType == "manual" || jd.sourceType == "ocr"
+                                else -> true
+                            }
+                            matchesQuery && matchesSource
+                        }
+                    }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         item { Spacer(Modifier.height(4.dp)) }
-                        items(state.jdList, key = { it.id }) { jd ->
+                        item {
+                            JdRadarHeader(
+                                items = state.jdList,
+                                query = searchQuery,
+                                onQueryChange = { searchQuery = it },
+                                sourceFilter = sourceFilter,
+                                onSourceFilterChange = { sourceFilter = it }
+                            )
+                        }
+                        if (visibleJds.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 36.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "没有找到匹配的岗位",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                        items(visibleJds, key = { it.id }) { jd ->
                             JdCard(
                                 jd = jd,
                                 onClick = { detailJd = jd },
@@ -268,6 +312,122 @@ fun JdListScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun JdRadarHeader(
+    items: List<JdLibraryEntity>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    sourceFilter: String,
+    onSourceFilterChange: (String) -> Unit
+) {
+    val bossCount = items.count { it.sourceType == "boss_auto" }
+    val companyCount = items.map { it.companyName.trim() }
+        .filter { it.isNotBlank() }
+        .distinct()
+        .size
+
+    Column {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF102A43), Color(0xFF174C5B), Color(0xFF16756B))
+                        )
+                    )
+                    .padding(17.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "OPPORTUNITY RADAR",
+                            color = Color(0xFF7EE7D8),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "${items.size} 个岗位正在候选池",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    Icon(
+                        Icons.Default.Search,
+                        null,
+                        Modifier.size(32.dp),
+                        tint = Color.White.copy(alpha = 0.70f)
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    JdRadarMetric(Modifier.weight(1f), companyCount.toString(), "目标公司")
+                    JdRadarMetric(Modifier.weight(1f), bossCount.toString(), "BOSS 导入")
+                    JdRadarMetric(
+                        Modifier.weight(1f),
+                        items.count { it.skills.isNotBlank() }.toString(),
+                        "已提取技能"
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("搜索公司、岗位或技能") },
+            leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(19.dp)) },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            listOf("全部", "BOSS", "AI", "手动").forEach { filter ->
+                FilterChip(
+                    selected = sourceFilter == filter,
+                    onClick = { onSourceFilterChange(filter) },
+                    label = { Text(filter) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun JdRadarMetric(
+    modifier: Modifier,
+    value: String,
+    label: String
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(13.dp),
+        color = Color.White.copy(alpha = 0.10f)
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {
+            Text(value, color = Color.White, fontWeight = FontWeight.ExtraBold)
+            Text(
+                label,
+                color = Color.White.copy(alpha = 0.62f),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun JdCard(
     jd: JdLibraryEntity,
     onClick: () -> Unit,
@@ -284,29 +444,47 @@ private fun JdCard(
         "boss_auto" -> "BOSS 自动导入"
         else -> "手动录入"
     }
+    val sourceColor = when (jd.sourceType) {
+        "boss_auto" -> Color(0xFF0F766E)
+        "ai_auto" -> Color(0xFF0E7490)
+        "ocr" -> Color(0xFFB45309)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(14.dp)) {
             // Header row
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Work, null, Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(8.dp))
+                Surface(
+                    modifier = Modifier.size(42.dp),
+                    shape = RoundedCornerShape(13.dp),
+                    color = sourceColor.copy(alpha = 0.11f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            jd.companyName.trim().take(1).ifBlank { "岗" },
+                            color = sourceColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+                Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = if (jd.companyName.isNotBlank()) jd.companyName else "未识别公司",
+                        text = jd.positionName.ifBlank { "未识别岗位" },
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
-                    if (jd.positionName.isNotBlank() || jd.salary.isNotBlank()) {
+                    if (jd.companyName.isNotBlank() || jd.salary.isNotBlank()) {
                         val subtitleParts = listOfNotNull(
-                            jd.positionName.takeIf { it.isNotBlank() },
+                            jd.companyName.takeIf { it.isNotBlank() },
                             jd.salary.takeIf { it.isNotBlank() }
                         )
                         Text(
@@ -317,25 +495,16 @@ private fun JdCard(
                         )
                     }
                 }
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Delete, "删除",
-                        Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-                    )
-                }
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    shape = RoundedCornerShape(50),
+                    color = sourceColor.copy(alpha = 0.10f)
                 ) {
                     Text(
-                        text = dateFormat.format(Date(jd.createdAt)),
+                        text = sourceLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        color = sourceColor,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -360,11 +529,6 @@ private fun JdCard(
                 }
             }
 
-            // Source badge
-            Spacer(Modifier.height(6.dp))
-            Text(sourceLabel, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(Modifier.height(6.dp))
@@ -385,7 +549,24 @@ private fun JdCard(
                     shape = RoundedCornerShape(8.dp)) {
                     Text("去投递", style = MaterialTheme.typography.labelSmall)
                 }
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        "删除",
+                        Modifier.size(17.dp),
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.58f)
+                    )
+                }
             }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                dateFormat.format(Date(jd.createdAt)),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+            )
         }
     }
 }

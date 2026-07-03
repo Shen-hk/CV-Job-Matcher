@@ -27,6 +27,7 @@ import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.model.UiCardSnapshotCodec
 import com.example.tielink.domain.usecase.AgentUseCase
 import com.example.tielink.util.FileParser
+import com.example.tielink.util.OriginalResumeFileStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -519,7 +520,8 @@ class AgentViewModel @Inject constructor(
     private suspend fun enrichRestoredCard(card: UiCard): UiCard {
         if (card !is UiCard.ResumePreviewCard || card.resumeData != null) return card
         val version = resumeVersionRepository.getById(card.versionId) ?: return card
-        val fullText = version.rawText.ifBlank { version.cleanedText }
+        if (!version.isPolished) return card
+        val fullText = version.cleanedText.ifBlank { version.rawText }
         if (fullText.isBlank()) return card
         return card.copy(resumeData = ResumeData.fromPolishedText(fullText))
     }
@@ -596,15 +598,53 @@ class AgentViewModel @Inject constructor(
         Log.d(TAG, "attachFile: uri=$uri, mime=$mimeType, name=$fileName, fromCard=$fromCardToolName")
         viewModelScope.launch {
             _uiState.update { it.copy(isParsingFile = true, error = null) }
+            val storedFile = if (fromCardToolName.isNotEmpty()) {
+                withContext(Dispatchers.IO) {
+                    OriginalResumeFileStore.copyFromUri(
+                        context,
+                        uri,
+                        fileName ?: "我的简历"
+                    )
+                }.getOrElse { error ->
+                    _uiState.update {
+                        it.copy(isParsingFile = false, error = "保存原文件失败: ${error.message}")
+                    }
+                    return@launch
+                }
+            } else {
+                null
+            }
+            if (fromCardToolName == "resume_tool") {
+                _uiState.update { it.copy(isParsingFile = false) }
+                saveResumeAndAutoTrigger(
+                    text = "",
+                    fileName = fileName ?: "我的简历",
+                    toolName = fromCardToolName,
+                    originalFilePath = storedFile?.absolutePath.orEmpty(),
+                    originalMimeType = mimeType.orEmpty()
+                )
+                return@launch
+            }
             val result = withContext(Dispatchers.IO) { FileParser.extractText(context, uri, mimeType) }
             result.fold(
                 onSuccess = { text ->
                     Log.d(TAG, "文件解析成功: ${text.length} 字符, fromCardToolName=$fromCardToolName")
                     _uiState.update { it.copy(isParsingFile = false) }
                     if (fromCardToolName.isNotEmpty()) {
-                        saveResumeAndAutoTrigger(text, fileName ?: "我的简历", fromCardToolName)
+                        saveResumeAndAutoTrigger(
+                            text = text,
+                            fileName = fileName ?: "我的简历",
+                            toolName = fromCardToolName,
+                            originalFilePath = storedFile?.absolutePath.orEmpty(),
+                            originalMimeType = mimeType.orEmpty()
+                        )
                     } else {
-                        _uiState.update { it.copy(pendingAttachmentName = fileName ?: "文件", pendingAttachmentText = text) }
+                        _uiState.update {
+                            it.copy(
+                                pendingAttachmentName = fileName ?: "文件",
+                                pendingAttachmentText = text
+                            )
+                        }
                         schedulePersistDraft(immediate = true)
                     }
                 },
@@ -617,15 +657,66 @@ class AgentViewModel @Inject constructor(
         }
     }
 
-    private suspend fun saveResumeAndAutoTrigger(text: String, fileName: String, toolName: String) {
+    private suspend fun saveResumeAndAutoTrigger(
+        text: String,
+        fileName: String,
+        toolName: String,
+        originalFilePath: String,
+        originalMimeType: String
+    ) {
         Log.d(TAG, "saveResumeAndAutoTrigger: fileName=$fileName, toolName=$toolName, textLen=${text.length}")
         val cleanName = fileName.substringBeforeLast(".").ifBlank { "我的简历" }
         try {
-            resumeVersionRepository.insertAndActivate(
-                ResumeVersion(name = cleanName, rawText = text)
+            val versionId = resumeVersionRepository.insertAndActivate(
+                ResumeVersion(
+                    name = cleanName,
+                    rawText = text,
+                    originalFilePath = originalFilePath,
+                    originalMimeType = originalMimeType,
+                    isPolished = false
+                )
             )
             _uiState.update { state ->
-                state.copy(contextBar = state.contextBar.copy(resumeVersionName = cleanName))
+                state.copy(
+                    contextBar = state.contextBar.copy(
+                        resumeVersionName = cleanName,
+                        resumeVersionId = versionId
+                    )
+                )
+            }
+            if (toolName == "resume_tool") {
+                _uiState.update { state ->
+                    val messages = state.messages.toMutableList()
+                    val uploadCardIndex = messages.indexOfLast {
+                        it.card is com.example.tielink.domain.model.UiCard.UploadPromptCard
+                    }
+                    if (uploadCardIndex >= 0) {
+                        messages[uploadCardIndex] = AgentMessage(
+                            role = AgentMessageRole.AGENT,
+                            content = "原始文件已保存，未改动排版和内容。"
+                        )
+                    }
+                    messages += AgentMessage(
+                        role = AgentMessageRole.USER,
+                        content = "📎 已上传简历：$cleanName"
+                    )
+                    messages += AgentMessage(
+                        role = AgentMessageRole.AGENT,
+                        content = "",
+                        card = UiCard.ResumePreviewCard(
+                            versionName = cleanName,
+                            versionId = versionId,
+                            previewText = "原始文件已保留，可查看原文件或选择 AI 润色。"
+                        )
+                    )
+                    state.copy(
+                        messages = messages,
+                        isLoading = false,
+                        processState = AgentProcessState()
+                    )
+                }
+                schedulePersistDraft(immediate = true)
+                return
             }
         } catch (e: Exception) {
             Log.e(TAG, "保存简历版本失败", e)
@@ -654,10 +745,6 @@ class AgentViewModel @Inject constructor(
             "match_tool" -> "分析我的简历匹配度"
             "resume_tool" -> "帮我优化简历"
             else -> "分析我的简历"
-        }
-
-        if (toolName == "resume_tool") {
-            appPreferences.setResumeOptimizeContinue(true)
         }
 
         val ackMsg = AgentMessage(role = AgentMessageRole.USER, content = "📎 已上传简历：$cleanName")

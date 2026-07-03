@@ -33,6 +33,15 @@ data class ResumeVersionEntity(
     @ColumnInfo(name = "is_active", defaultValue = "0")
     val isActive: Boolean = false,
 
+    @ColumnInfo(name = "original_file_path", defaultValue = "")
+    val originalFilePath: String = "",
+
+    @ColumnInfo(name = "original_mime_type", defaultValue = "")
+    val originalMimeType: String = "",
+
+    @ColumnInfo(name = "is_polished", defaultValue = "1")
+    val isPolished: Boolean = true,
+
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
 
