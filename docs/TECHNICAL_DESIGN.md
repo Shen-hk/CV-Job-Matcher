@@ -317,7 +317,7 @@ Prompt 类型: `polish_full`, `polish_partial`, `polish_iterative`, `cover_lette
 | 决策 | 选择 | 原因 |
 |------|------|------|
 | 注解处理 | KSP（非 KAPT） | 编译速度更快 |
-| JSON | Moshi + KotlinJsonAdapterFactory | 反射模式，无需代码生成 |
+~~| JSON | Moshi + KotlinJsonAdapterFactory | 反射模式，无需代码生成 |~~
 | HTML 模板 | 原始 HTML + 占位符替换 | 无额外模板引擎依赖 |
 | TF-IDF | 手写纯 Kotlin | 离线可用、可解释、无外部依赖 |
 | Embedding | TFLite 量化中文 BERT | 本地推理，隐私保护 |

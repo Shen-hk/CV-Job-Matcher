@@ -253,6 +253,15 @@ class AgentViewModel @Inject constructor(
         }
     }
 
+    fun refreshContextBar() {
+        viewModelScope.launch {
+            loadContextBar()
+            if (_uiState.value.messages.isEmpty()) {
+                loadWelcomeMessage()
+            }
+        }
+    }
+
     private fun loadWelcomeMessage() {
         val hasJd = _uiState.value.contextBar.jdTitle != null
         val hasResume = _uiState.value.contextBar.resumeVersionName != null

@@ -1,12 +1,17 @@
 package com.example.tielink.automation
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
+import android.graphics.Rect
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import com.example.tielink.data.local.db.entity.JdLibraryEntity
 import com.example.tielink.data.repository.JdLibraryRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,6 +27,24 @@ import javax.inject.Inject
 class BossImportAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "BossImport"
+        private val SEARCH_LABEL_HINTS = listOf(
+            "搜索",
+            "搜职位",
+            "搜索职位",
+            "搜索框",
+            "请输入",
+            "职位",
+            "岗位",
+            "公司"
+        )
+        private val SEARCH_ID_HINTS = listOf(
+            "search",
+            "query",
+            "keyword",
+            "edit",
+            "input",
+            "bar"
+        )
     }
 
     @Inject
@@ -41,6 +64,11 @@ class BossImportAccessibilityService : AccessibilityService() {
     private var phase = Phase.OPEN_SEARCH
     private var imported = 0
     private var processing = false
+    private var activeSessionId = 0L
+    private var activeKeyword = ""
+    private var activeLimit = 0
+    private var openSearchAttempts = 0
+    private var lastSubmitAttemptAt = 0L
     private var saveJob: Job? = null
     private var currentCandidate: Candidate? = null
     private val visited = mutableSetOf<String>()
@@ -58,7 +86,7 @@ class BossImportAccessibilityService : AccessibilityService() {
             ) {
                 processing = true
                 try {
-                    process(command.first, command.second)
+                    process(command)
                 } catch (error: Exception) {
                     Log.e(TAG, "Polling failed", error)
                 } finally {
@@ -73,8 +101,9 @@ class BossImportAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         handler.removeCallbacks(pollRunnable)
         handler.post(pollRunnable)
-        BossImportController.readCommand(this)?.let {
-            Log.d(TAG, "Service connected, pending keyword=${it.first}")
+        BossImportController.readCommand(this)?.let { command ->
+            resetSession(command)
+            Log.d(TAG, "Service connected, pending keyword=${command.keyword}")
             BossImportController.update(imported, "自动化服务已连接")
         }
     }
@@ -86,7 +115,7 @@ class BossImportAccessibilityService : AccessibilityService() {
         processing = true
         handler.postDelayed({
             try {
-                process(command.first, command.second)
+                process(command)
             } finally {
                 processing = false
             }
@@ -104,21 +133,23 @@ class BossImportAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    private fun process(keyword: String, limit: Int) {
+    private fun process(command: BossImportCommand) {
+        ensureSession(command)
         val root = rootInActiveWindow ?: return
         when (phase) {
-            Phase.OPEN_SEARCH -> openSearch(root, keyword, limit)
-            Phase.RESULTS -> openNextResult(root, limit)
-            Phase.DETAIL -> importDetail(root, limit)
+            Phase.OPEN_SEARCH -> openSearch(root, command.keyword, command.limit)
+            Phase.RESULTS -> openNextResult(root, command.limit)
+            Phase.DETAIL -> importDetail(root, command.limit)
         }
     }
 
     private fun openSearch(root: AccessibilityNodeInfo, keyword: String, limit: Int) {
-        val positionNode = findByIdSuffix(root, "tv_position_name")
-        val salaryNode = findFirst(root) { salaryRegex.containsMatchIn(nodeLabel(it)) }
-        if (positionNode != null && salaryNode != null) {
+        openSearchAttempts += 1
+        if (isKeywordResultsPage(root, keyword)) {
+            openSearchAttempts = 0
             phase = Phase.RESULTS
-            Log.d(TAG, "Search results detected directly")
+            Log.d(TAG, "Detected search results for keyword=$keyword")
+            BossImportController.update(imported, "已定位到“$keyword”的搜索结果")
             openNextResult(root, limit)
             return
         }
@@ -127,44 +158,60 @@ class BossImportAccessibilityService : AccessibilityService() {
             it.isEditable || it.className?.toString()?.contains("EditText") == true
         }
         if (input == null) {
-            val homeSearch = findByIdSuffix(root, "ly_menu")
-            val homeSearchButton = homeSearch?.let { findFirst(it) { node -> node.isClickable } }
-            val searchEntry = homeSearchButton ?: findFirst(root) {
-                val label = nodeLabel(it)
-                it.isClickable && (label.contains("搜索职位") || label == "搜索")
-            }
-            if (searchEntry?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) {
-                Log.d(TAG, "Opened search from home")
-                BossImportController.update(imported, "正在进入岗位搜索")
+            val searchCandidates = findSearchEntryCandidates(root)
+            val indexedCandidate = searchCandidates.getOrNull((openSearchAttempts - 1) % searchCandidates.size.coerceAtLeast(1))
+            if (indexedCandidate != null && clickNode(indexedCandidate)) {
+                Log.d(
+                    TAG,
+                    "Opened search entry attempt=$openSearchAttempts node=${describeNode(indexedCandidate)}"
+                )
+                BossImportController.update(imported, "正在打开搜索框")
                 return
             }
-
-            val resultSearchBar = findByIdSuffix(root, "constraintLayout_search_input")
-            if (resultSearchBar?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) {
-                Log.d(TAG, "Opened search input from result page")
-                BossImportController.update(imported, "正在填写岗位关键词")
+            if (tapTopSearchArea(root)) {
+                Log.d(TAG, "Tapped top search area as fallback")
+                BossImportController.update(imported, "正在尝试打开顶部搜索框")
+                if (openSearchAttempts % 3 == 0) {
+                    dumpSearchNodes(root, "openSearch:no_input:tap_fallback")
+                }
+                return
             }
+            dumpSearchNodes(root, "openSearch:no_input")
+            BossImportController.update(imported, "没找到搜索框，请手动点一下顶部搜索框")
             return
         }
 
-        input.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-        input.performAction(
-            AccessibilityNodeInfo.ACTION_SET_TEXT,
-            Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, keyword)
-            }
-        )
-
-        val searchButton = findFirst(root) {
-            it.isClickable && nodeLabel(it).let { label ->
-                label == "搜索" || label == "搜职位"
-            }
+        openSearchAttempts = 0
+        val currentInputText = normalizeText(nodeLabel(input))
+        val desiredKeyword = normalizeText(keyword)
+        val filled = currentInputText == desiredKeyword || setText(input, keyword)
+        if (!filled) {
+            dumpSearchNodes(root, "openSearch:set_text_failed")
+            BossImportController.update(imported, "搜索框已出现，但自动填词失败，请手动点一下搜索框")
+            return
         }
-        val submitted = searchButton?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
-        if (submitted) {
+
+        if (isKeywordResultsPage(root, keyword)) {
             phase = Phase.RESULTS
             Log.d(TAG, "Submitted search for $keyword")
             BossImportController.update(imported, "正在读取“$keyword”的搜索结果")
+            return
+        }
+
+        val now = SystemClock.uptimeMillis()
+        if (now - lastSubmitAttemptAt < 1_500) {
+            BossImportController.update(imported, "已填写关键词，等待搜索结果")
+            return
+        }
+
+        lastSubmitAttemptAt = now
+        val submitted = submitSearch(root, input)
+        if (submitted) {
+            BossImportController.update(imported, "已填写关键词，正在触发搜索")
+        } else {
+            BossImportController.update(imported, "已填写关键词，但没找到提交按钮，请手动点搜索")
+            dumpSearchNodes(root, "openSearch:submit_failed")
+            Log.w(TAG, "Search submit node not found for keyword=$keyword")
         }
     }
 
@@ -244,6 +291,267 @@ class BossImportAccessibilityService : AccessibilityService() {
                 }
             }, 350)
         }
+    }
+
+    private fun ensureSession(command: BossImportCommand) {
+        if (
+            command.sessionId != activeSessionId ||
+            command.keyword != activeKeyword ||
+            command.limit != activeLimit
+        ) {
+            resetSession(command)
+        }
+    }
+
+    private fun resetSession(command: BossImportCommand) {
+        activeSessionId = command.sessionId
+        activeKeyword = command.keyword
+        activeLimit = command.limit
+        phase = Phase.OPEN_SEARCH
+        imported = 0
+        openSearchAttempts = 0
+        lastSubmitAttemptAt = 0L
+        currentCandidate = null
+        visited.clear()
+        saveJob?.cancel()
+        saveJob = null
+    }
+
+    private fun setText(
+        input: AccessibilityNodeInfo,
+        keyword: String
+    ): Boolean {
+        input.refresh()
+        input.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        input.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        val success = input.performAction(
+            AccessibilityNodeInfo.ACTION_SET_TEXT,
+            Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, keyword)
+            }
+        )
+        if (success) return true
+        val ancestor = clickableAncestor(input)
+        if (ancestor != null) {
+            ancestor.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            return input.performAction(
+                AccessibilityNodeInfo.ACTION_SET_TEXT,
+                Bundle().apply {
+                    putCharSequence(
+                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                        keyword
+                    )
+                }
+            )
+        }
+        return false
+    }
+
+    private fun submitSearch(
+        root: AccessibilityNodeInfo,
+        input: AccessibilityNodeInfo
+    ): Boolean {
+        val searchButton = findSearchActionNode(root, input)
+        var issued = false
+        if (submitSearchFromInput(input)) {
+            issued = true
+        }
+        if (clickNode(searchButton)) {
+            Log.d(TAG, "Submitted search by visible search button")
+            issued = true
+        }
+        if (tapSearchSubmitArea(root, input)) {
+            Log.d(TAG, "Submitted search by right-side tap fallback")
+            issued = true
+        }
+        return issued
+    }
+
+    private fun submitSearchFromInput(input: AccessibilityNodeInfo): Boolean {
+        input.refresh()
+        input.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        var issued = false
+        val imeEnterActionId = AccessibilityAction.ACTION_IME_ENTER.id
+        if (input.actionList.any { it.id == imeEnterActionId || normalizeText(it.label?.toString().orEmpty()).contains("搜索") }) {
+            if (input.performAction(imeEnterActionId)) {
+                Log.d(TAG, "Submitted search by ACTION_IME_ENTER")
+                issued = true
+            }
+        }
+        val fallbackAction = input.actionList.firstOrNull { action ->
+            val label = normalizeText(action.label?.toString().orEmpty())
+            label.contains("搜索") || label.contains("search") || label.contains("enter")
+        }
+        if (fallbackAction != null && input.performAction(fallbackAction.id)) {
+            Log.d(TAG, "Submitted search by input action label=${fallbackAction.label}")
+            issued = true
+        }
+        if (tapKeyboardSearchKey(input)) {
+            issued = true
+        }
+        return issued
+    }
+
+    private fun findSearchActionNode(
+        root: AccessibilityNodeInfo,
+        input: AccessibilityNodeInfo
+    ): AccessibilityNodeInfo? {
+        val inputBounds = Rect().also { input.getBoundsInScreen(it) }
+        val idSuffixHints = setOf(
+            "tv_search",
+            "btn_search",
+            "search_btn",
+            "iv_search",
+            "search",
+            "right_text"
+        )
+        return findFirst(root) { node ->
+            val label = normalizeText(nodeLabel(node))
+            val idSuffix = node.viewIdResourceName?.substringAfterLast('/').orEmpty()
+            val bounds = Rect().also { node.getBoundsInScreen(it) }
+            val nearInput =
+                inputBounds.width() > 0 &&
+                    bounds.centerY() in (inputBounds.top - 80)..(inputBounds.bottom + 80) &&
+                    bounds.centerX() >= inputBounds.centerX()
+            val textMatch = label.contains("搜索") || label.contains("搜职位")
+            val idMatch = idSuffixHints.any { hint -> idSuffix.contains(hint, ignoreCase = true) }
+            (textMatch || idMatch) && nearInput
+        } ?: findFirst(root) { node ->
+            val label = normalizeText(nodeLabel(node))
+            label.contains("搜索") || label.contains("搜职位")
+        }
+    }
+
+    private fun findSearchEntryCandidates(root: AccessibilityNodeInfo): List<AccessibilityNodeInfo> {
+        val rootBounds = Rect().also { root.getBoundsInScreen(it) }
+        val topThreshold = rootBounds.top + (rootBounds.height() * 0.35f).toInt()
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+        walk(root) { node ->
+            val label = normalizeText(nodeLabel(node))
+            val idSuffix = node.viewIdResourceName?.substringAfterLast('/').orEmpty()
+            val bounds = Rect().also { node.getBoundsInScreen(it) }
+            val nearTop = bounds.top in rootBounds.top..topThreshold
+            val textMatch = SEARCH_LABEL_HINTS.any { hint -> label.contains(normalizeText(hint)) }
+            val idMatch = SEARCH_ID_HINTS.any { hint -> idSuffix.contains(hint, ignoreCase = true) }
+            if (nearTop && (textMatch || idMatch)) {
+                candidates += node
+            }
+        }
+        return candidates.distinctBy { describeNode(it) }.sortedBy { node ->
+            val bounds = Rect().also { node.getBoundsInScreen(it) }
+            bounds.top * 10_000 + bounds.left
+        }
+    }
+
+    private fun clickNode(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+        clickableAncestor(node)?.let { ancestor ->
+            if (ancestor.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+        }
+        return tapNodeCenter(node)
+    }
+
+    private fun tapNodeCenter(node: AccessibilityNodeInfo): Boolean {
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        if (bounds.isEmpty) return false
+        return tapAt(bounds.exactCenterX(), bounds.exactCenterY())
+    }
+
+    private fun tapTopSearchArea(root: AccessibilityNodeInfo): Boolean {
+        val bounds = Rect()
+        root.getBoundsInScreen(bounds)
+        if (bounds.isEmpty) return false
+        val x = bounds.exactCenterX()
+        val y = bounds.top + bounds.height() * 0.14f
+        return tapAt(x, y)
+    }
+
+    private fun tapSearchSubmitArea(
+        root: AccessibilityNodeInfo,
+        input: AccessibilityNodeInfo
+    ): Boolean {
+        val rootBounds = Rect().also { root.getBoundsInScreen(it) }
+        val inputBounds = Rect().also { input.getBoundsInScreen(it) }
+        if (rootBounds.isEmpty || inputBounds.isEmpty) return false
+        val x = rootBounds.right - (rootBounds.width() * 0.12f)
+        val y = inputBounds.exactCenterY()
+        return tapAt(x, y)
+    }
+
+    private fun tapKeyboardSearchKey(input: AccessibilityNodeInfo): Boolean {
+        val inputBounds = Rect().also { input.getBoundsInScreen(it) }
+        val rootBounds = Rect().also { rootInActiveWindow?.getBoundsInScreen(it) }
+        if (inputBounds.isEmpty || rootBounds.isEmpty) return false
+        val x = rootBounds.right - (rootBounds.width() * 0.08f)
+        val y = rootBounds.bottom - (rootBounds.height() * 0.06f)
+        val tapped = tapAt(x, y)
+        if (tapped) {
+            Log.d(TAG, "Submitted search by keyboard key fallback x=$x y=$y")
+        }
+        return tapped
+    }
+
+    private fun tapAt(
+        x: Float,
+        y: Float
+    ): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 80))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
+    private fun dumpSearchNodes(
+        root: AccessibilityNodeInfo,
+        reason: String
+    ) {
+        val rootBounds = Rect().also { root.getBoundsInScreen(it) }
+        val topThreshold = rootBounds.top + (rootBounds.height() * 0.45f).toInt()
+        val logs = mutableListOf<String>()
+        walk(root) { node ->
+            val bounds = Rect().also { node.getBoundsInScreen(it) }
+            val label = nodeLabel(node).trim()
+            val idSuffix = node.viewIdResourceName?.substringAfterLast('/').orEmpty()
+            val interesting =
+                bounds.top <= topThreshold &&
+                    (
+                        label.isNotBlank() ||
+                            SEARCH_ID_HINTS.any { hint -> idSuffix.contains(hint, ignoreCase = true) }
+                        )
+            if (interesting && logs.size < 30) {
+                logs += "id=$idSuffix class=${node.className} text=$label click=${node.isClickable} " +
+                    "editable=${node.isEditable} bounds=$bounds"
+            }
+        }
+        Log.w(TAG, "Search diagnostics [$reason]\n${logs.joinToString("\n")}")
+    }
+
+    private fun describeNode(node: AccessibilityNodeInfo): String {
+        val bounds = Rect().also { node.getBoundsInScreen(it) }
+        val idSuffix = node.viewIdResourceName?.substringAfterLast('/').orEmpty()
+        return "id=$idSuffix class=${node.className} text=${nodeLabel(node).trim()} bounds=$bounds click=${node.isClickable}"
+    }
+
+    private fun isKeywordResultsPage(
+        root: AccessibilityNodeInfo,
+        keyword: String
+    ): Boolean {
+        val positionNode = findByIdSuffix(root, "tv_position_name")
+        val salaryNode = findFirst(root) { salaryRegex.containsMatchIn(nodeLabel(it)) }
+        if (positionNode == null || salaryNode == null) return false
+
+        val normalizedKeyword = normalizeText(keyword)
+        return collectLabels(root)
+            .take(80)
+            .map(::normalizeText)
+            .any { label -> normalizedKeyword.isNotBlank() && label.contains(normalizedKeyword) }
+    }
+
+    private fun normalizeText(value: String): String {
+        return value.lowercase().replace("\\s+".toRegex(), "")
     }
 
     private fun parseCandidate(lines: List<String>, fingerprint: String): Candidate {

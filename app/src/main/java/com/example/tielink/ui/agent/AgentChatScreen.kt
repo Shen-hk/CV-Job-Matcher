@@ -57,7 +57,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.ui.history.HistoryViewModel
@@ -71,6 +74,7 @@ fun AgentChatScreen(
     onNavigateToTracking: () -> Unit,
     onNavigateToHistoryRecord: (Long) -> Unit = {},
     onNavigateToJdList: () -> Unit = {},
+    onNavigateToJdListForChoice: () -> Unit = {},
     onNavigateToResumeLibrary: () -> Unit = {},
     onNavigateToResumeLibraryForChoice: () -> Unit = {},
     onNavigateToResumePreview: (Long) -> Unit = {},
@@ -84,12 +88,25 @@ fun AgentChatScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val inlineProcessMessageId = state.messages.lastOrNull {
         it.role == AgentMessageRole.AGENT && it.card == null && it.toolLoadingName == null
     }?.id
 
     LaunchedEffect(initialHistoryId) {
         initialHistoryId?.let(viewModel::openHistorySession)
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshContextBar()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     LaunchedEffect(state.messages.size, state.isStreaming) {
@@ -280,7 +297,7 @@ fun AgentChatScreen(
                             contextBar = state.contextBar,
                             prompts = state.suggestedPrompts,
                             onPromptClick = { viewModel.sendPrompt(it) },
-                            onOpenJd = onNavigateToJdList,
+                            onOpenJd = onNavigateToJdListForChoice,
                             onOpenResume = onNavigateToResumeLibrary,
                             onUploadResume = {
                                 pendingPickerToolName = "resume_tool"

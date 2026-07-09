@@ -6,10 +6,12 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.data.local.db.entity.JdLibraryEntity
 import com.example.tielink.data.remote.AiProviderManager
 import com.example.tielink.data.remote.LlmRequest
 import com.example.tielink.data.remote.dto.Message
+import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.JdLibraryRepository
 import com.example.tielink.util.FileParser
 import com.squareup.moshi.Moshi
@@ -27,14 +29,17 @@ data class JdListUiState(
     val jdList: List<JdLibraryEntity> = emptyList(),
     val isLoading: Boolean = true,
     val isProcessing: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val currentJdId: Long? = null
 )
 
 @HiltViewModel
 class JdListViewModel @Inject constructor(
     private val jdLibraryRepository: JdLibraryRepository,
     private val aiProviderManager: AiProviderManager,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val agentContextRepository: AgentContextRepository,
+    private val appPreferences: AppPreferences
 ) : ViewModel() {
     companion object { private const val TAG = "JdListVM" }
 
@@ -46,6 +51,10 @@ class JdListViewModel @Inject constructor(
             jdLibraryRepository.getAllFlow().collect { list ->
                 _uiState.update { it.copy(jdList = list, isLoading = false) }
             }
+        }
+        viewModelScope.launch {
+            val currentJdId = agentContextRepository.getAgentContext().currentJdId
+            _uiState.update { it.copy(currentJdId = currentJdId) }
         }
     }
 
@@ -118,6 +127,21 @@ class JdListViewModel @Inject constructor(
                 return@launch
             }
             _uiState.update { it.copy(isProcessing = false) }
+        }
+    }
+
+    fun selectJdForAgent(jdId: Long) {
+        viewModelScope.launch {
+            val jd = jdLibraryRepository.getById(jdId) ?: return@launch
+            agentContextRepository.updateAgentContext(
+                currentJdId = jd.id,
+                currentJdText = jd.rawText,
+                currentJdCompany = jd.companyName
+            )
+            appPreferences.setCachedJdRawText(jd.rawText)
+            appPreferences.setCachedJdStructuredJson(jd.structuredJson)
+            appPreferences.setCachedJdCompanyName(jd.companyName)
+            _uiState.update { it.copy(currentJdId = jd.id) }
         }
     }
 

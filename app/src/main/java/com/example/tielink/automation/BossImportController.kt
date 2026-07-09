@@ -16,6 +16,12 @@ data class BossImportState(
     val message: String = ""
 )
 
+internal data class BossImportCommand(
+    val keyword: String,
+    val limit: Int,
+    val sessionId: Long
+)
+
 object BossImportController {
     const val BOSS_PACKAGE = "com.hpbr.bosszhipin"
 
@@ -23,6 +29,7 @@ object BossImportController {
     private const val KEY_ACTIVE = "active"
     private const val KEY_KEYWORD = "keyword"
     private const val KEY_LIMIT = "limit"
+    private const val KEY_SESSION_ID = "session_id"
 
     private val mutableState = MutableStateFlow(BossImportState())
     val state: StateFlow<BossImportState> = mutableState.asStateFlow()
@@ -46,6 +53,7 @@ object BossImportController {
             .putBoolean(KEY_ACTIVE, true)
             .putString(KEY_KEYWORD, cleanKeyword)
             .putInt(KEY_LIMIT, cleanLimit)
+            .putLong(KEY_SESSION_ID, System.currentTimeMillis())
             .apply()
 
         mutableState.value = BossImportState(
@@ -73,12 +81,16 @@ object BossImportController {
         mutableState.value = mutableState.value.copy(running = false, message = message)
     }
 
-    internal fun readCommand(context: Context): Pair<String, Int>? {
+    internal fun readCommand(context: Context): BossImportCommand? {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_ACTIVE, false)) return null
         val keyword = prefs.getString(KEY_KEYWORD, "").orEmpty().trim()
         if (keyword.isBlank()) return null
-        return keyword to prefs.getInt(KEY_LIMIT, 5).coerceIn(1, 20)
+        return BossImportCommand(
+            keyword = keyword,
+            limit = prefs.getInt(KEY_LIMIT, 5).coerceIn(1, 20),
+            sessionId = prefs.getLong(KEY_SESSION_ID, 0L)
+        )
     }
 
     internal fun update(imported: Int, message: String) {

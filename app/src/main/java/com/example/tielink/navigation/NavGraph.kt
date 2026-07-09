@@ -35,6 +35,7 @@ object Routes {
     const val AGENT_CHAT = "agent_chat"
     const val AGENT_CHAT_ROUTE = "agent_chat?historyId={historyId}"
     const val JD_LIST = "jd_list"
+    const val JD_LIST_SELECT = "jd_list_select"
     const val RESUME_LIBRARY = "resume_library"
     const val RESUME_LIBRARY_SELECT = "resume_library_select"
 
@@ -106,6 +107,7 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate(Routes.result(sessionId))
                 },
                 onNavigateToJdList = { navController.navigate(Routes.JD_LIST) },
+                onNavigateToJdListForChoice = { navController.navigate(Routes.JD_LIST_SELECT) },
                 onNavigateToResumeLibrary = { navController.navigate(Routes.RESUME_LIBRARY) },
                 onNavigateToResumeLibraryForChoice = { navController.navigate(Routes.RESUME_LIBRARY_SELECT) },
                 onNavigateToResumePreview = { versionId ->
@@ -307,6 +309,25 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToGreeting = { jdRawText, jdCompany ->
                     // Navigate to agent chat for greeting generation
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Routes.JD_LIST_SELECT) {
+            JdListScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToPolish = { resumeText, jdRawText, jdStructuredJson, tp, st, fp ->
+                    navController.navigate(Routes.polish(resumeText, jdRawText, jdStructuredJson, tp, st, fp))
+                },
+                onNavigateToTracking = { jdCompany, jdPosition ->
+                    navController.navigate(Routes.tracking(jdCompany, jdPosition))
+                },
+                onNavigateToGreeting = { _, _ ->
+                    navController.popBackStack()
+                },
+                selectionMode = true,
+                onJdSelected = {
                     navController.popBackStack()
                 }
             )

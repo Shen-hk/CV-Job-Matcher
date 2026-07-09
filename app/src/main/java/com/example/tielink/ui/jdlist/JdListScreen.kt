@@ -84,6 +84,8 @@ fun JdListScreen(
                           templatePath: String?, sourceType: String, fullPolish: Boolean) -> Unit,
     onNavigateToTracking: (jdCompany: String, jdPosition: String) -> Unit,
     onNavigateToGreeting: (jdRawText: String, jdCompany: String) -> Unit,
+    selectionMode: Boolean = false,
+    onJdSelected: (Long) -> Unit = {},
     viewModel: JdListViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -200,6 +202,15 @@ fun JdListScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         item { Spacer(Modifier.height(4.dp)) }
+                        if (selectionMode) {
+                            item {
+                                Text(
+                                    text = "请选择一个 JD 作为当前岗位，返回后 Agent 会直接基于它继续分析。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         item {
                             JdRadarHeader(
                                 items = state.jdList,
@@ -225,7 +236,13 @@ fun JdListScreen(
                         items(visibleJds, key = { it.id }) { jd ->
                             JdCard(
                                 jd = jd,
+                                selectionMode = selectionMode,
+                                isSelected = state.currentJdId == jd.id,
                                 onClick = { detailJd = jd },
+                                onSelect = {
+                                    viewModel.selectJdForAgent(jd.id)
+                                    onJdSelected(jd.id)
+                                },
                                 onDelete = { viewModel.deleteJd(jd) },
                                 onGoPolish = {
                                     onNavigateToPolish("", jd.rawText, jd.structuredJson,
@@ -430,7 +447,10 @@ private fun JdRadarMetric(
 @Composable
 private fun JdCard(
     jd: JdLibraryEntity,
+    selectionMode: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
+    onSelect: () -> Unit,
     onDelete: () -> Unit,
     onGoPolish: () -> Unit,
     onGoTracking: () -> Unit,
@@ -509,6 +529,22 @@ private fun JdCard(
                 }
             }
 
+            if (isSelected) {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = "当前 JD",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
             // Skills row
             if (skills.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
@@ -535,19 +571,40 @@ private fun JdCard(
 
             // Action buttons
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = onGoPolish, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp)) {
-                    Icon(Icons.Default.AutoAwesome, null, Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("去润色", style = MaterialTheme.typography.labelSmall)
-                }
-                OutlinedButton(onClick = onGoGreeting, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp)) {
-                    Text("打招呼", style = MaterialTheme.typography.labelSmall)
-                }
-                OutlinedButton(onClick = onGoTracking, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp)) {
-                    Text("去投递", style = MaterialTheme.typography.labelSmall)
+                if (selectionMode) {
+                    FilledTonalButton(
+                        onClick = onSelect,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = !isSelected
+                    ) {
+                        Text(
+                            if (isSelected) "已选择" else "选择",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = onClick,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("查看详情", style = MaterialTheme.typography.labelSmall)
+                    }
+                } else {
+                    FilledTonalButton(onClick = onGoPolish, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)) {
+                        Icon(Icons.Default.AutoAwesome, null, Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("去润色", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(onClick = onGoGreeting, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)) {
+                        Text("打招呼", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(onClick = onGoTracking, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)) {
+                        Text("去投递", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
                 IconButton(
                     onClick = onDelete,

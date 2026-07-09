@@ -27,4 +27,9 @@ data class ProviderEntity(
 
     @ColumnInfo(name = "createTime")
     val createTime: Long = System.currentTimeMillis()
-)
+) {
+    companion object {
+        const val API_FORMAT_OPENAI = "openai"
+        const val API_FORMAT_ANTHROPIC = "anthropic"
+    }
+}
