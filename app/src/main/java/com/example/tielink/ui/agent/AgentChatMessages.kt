@@ -110,7 +110,7 @@ fun WelcomePage(
                     .fillMaxWidth()
                     .background(
                         Brush.linearGradient(
-                            listOf(Color(0xFF102A43), Color(0xFF174C5B), Color(0xFF16756B))
+                            listOf(Color(0xFF0B1220), Color(0xFF1D4ED8), Color(0xFF2563EB))
                         )
                     )
                     .padding(20.dp)
@@ -129,15 +129,15 @@ fun WelcomePage(
                                     Icons.Default.AutoAwesome,
                                     null,
                                     Modifier.size(14.dp),
-                                    tint = Color(0xFF7EE7D8)
+                                    tint = Color(0xFFBFDBFE)
                                 )
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     "CAREER AGENT",
-                                    color = Color(0xFFD7FFF8),
+                                    color = Color(0xFFDBEAFE),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.2.sp
+                                    letterSpacing = 0.sp
                                 )
                             }
                         }
@@ -155,7 +155,7 @@ fun WelcomePage(
                         fontSize = 28.sp,
                         lineHeight = 34.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = (-0.6).sp
+                        letterSpacing = 0.sp
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -210,7 +210,7 @@ fun WelcomePage(
                 title = "岗位雷达",
                 caption = "导入 JD",
                 icon = Icons.Default.Radar,
-                color = Color(0xFF0E7490),
+                color = MaterialTheme.colorScheme.primary,
                 onClick = onOpenJd
             )
             WorkspaceAction(
@@ -218,7 +218,7 @@ fun WelcomePage(
                 title = "简历重塑",
                 caption = "上传原件",
                 icon = Icons.Default.UploadFile,
-                color = Color(0xFFB45309),
+                color = Color(0xFF1D4ED8),
                 onClick = onUploadResume
             )
             WorkspaceAction(
@@ -226,7 +226,7 @@ fun WelcomePage(
                 title = "投递节奏",
                 caption = "查看看板",
                 icon = Icons.Default.CheckCircle,
-                color = Color(0xFF047857),
+                color = Color(0xFF0B1220),
                 onClick = onOpenTracking
             )
         }
@@ -304,14 +304,14 @@ private fun WorkspaceContextCard(
                     icon,
                     null,
                     Modifier.size(17.dp),
-                    tint = if (ready) Color(0xFF0F766E) else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     eyebrow.uppercase(),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.7.sp,
+                    letterSpacing = 0.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -419,7 +419,8 @@ fun AgentBubble(
         if (message.content.isNotBlank() || message.isStreaming || inlineProcessState?.isActive == true) {
             Surface(
                 shape = RoundedCornerShape(topStart = 8.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 tonalElevation = 1.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -559,8 +560,8 @@ fun UserBubble(message: AgentMessage) {
                 modifier = Modifier.background(
                     Brush.linearGradient(
                         listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.tertiary
+                            Color(0xFF1D4ED8),
+                            MaterialTheme.colorScheme.primary
                         )
                     )
                 )
@@ -585,7 +586,8 @@ fun ToolLoadingBubble(message: AgentMessage) {
     ) {
         Surface(
             shape = RoundedCornerShape(topStart = 8.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             tonalElevation = 1.dp
         ) {
             Row(

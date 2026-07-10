@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +58,7 @@ fun ScoreRingChart(
         MatchLevel.MEDIUM -> "中匹配"
         MatchLevel.LOW    -> "低匹配"
     }
+    val trackColor = MaterialTheme.colorScheme.outlineVariant
 
     // Animate from 0 → target sweep angle
     val targetSweep = (score / 100f) * 300f   // 300° arc (not full circle; leaves a gap)
@@ -85,7 +85,7 @@ fun ScoreRingChart(
 
             // 1. Track (background)
             drawArc(
-                color = Color(0xFFE0E0E0),
+                color = trackColor,
                 startAngle = startAngle,
                 sweepAngle = totalSweep,
                 useCenter = false,

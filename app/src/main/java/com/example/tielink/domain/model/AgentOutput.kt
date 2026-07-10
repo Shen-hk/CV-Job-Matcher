@@ -128,16 +128,24 @@ sealed class UiCard {
 }
 
 data class DynamicCardSection(
-    /** text | metrics | tags | progress */
+    /** text | metrics | tags | progress | timeline | steps | table | kanban | decision */
     val type: String,
     val title: String? = null,
     val text: String? = null,
+    /** 仅供 table 类型使用，最多 5 列。 */
+    val columns: List<String> = emptyList(),
     val items: List<DynamicCardItem> = emptyList()
 )
 
 data class DynamicCardItem(
     val label: String,
     val value: String,
+    /** 仅供 table 类型使用，对应 section.columns。 */
+    val cells: List<String> = emptyList(),
+    /** 对 timeline / steps / metrics 的补充说明。 */
+    val description: String? = null,
+    /** 可选状态：todo | active | done | warning */
+    val status: String? = null,
     /** 仅供 progress 类型使用，渲染时会限制到 0..100。 */
     val progress: Int? = null
 )
@@ -145,8 +153,33 @@ data class DynamicCardItem(
 data class DynamicCardAction(
     val label: String,
     /** 动作通过同一 Agent/Tool 策略再次路由，避免卡片绕过权限边界。 */
-    val prompt: String
-)
+    val prompt: String = "",
+    /**
+     * prompt | open_jd_library | open_resume_library | upload_resume | open_tracking
+     * | open_resume_optimize | open_settings
+     */
+    val type: String = TYPE_PROMPT
+) {
+    companion object {
+        const val TYPE_PROMPT = "prompt"
+        const val TYPE_OPEN_JD_LIBRARY = "open_jd_library"
+        const val TYPE_OPEN_RESUME_LIBRARY = "open_resume_library"
+        const val TYPE_UPLOAD_RESUME = "upload_resume"
+        const val TYPE_OPEN_TRACKING = "open_tracking"
+        const val TYPE_OPEN_RESUME_OPTIMIZE = "open_resume_optimize"
+        const val TYPE_OPEN_SETTINGS = "open_settings"
+
+        val SUPPORTED_TYPES = setOf(
+            TYPE_PROMPT,
+            TYPE_OPEN_JD_LIBRARY,
+            TYPE_OPEN_RESUME_LIBRARY,
+            TYPE_UPLOAD_RESUME,
+            TYPE_OPEN_TRACKING,
+            TYPE_OPEN_RESUME_OPTIMIZE,
+            TYPE_OPEN_SETTINGS
+        )
+    }
+}
 
 data class GreetingVersion(
     val style: String, // "简洁版" / "详细版" / "亮点突出版"

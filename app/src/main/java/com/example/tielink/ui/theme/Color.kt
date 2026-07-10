@@ -2,25 +2,31 @@ package com.example.tielink.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary
-val Primary = Color(0xFF1565C0)       // Deep blue — trustworthy, professional
-val PrimaryDark = Color(0xFF0D47A1)
-val PrimaryLight = Color(0xFF42A5F5)
+// Brand blues
+val Primary = Color(0xFF2563EB)
+val PrimaryDark = Color(0xFF1D4ED8)
+val PrimaryLight = Color(0xFFDBEAFE)
+val PrimarySoft = Color(0xFFEFF6FF)
 
-// Secondary
-val Secondary = Color(0xFF00897B)     // Teal — accent for success / matches
-val SecondaryDark = Color(0xFF00695C)
+// Ink and secondary accents
+val Ink = Color(0xFF0B1220)
+val Secondary = Color(0xFF334155)
+val SecondaryDark = Color(0xFF0F172A)
 
 // Status
-val MatchGreen = Color(0xFF4CAF50)
-val MissRed = Color(0xFFE53935)
-val WarningOrange = Color(0xFFFFA726)
+val MatchGreen = Primary
+val MissRed = Color(0xFFDC2626)
+val WarningOrange = Color(0xFFF59E0B)
 
 // Neutrals
-val SurfaceLight = Color(0xFFF8F9FA)
-val SurfaceDark = Color(0xFF121212)
+val SurfaceLight = Color(0xFFF8FAFC)
+val SurfaceContainer = Color(0xFFF1F5F9)
 val CardLight = Color(0xFFFFFFFF)
-val CardDark = Color(0xFF1E1E1E)
+val CardDark = Ink
+val TextPrimary = Color(0xFF111827)
+val TextSecondary = Color(0xFF475569)
+val TextTertiary = Color(0xFF94A3B8)
+val BorderLight = Color(0xFFE2E8F0)
 
 // Original template colors (kept for reference)
 val Purple80 = Color(0xFFD0BCFF)

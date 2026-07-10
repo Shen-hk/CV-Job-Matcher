@@ -123,7 +123,11 @@ class AgentToolCoordinator @Inject constructor(
             .map { it.definition }
     }
 
-    fun definitions(): List<LlmToolDefinition> = toolDefinitions
+    fun definitions(allowedToolNames: Set<String>? = null): List<LlmToolDefinition> {
+        if (allowedToolNames == null) return toolDefinitions
+        if (allowedToolNames.isEmpty()) return emptyList()
+        return toolDefinitions.filter { it.function.name in allowedToolNames }
+    }
 
     fun descriptionFor(toolName: String): String = when (toolName) {
         "analyze_jd" -> "正在分析并保存岗位信息..."
@@ -252,7 +256,7 @@ class AgentToolCoordinator @Inject constructor(
 
     private fun dynamicCardTool(): LlmToolDefinition = functionTool(
         name = "render_card",
-        description = "把适合视觉化的信息组装成安全的动态卡片。仅用于比较、指标、标签或进度等结构化信息；普通回答不要调用。",
+        description = "把适合视觉化的信息组装成安全的动态卡片。适用于比较、指标、标签、进度、步骤流、时间线、表格、看板、决策分支等结构化信息；普通回答不要调用。",
         properties = mapOf(
             "title" to stringProperty("卡片标题，最多 80 字"),
             "subtitle" to mapOf("type" to listOf("string", "null"), "description" to "可选副标题"),
@@ -264,10 +268,25 @@ class AgentToolCoordinator @Inject constructor(
                     "properties" to mapOf(
                         "type" to mapOf(
                             "type" to "string",
-                            "enum" to listOf("text", "metrics", "tags", "progress")
+                            "enum" to listOf(
+                                "text",
+                                "metrics",
+                                "tags",
+                                "progress",
+                                "timeline",
+                                "steps",
+                                "table",
+                                "kanban",
+                                "decision"
+                            )
                         ),
                         "title" to mapOf("type" to listOf("string", "null")),
                         "text" to mapOf("type" to listOf("string", "null")),
+                        "columns" to mapOf(
+                            "type" to "array",
+                            "maxItems" to 5,
+                            "items" to stringProperty("表格列名，仅 table 类型使用。")
+                        ),
                         "items" to mapOf(
                             "type" to "array",
                             "maxItems" to 8,
@@ -276,18 +295,32 @@ class AgentToolCoordinator @Inject constructor(
                                 "properties" to mapOf(
                                     "label" to stringProperty("项目名称"),
                                     "value" to stringProperty("展示值"),
+                                    "cells" to mapOf(
+                                        "type" to "array",
+                                        "maxItems" to 5,
+                                        "items" to stringProperty("表格单元格内容，仅 table 类型使用。")
+                                    ),
+                                    "description" to mapOf(
+                                        "type" to listOf("string", "null"),
+                                        "description" to "补充说明，适合步骤说明、时间线细节、指标解释、决策依据。"
+                                    ),
+                                    "status" to mapOf(
+                                        "type" to listOf("string", "null"),
+                                        "enum" to listOf("todo", "active", "done", "warning", null),
+                                        "description" to "可选状态，timeline、steps、kanban、decision 均可使用。"
+                                    ),
                                     "progress" to mapOf(
                                         "type" to listOf("integer", "null"),
                                         "minimum" to 0,
                                         "maximum" to 100
                                     )
                                 ),
-                                "required" to listOf("label", "value", "progress"),
+                                "required" to listOf("label", "value", "cells", "description", "status", "progress"),
                                 "additionalProperties" to false
                             )
                         )
                     ),
-                    "required" to listOf("type", "title", "text", "items"),
+                    "required" to listOf("type", "title", "text", "columns", "items"),
                     "additionalProperties" to false
                 )
             ),
@@ -298,9 +331,17 @@ class AgentToolCoordinator @Inject constructor(
                     "type" to "object",
                     "properties" to mapOf(
                         "label" to stringProperty("按钮文字"),
-                        "prompt" to stringProperty("点击后作为用户后续请求交给 Agent 的文字")
+                        "type" to mapOf(
+                            "type" to "string",
+                            "enum" to DynamicCardAction.SUPPORTED_TYPES.toList(),
+                            "description" to "按钮动作类型。prompt 表示继续向 Agent 发送 prompt；其余类型表示安全的界面动作。"
+                        ),
+                        "prompt" to mapOf(
+                            "type" to listOf("string", "null"),
+                            "description" to "当 type=prompt 时必填；点击后作为用户后续请求交给 Agent 的文字。"
+                        )
                     ),
-                    "required" to listOf("label", "prompt"),
+                    "required" to listOf("label", "type"),
                     "additionalProperties" to false
                 )
             )
@@ -311,7 +352,18 @@ class AgentToolCoordinator @Inject constructor(
     private fun parseDynamicCard(json: JSONObject): UiCard.DynamicCard {
         val title = json.optString("title").trim().take(80)
         require(title.isNotBlank()) { "卡片标题不能为空" }
-        val allowedTypes = setOf("text", "metrics", "tags", "progress")
+        val allowedTypes = setOf(
+            "text",
+            "metrics",
+            "tags",
+            "progress",
+            "timeline",
+            "steps",
+            "table",
+            "kanban",
+            "decision"
+        )
+        val allowedStatuses = setOf("todo", "active", "done", "warning")
         val sectionsJson = json.optJSONArray("sections")
         val sections = buildList {
             if (sectionsJson != null) {
@@ -319,6 +371,15 @@ class AgentToolCoordinator @Inject constructor(
                     val section = sectionsJson.optJSONObject(index) ?: continue
                     val type = section.optString("type")
                     if (type !in allowedTypes) continue
+                    val columnsJson = section.optJSONArray("columns")
+                    val columns = buildList {
+                        if (columnsJson != null) {
+                            for (columnIndex in 0 until minOf(columnsJson.length(), 5)) {
+                                val column = columnsJson.optString(columnIndex).trim().take(40)
+                                if (column.isNotBlank()) add(column)
+                            }
+                        }
+                    }
                     val itemsJson = section.optJSONArray("items")
                     val items = buildList {
                         if (itemsJson != null) {
@@ -326,11 +387,25 @@ class AgentToolCoordinator @Inject constructor(
                                 val item = itemsJson.optJSONObject(itemIndex) ?: continue
                                 val label = item.optString("label").trim().take(60)
                                 val value = item.optString("value").trim().take(120)
+                                val cellsJson = item.optJSONArray("cells")
+                                val cells = buildList {
+                                    if (cellsJson != null) {
+                                        for (cellIndex in 0 until minOf(cellsJson.length(), 5)) {
+                                            add(cellsJson.optString(cellIndex).trim().take(120))
+                                        }
+                                    }
+                                }
                                 if (label.isBlank() && value.isBlank()) continue
                                 add(
                                     DynamicCardItem(
                                         label = label,
                                         value = value,
+                                        cells = cells,
+                                        description = item.optString("description").trim().take(180).ifBlank { null },
+                                        status = item.optString("status")
+                                            .trim()
+                                            .lowercase()
+                                            .takeIf { it in allowedStatuses },
                                         progress = if (item.has("progress") && !item.isNull("progress")) {
                                             item.optInt("progress").coerceIn(0, 100)
                                         } else {
@@ -346,6 +421,7 @@ class AgentToolCoordinator @Inject constructor(
                             type = type,
                             title = section.optString("title").trim().take(80).ifBlank { null },
                             text = section.optString("text").trim().take(1200).ifBlank { null },
+                            columns = columns,
                             items = items
                         )
                     )
@@ -360,10 +436,22 @@ class AgentToolCoordinator @Inject constructor(
                 for (index in 0 until minOf(actionsJson.length(), 3)) {
                     val action = actionsJson.optJSONObject(index) ?: continue
                     val label = action.optString("label").trim().take(30)
-                    val prompt = action.optString("prompt").trim().take(500)
-                    if (label.isNotBlank() && prompt.isNotBlank()) {
-                        add(DynamicCardAction(label, prompt))
+                    val type = action.optString("type")
+                        .trim()
+                        .lowercase()
+                        .ifBlank { DynamicCardAction.TYPE_PROMPT }
+                    val prompt = if (action.has("prompt") && !action.isNull("prompt")) {
+                        action.optString("prompt").trim().take(500)
+                    } else {
+                        ""
                     }
+                    if (label.isBlank() || type !in DynamicCardAction.SUPPORTED_TYPES) {
+                        continue
+                    }
+                    if (type == DynamicCardAction.TYPE_PROMPT && prompt.isBlank()) {
+                        continue
+                    }
+                    add(DynamicCardAction(label = label, prompt = prompt, type = type))
                 }
             }
         }

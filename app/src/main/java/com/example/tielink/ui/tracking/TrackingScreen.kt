@@ -351,7 +351,7 @@ private fun TrackingOverviewCard(items: List<TrackingItem>) {
                 .fillMaxWidth()
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF102A43), Color(0xFF174C5B), Color(0xFF16756B))
+                        listOf(Color(0xFF0B1220), Color(0xFF1D4ED8), Color(0xFF2563EB))
                     )
                 )
                 .padding(16.dp)
@@ -360,11 +360,11 @@ private fun TrackingOverviewCard(items: List<TrackingItem>) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         "APPLICATION PULSE",
-                        color = Color(0xFF7EE7D8),
+                        color = Color(0xFFBFDBFE),
                         fontSize = 10.sp,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.sp
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -393,7 +393,7 @@ private fun TrackingOverviewCard(items: List<TrackingItem>) {
                     Modifier
                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                         .height(7.dp)
-                        .background(Color(0xFF2DD4BF), RoundedCornerShape(50))
+                        .background(Color(0xFF93C5FD), RoundedCornerShape(50))
                 )
             }
             Spacer(Modifier.height(14.dp))

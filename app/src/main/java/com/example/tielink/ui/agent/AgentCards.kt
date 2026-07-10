@@ -2,7 +2,9 @@ package com.example.tielink.ui.agent
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +16,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
@@ -56,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.tielink.domain.model.DynamicCardAction
+import com.example.tielink.domain.model.DynamicCardItem
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.UiCard
 
@@ -199,9 +204,9 @@ private fun SkillPill(text: String, color: Color, textColor: Color) {
 }
 
 private fun scoreColor(score: Int): Color = when {
-    score >= 80 -> Color(0xFF2E7D32)
-    score >= 60 -> Color(0xFFE65100)
-    else -> Color(0xFFC62828)
+    score >= 80 -> Color(0xFF2563EB)
+    score >= 60 -> Color(0xFFF59E0B)
+    else -> Color(0xFFDC2626)
 }
 
 private fun scoreLabel(score: Int): String = when {
@@ -458,7 +463,7 @@ private fun StatusPill(status: String) {
         "已投递" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
         "已读" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
         "面试" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        "offer" -> Color(0xFF1B5E20) to Color.White
+        "offer" -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
         "已拒" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
         else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
     }
@@ -780,6 +785,14 @@ fun DynamicCardComposable(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
+                            item.description?.let { description ->
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    text = description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         "tags" -> section.items.forEach { item ->
                             Surface(
@@ -814,6 +827,30 @@ fun DynamicCardComposable(
                                 )
                             }
                         }
+                        "timeline" -> section.items.forEachIndexed { itemIndex, item ->
+                            TimelineItem(
+                                label = item.label,
+                                value = item.value,
+                                description = item.description,
+                                status = item.status,
+                                isLast = itemIndex == section.items.lastIndex
+                            )
+                        }
+                        "steps" -> section.items.forEachIndexed { itemIndex, item ->
+                            StepItem(
+                                index = itemIndex + 1,
+                                label = item.label,
+                                value = item.value,
+                                description = item.description,
+                                status = item.status
+                            )
+                        }
+                        "table" -> DynamicTable(
+                            columns = section.columns,
+                            items = section.items
+                        )
+                        "kanban" -> DynamicKanban(items = section.items)
+                        "decision" -> DynamicDecision(items = section.items)
                     }
                 }
             }
@@ -831,6 +868,380 @@ fun DynamicCardComposable(
             }
         }
     }
+}
+
+@Composable
+private fun DynamicTable(
+    columns: List<String>,
+    items: List<DynamicCardItem>
+) {
+    val tableColumns = columns.takeIf { it.isNotEmpty() } ?: listOf("项目", "结果", "说明")
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        Row(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            tableColumns.forEach { column ->
+                Text(
+                    text = column,
+                    modifier = Modifier.widthIn(min = 86.dp, max = 140.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        items.forEachIndexed { index, item ->
+            Row(
+                modifier = Modifier
+                    .background(
+                        if (index % 2 == 0) MaterialTheme.colorScheme.surface
+                        else MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val fallbackCells = listOf(item.label, item.value, item.description.orEmpty())
+                val cells = item.cells.ifEmpty { fallbackCells }
+                tableColumns.forEachIndexed { cellIndex, _ ->
+                    Text(
+                        text = cells.getOrNull(cellIndex).orEmpty(),
+                        modifier = Modifier.widthIn(min = 86.dp, max = 140.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DynamicKanban(items: List<DynamicCardItem>) {
+    val lanes = listOf("todo", "active", "warning", "done")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        lanes.forEach { lane ->
+            val laneItems = items.filter { normalizedStatus(it.status) == lane }
+            if (laneItems.isEmpty()) return@forEach
+            Surface(
+                color = statusColor(lane).copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, statusColor(lane).copy(alpha = 0.18f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(statusColor(lane))
+                        )
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            text = statusLabel(lane),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor(lane)
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = laneItems.size.toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    laneItems.forEach { item ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(9.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(
+                                    text = item.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                if (item.value.isNotBlank()) {
+                                    Text(
+                                        text = item.value,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = statusColor(lane)
+                                    )
+                                }
+                                item.description?.let {
+                                    Text(
+                                        text = it,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DynamicDecision(items: List<DynamicCardItem>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEachIndexed { index, item ->
+            val accent = statusColor(item.status)
+            Surface(
+                color = if (item.status == "active") accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (item.status == "active") accent.copy(alpha = 0.36f)
+                    else MaterialTheme.colorScheme.outlineVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(11.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(accent.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = ('A' + index).toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = accent
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = item.label,
+                                modifier = Modifier.weight(1f, fill = false),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (item.value.isNotBlank()) {
+                                Text(
+                                    text = item.value,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        item.description?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineItem(
+    label: String,
+    value: String,
+    description: String?,
+    status: String?,
+    isLast: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(statusColor(status))
+            )
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(42.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (value.isNotBlank()) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            description?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepItem(
+    index: Int,
+    label: String,
+    value: String,
+    description: String?,
+    status: String?
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(14.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            statusColor(status).copy(alpha = 0.22f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(statusColor(status).copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = index.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor(status)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (value.isNotBlank()) {
+                        Surface(
+                            color = statusColor(status).copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(99.dp)
+                        ) {
+                            Text(
+                                text = value,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor(status)
+                            )
+                        }
+                    }
+                }
+                description?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun statusColor(status: String?): Color = when (status) {
+    "done" -> MaterialTheme.colorScheme.primary
+    "active" -> MaterialTheme.colorScheme.primary
+    "warning" -> Color(0xFFF59E0B)
+    else -> MaterialTheme.colorScheme.outline
+}
+
+private fun normalizedStatus(status: String?): String = when (status) {
+    "done", "active", "warning" -> status
+    else -> "todo"
+}
+
+private fun statusLabel(status: String): String = when (status) {
+    "done" -> "已完成"
+    "active" -> "进行中"
+    "warning" -> "需关注"
+    else -> "待处理"
 }
 
 // ─── Previews ─────────────────────────────────────────────────────────────────

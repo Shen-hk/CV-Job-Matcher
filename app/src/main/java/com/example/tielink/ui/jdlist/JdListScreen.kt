@@ -353,7 +353,7 @@ private fun JdRadarHeader(
                     .fillMaxWidth()
                     .background(
                         Brush.linearGradient(
-                            listOf(Color(0xFF102A43), Color(0xFF174C5B), Color(0xFF16756B))
+                            listOf(Color(0xFF0B1220), Color(0xFF1D4ED8), Color(0xFF2563EB))
                         )
                     )
                     .padding(17.dp)
@@ -362,7 +362,7 @@ private fun JdRadarHeader(
                     Column(Modifier.weight(1f)) {
                         Text(
                             "OPPORTUNITY RADAR",
-                            color = Color(0xFF7EE7D8),
+                            color = Color(0xFFBFDBFE),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -465,9 +465,9 @@ private fun JdCard(
         else -> "手动录入"
     }
     val sourceColor = when (jd.sourceType) {
-        "boss_auto" -> Color(0xFF0F766E)
-        "ai_auto" -> Color(0xFF0E7490)
-        "ocr" -> Color(0xFFB45309)
+        "boss_auto" -> MaterialTheme.colorScheme.primary
+        "ai_auto" -> Color(0xFF1D4ED8)
+        "ocr" -> MaterialTheme.colorScheme.secondary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 

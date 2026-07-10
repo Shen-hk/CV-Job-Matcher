@@ -16,6 +16,7 @@ import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentOutput
 import com.example.tielink.domain.model.ContextBarState
+import com.example.tielink.domain.model.AgentUiAction
 import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
 import com.example.tielink.domain.model.DynamicCardAction
@@ -71,6 +72,9 @@ class AgentViewModel @Inject constructor(
     // 通知 UI 触发文件选择器；String = toolName（非空时来自上传卡片，空串时来自输入框附件按钮）
     private val _openFilePicker = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val openFilePicker: SharedFlow<String> = _openFilePicker.asSharedFlow()
+
+    private val _uiActions = MutableSharedFlow<AgentUiAction>(extraBufferCapacity = 4)
+    val uiActions: SharedFlow<AgentUiAction> = _uiActions.asSharedFlow()
 
     private var streamJob: Job? = null
     private var persistDraftJob: Job? = null
@@ -137,22 +141,25 @@ class AgentViewModel @Inject constructor(
         }
 
         val sourceLabel = when (toolName) {
-            "match_tool" -> "简历库 · 当前JD"
-            "resume_tool" -> "当前简历"
-            "interview_tool" -> "模拟面试会话"
-            "tracking_tool" -> "投递记录"
-            "platform_tool" -> "JD + 简历"
-            "jd_tool" -> "JD 文本"
+            "calculate_match", "match_tool" -> "简历库 · 当前JD"
+            "optimize_resume", "show_resume_preview", "resume_tool" -> "当前简历"
+            "get_interview_turn", "interview_tool" -> "模拟面试会话"
+            "get_latest_application", "tracking_tool" -> "投递记录"
+            "generate_greeting", "platform_tool" -> "JD + 简历"
+            "analyze_jd", "jd_tool" -> "JD 文本"
+            "render_card" -> "动态卡片"
             else -> null
         }
 
         val sourceBreakdown = when (toolName) {
-            "match_tool" -> listOf("简历库", "JD", "匹配分析")
-            "resume_tool" -> listOf("当前简历", "优化建议")
-            "interview_tool" -> listOf("会话记录", "最近问答")
-            "tracking_tool" -> listOf("投递记录", "最新状态")
-            "platform_tool" -> listOf("JD", "简历", "话术生成")
-            "jd_tool" -> listOf("JD 文本", "结构化提取")
+            "calculate_match", "match_tool" -> listOf("简历库", "JD", "匹配分析")
+            "optimize_resume", "resume_tool" -> listOf("当前简历", "优化建议")
+            "show_resume_preview" -> listOf("当前简历", "预览")
+            "get_interview_turn", "interview_tool" -> listOf("会话记录", "最近问答")
+            "get_latest_application", "tracking_tool" -> listOf("投递记录", "最新状态")
+            "generate_greeting", "platform_tool" -> listOf("JD", "简历", "话术生成")
+            "analyze_jd", "jd_tool" -> listOf("JD 文本", "结构化提取")
+            "render_card" -> listOf("当前问题", "可视化结构")
             else -> emptyList()
         }
 
@@ -283,8 +290,30 @@ class AgentViewModel @Inject constructor(
     }
 
     fun runDynamicCardAction(action: DynamicCardAction) {
-        if (_uiState.value.isLoading) return
-        sendPrompt(action.prompt)
+        when (action.type.lowercase()) {
+            DynamicCardAction.TYPE_PROMPT -> {
+                if (_uiState.value.isLoading || action.prompt.isBlank()) return
+                sendPrompt(action.prompt)
+            }
+            DynamicCardAction.TYPE_OPEN_JD_LIBRARY -> {
+                _uiActions.tryEmit(AgentUiAction.OpenJdLibrary)
+            }
+            DynamicCardAction.TYPE_OPEN_RESUME_LIBRARY -> {
+                _uiActions.tryEmit(AgentUiAction.OpenResumeLibrary)
+            }
+            DynamicCardAction.TYPE_UPLOAD_RESUME -> {
+                _uiActions.tryEmit(AgentUiAction.UploadResume)
+            }
+            DynamicCardAction.TYPE_OPEN_TRACKING -> {
+                _uiActions.tryEmit(AgentUiAction.OpenTracking)
+            }
+            DynamicCardAction.TYPE_OPEN_RESUME_OPTIMIZE -> {
+                _uiActions.tryEmit(AgentUiAction.OpenResumeOptimize)
+            }
+            DynamicCardAction.TYPE_OPEN_SETTINGS -> {
+                _uiActions.tryEmit(AgentUiAction.OpenSettings)
+            }
+        }
     }
 
     fun requestFilePicker(toolName: String = "") {

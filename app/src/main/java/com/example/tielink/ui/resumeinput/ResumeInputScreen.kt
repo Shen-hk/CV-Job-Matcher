@@ -66,11 +66,11 @@ import com.example.tielink.ui.components.SectionCard
 import com.example.tielink.ui.theme.TieLinkTheme
 
 private val BrandBlue = Color(0xFF2563EB)
-private val SuccessGreen = Color(0xFF16A34A)
+private val SuccessGreen = BrandBlue
 private val DangerRed = Color(0xFFDC2626)
 private val TextPrimary = Color(0xFF111827)
-private val TextSecondary = Color(0xFF4B5563)
-private val TextTertiary = Color(0xFF9CA3AF)
+private val TextSecondary = Color(0xFF475569)
+private val TextTertiary = Color(0xFF94A3B8)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -328,7 +328,7 @@ private fun HistoryItemRow(entity: HistoryEntity, onClick: () -> Unit) {
     Surface(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFFF9FAFB)
+        color = Color(0xFFF8FAFC)
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -393,7 +393,7 @@ private fun MatchConfirmDialog(
                     fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     color = when (level) {
                         MatchLevel.HIGH -> SuccessGreen
-                        MatchLevel.MEDIUM -> Color(0xFFD97706)
+                        MatchLevel.MEDIUM -> Color(0xFFF59E0B)
                         MatchLevel.LOW -> DangerRed
                     }
                 )

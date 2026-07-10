@@ -61,6 +61,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.tielink.domain.model.AgentUiAction
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.ui.history.HistoryViewModel
@@ -145,6 +146,23 @@ fun AgentChatScreen(
             android.util.Log.d("AgentChatScreen", "openFilePicker: toolName=$toolName")
             pendingPickerToolName = toolName
             filePickerLauncher.launch("*/*")
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.uiActions.collect { action ->
+            when (action) {
+                is AgentUiAction.SendPrompt -> viewModel.sendPrompt(action.prompt)
+                AgentUiAction.OpenJdLibrary -> onNavigateToJdListForChoice()
+                AgentUiAction.OpenResumeLibrary -> onNavigateToResumeLibraryForChoice()
+                AgentUiAction.UploadResume -> {
+                    pendingPickerToolName = "resume_tool"
+                    filePickerLauncher.launch("*/*")
+                }
+                AgentUiAction.OpenTracking -> onNavigateToTracking()
+                AgentUiAction.OpenResumeOptimize -> onNavigateToResumeOptimize()
+                AgentUiAction.OpenSettings -> onNavigateToSettings()
+            }
         }
     }
 

@@ -494,8 +494,8 @@ private fun MatchScoreCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimi
                         modifier = Modifier.fillMaxSize(),
                         strokeWidth = 5.dp,
                         color = when {
-                            state.matchScore >= 80 -> Color(0xFF4CAF50)
-                            state.matchScore >= 50 -> Color(0xFFFFA726)
+                            state.matchScore >= 80 -> MaterialTheme.colorScheme.primary
+                            state.matchScore >= 50 -> Color(0xFFF59E0B)
                             else -> MaterialTheme.colorScheme.error
                         }
                     )
@@ -533,8 +533,8 @@ private fun MatchScoreCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimi
 @Composable
 private fun ScoreBar(label: String, score: Float) {
     val color = when {
-        score >= 0.8f -> Color(0xFF4CAF50)
-        score >= 0.5f -> Color(0xFFFFA726)
+        score >= 0.8f -> MaterialTheme.colorScheme.primary
+        score >= 0.5f -> Color(0xFFF59E0B)
         else -> MaterialTheme.colorScheme.error
     }
     Row(
@@ -629,10 +629,10 @@ private fun SkillGapCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimize
                 Spacer(Modifier.height(6.dp))
             }
             if (preferred.isNotEmpty()) {
-                Text("优先考虑", style = MaterialTheme.typography.labelSmall, color = Color(0xFFE65100), fontWeight = FontWeight.SemiBold)
+                Text("优先考虑", style = MaterialTheme.typography.labelSmall, color = Color(0xFFF59E0B), fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    preferred.forEach { gap -> SkillGapChip(gap, viewModel, chipColor = Color(0xFFFFF3E0)) }
+                    preferred.forEach { gap -> SkillGapChip(gap, viewModel, chipColor = Color(0xFFFEF3C7)) }
                 }
                 Spacer(Modifier.height(6.dp))
             }
@@ -875,7 +875,7 @@ private fun VersionCompareDialog(
                             .padding(8.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
-                        Text("当前编辑", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.secondary)
+                        Text("当前编辑", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(4.dp))
                         Text(currentText, style = MaterialTheme.typography.bodySmall, maxLines = 80)
                     }

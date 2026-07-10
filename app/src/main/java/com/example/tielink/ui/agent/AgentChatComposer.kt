@@ -149,10 +149,10 @@ fun InputArea(
 ) {
     val gradientColors = remember {
         listOf(
-            Color(0xFF102A43),
-            Color(0xFF0E7490),
-            Color(0xFF14B8A6),
-            Color(0xFFF59E0B)
+            Color(0xFF0B1220),
+            Color(0xFF1D4ED8),
+            Color(0xFF2563EB),
+            Color(0xFF93C5FD)
         )
     }
     val inputShape = remember { RoundedCornerShape(28.dp) }
@@ -167,7 +167,7 @@ fun InputArea(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
-                .shadow(elevation = 12.dp, shape = inputShape)
+                .shadow(elevation = 8.dp, shape = inputShape)
                 .border(
                     width = 2.dp,
                     brush = Brush.horizontalGradient(gradientColors),

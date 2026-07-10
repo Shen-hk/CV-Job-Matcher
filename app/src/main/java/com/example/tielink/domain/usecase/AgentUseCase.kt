@@ -21,6 +21,7 @@ import com.example.tielink.domain.model.AgentOutput
 import com.example.tielink.domain.model.IntentType
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.UiCard
+import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.nlp.IntentClassifier
 import com.example.tielink.domain.nlp.NlpEngine
 import com.example.tielink.util.AgentWorkspace
@@ -67,6 +68,13 @@ class AgentUseCase @Inject constructor(
         val clarificationPrompt: String? = null
     )
 
+    private data class AgentTurnPolicy(
+        val allowedToolNames: Set<String>,
+        val reason: String
+    ) {
+        fun isAllowed(toolName: String): Boolean = toolName in allowedToolNames
+    }
+
     /**
      * 处理用户输入，返回 AgentOutput 流
      */
@@ -79,9 +87,10 @@ class AgentUseCase @Inject constructor(
             emitDebugCards()
             return@flow
         }
-        val systemPrompt = withContext(Dispatchers.IO) { buildSystemPrompt(appContext) }
+        val turnPolicy = withContext(Dispatchers.IO) { buildTurnPolicy(userText, conversationHistory) }
+        val systemPrompt = withContext(Dispatchers.IO) { buildSystemPrompt(appContext, turnPolicy) }
         val messages = buildMessages(systemPrompt, conversationHistory, userText).toMutableList()
-        val tools = agentToolCoordinator.definitions()
+        val tools = agentToolCoordinator.definitions(turnPolicy.allowedToolNames)
         val seenCalls = mutableSetOf<String>()
         var finalText = ""
 
@@ -99,10 +108,10 @@ class AgentUseCase @Inject constructor(
                 val response = aiProviderManager.chatWithFallback(
                     LlmRequest(
                         messages = messages,
-                        temperature = 0.7,
+                        temperature = if (round == 0) 0.45 else 0.35,
                         maxTokens = 4096,
                         tools = tools,
-                        toolChoice = "auto"
+                        toolChoice = if (tools.isEmpty()) "none" else "auto"
                     )
                 )
 
@@ -139,6 +148,16 @@ class AgentUseCase @Inject constructor(
                 )
 
                 for (call in calls) {
+                    if (!turnPolicy.isAllowed(call.name)) {
+                        messages += Message(
+                            role = "tool",
+                            content = "本轮用户请求不适合调用 ${call.name}。请不要弹出卡片或执行无关工具，改用简洁文本直接回答。",
+                            toolCallId = call.id,
+                            name = call.name
+                        )
+                        continue
+                    }
+
                     val signature = "${call.name}:${call.arguments}"
                     if (!seenCalls.add(signature)) {
                         messages += Message(
@@ -450,7 +469,7 @@ class AgentUseCase @Inject constructor(
     /**
      * 构建系统提示词
      */
-    private suspend fun buildSystemPrompt(appContext: Context): String {
+    private suspend fun buildSystemPrompt(appContext: Context, turnPolicy: AgentTurnPolicy): String {
         val config = promptRegistry.get("agent_chat")
         val basePrompt = config.system
 
@@ -459,12 +478,21 @@ class AgentUseCase @Inject constructor(
             """
 
             【工具使用规则】
-            - 你可以自主选择并调用已提供的工具；只有确实需要应用数据或动作时才调用。
+            - 你可以自主选择并调用本轮提供的工具；没有提供的工具视为本轮不允许调用。
+            - 只有用户明确需要应用数据、执行动作、或结构化可视化时才调用工具；解释概念、回答机制、普通建议时直接文本回复。
             - 工具结果返回后，结合结果继续回答；不要编造未返回的数据。
             - calculate_match、optimize_resume 等业务工具已经自带专用卡片，不要再用 render_card 重复包装。
-            - 仅当比较、指标、标签或进度等结构化信息明显比纯文字更清楚时，才调用 render_card。
+            - 仅当用户要求可视化/操作面板/流程/计划/比较/决策，或结构化信息明显比纯文字更清楚时，才调用 render_card。
             - render_card 只能生成协议允许的数据组件，不能生成代码、HTML 或脚本。
+            - dynamic card 的 section.type 支持：text、metrics、tags、progress、timeline、steps、table、kanban、decision。
+            - dynamic card 的 action.type 支持：prompt、open_jd_library、open_resume_library、upload_resume、open_tracking、open_resume_optimize、open_settings。
+            - 当用户的问题需要“下一步去哪”“缺少什么资料”“给我一个操作面板”“把方案可视化”时，可以使用 render_card，并给出 1-3 个最合适的 actions。
+            - 多方案比较优先用 table；任务状态优先用 kanban；选择建议优先用 decision；时间顺序优先用 timeline；执行计划优先用 steps。
             - 缺少简历、JD、面试会话等前置条件时，说明缺少什么并引导用户补充，不要反复调用同一工具。
+
+            【本轮工具边界】
+            - 允许工具：${turnPolicy.allowedToolNames.ifEmpty { setOf("无") }.joinToString("、")}
+            - 判定原因：${turnPolicy.reason}
             """.trimIndent()
         )
 
@@ -504,21 +532,34 @@ class AgentUseCase @Inject constructor(
     ): List<Message> {
         val messages = mutableListOf(Message("system", systemPrompt))
 
-        // 添加历史消息（跳过最后一条，因为它就是当前用户消息，会在末尾显式添加）
-        val historyWithoutLast = conversationHistory.dropLastWhile {
-            it.role == com.example.tielink.domain.model.AgentMessageRole.USER
-        }
-        historyWithoutLast
+        val normalizedUserText = userText.trim()
+        val historyWithoutCurrentTurn = conversationHistory
+            .dropLastWhile { msg ->
+                msg.role == com.example.tielink.domain.model.AgentMessageRole.AGENT &&
+                    msg.isStreaming &&
+                    msg.content.isBlank() &&
+                    msg.thinkingContent.isNullOrBlank() &&
+                    msg.card == null
+            }
+            .dropLastWhile { msg ->
+                msg.role == com.example.tielink.domain.model.AgentMessageRole.USER &&
+                    msg.content.trim() == normalizedUserText
+            }
+        historyWithoutCurrentTurn
             .filter { it.role != com.example.tielink.domain.model.AgentMessageRole.SYSTEM }
             .takeLast(MAX_CONTEXT_MESSAGES)
             .forEach { msg ->
+                val content = msg.content.ifBlank {
+                    msg.card?.let(::summarizeCardForContext).orEmpty()
+                }.take(1200)
+                if (content.isBlank()) return@forEach
                 messages.add(Message(
                     role = when (msg.role) {
                         com.example.tielink.domain.model.AgentMessageRole.USER -> "user"
                         com.example.tielink.domain.model.AgentMessageRole.AGENT -> "assistant"
                         com.example.tielink.domain.model.AgentMessageRole.SYSTEM -> "system"
                     },
-                    content = msg.content
+                    content = content
                 ))
             }
 
@@ -526,6 +567,101 @@ class AgentUseCase @Inject constructor(
         messages.add(Message("user", userText))
 
         return messages
+    }
+
+    private suspend fun buildTurnPolicy(
+        userText: String,
+        conversationHistory: List<AgentMessage>
+    ): AgentTurnPolicy {
+        val text = userText.lowercase().trim()
+        val activeResume = resumeVersionRepository.getActive()
+        val ctx = agentContextRepository.getAgentContext()
+        val hasJd = !ctx.currentJdText.isNullOrBlank()
+        val hasActiveInterview = runCatching { interviewRepository.getActiveSession() != null }.getOrDefault(false)
+
+        val asksExplanation = text.containsAny(
+            "什么意思", "是什么", "为什么", "解释", "说明一下", "怎么理解",
+            "现在是", "区别", "原理", "机制", "链路", "流程是什么"
+        )
+        val asksVisual = text.containsAny(
+            "卡片", "可视化", "面板", "表格", "看板", "时间线", "步骤",
+            "流程", "工作流", "决策", "对比", "计划", "路线图", "下一步", "安排"
+        )
+        val asksJd = text.containsAny("分析jd", "jd分析", "看jd", "岗位分析", "岗位核心要求", "职位要求") ||
+            agentToolCoordinator.shouldAutoSaveJd(userText)
+        val asksMatch = text.containsAny("匹配度", "匹配分析", "匹配一下", "匹配看看", "打多少分", "能打几分", "胜率", "差距")
+        val asksResumeEdit = text.containsAny("优化简历", "润色简历", "改简历", "修改简历", "简历优化", "量化", "star")
+        val asksResumePreview = text.containsAny("预览简历", "简历预览", "看看简历", "显示简历")
+        val asksInterview = text.containsAny("模拟面试", "练面试", "面试题", "面试练习", "准备面试", "问我")
+        val asksTracking = text.containsAny("投递", "申请状态", "投递记录", "投递进度", "跟进", "看板")
+        val asksGreeting = text.containsAny("打招呼", "话术", "boss", "开场白", "私信", "怎么聊")
+        val isFollowUpToCard = conversationHistory.takeLast(4).any { it.card != null } &&
+            text.containsAny("继续", "展开", "换一个", "再来", "详细", "采用", "撤回")
+
+        val allowed = linkedSetOf<String>()
+        if (!asksExplanation || asksJd) {
+            if (asksJd) allowed += "analyze_jd"
+            if (asksMatch) allowed += "calculate_match"
+            if (asksResumeEdit) allowed += "optimize_resume"
+            if (asksResumePreview) allowed += "show_resume_preview"
+            if (asksInterview && hasActiveInterview) allowed += "get_interview_turn"
+            if (asksTracking) allowed += "get_latest_application"
+            if (asksGreeting) allowed += "generate_greeting"
+        }
+
+        if (
+            asksVisual ||
+            isFollowUpToCard ||
+            (allowed.isEmpty() && text.containsAny("怎么做", "怎么办", "帮我规划", "建议我", "我该"))
+        ) {
+            allowed += "render_card"
+        }
+
+        if (asksMatch && activeResume == null) {
+            allowed += "calculate_match"
+        }
+        if (asksMatch && !hasJd && !asksVisual) {
+            allowed.remove("render_card")
+        }
+
+        val reason = when {
+            allowed.isEmpty() -> "当前更适合文本回答，避免弹出无关卡片。"
+            asksVisual -> "用户明确要求可视化或操作面板。"
+            asksMatch || asksResumeEdit || asksJd || asksInterview || asksTracking || asksGreeting ->
+                "用户请求命中具体求职任务。"
+            isFollowUpToCard -> "用户在延续上一张卡片。"
+            else -> "用户需要规划型回答。"
+        }
+
+        return AgentTurnPolicy(allowedToolNames = allowed, reason = reason)
+    }
+
+    private fun String.containsAny(vararg keywords: String): Boolean =
+        keywords.any { contains(it) }
+
+    private fun summarizeCardForContext(card: UiCard): String {
+        return when (card) {
+            is UiCard.MatchCard ->
+                "[卡片: 匹配度 ${card.overallScore}，缺失技能 ${card.missingSkills.take(4).joinToString("、")}]"
+            is UiCard.ResumeDiffCard ->
+                "[卡片: 简历优化建议 ${card.section}，状态 ${card.status}]"
+            is UiCard.ResumePreviewCard ->
+                "[卡片: 简历预览 ${card.versionName}]"
+            is UiCard.EvalCard ->
+                "[卡片: 面试评估 ${card.overallScore}]"
+            is UiCard.TrackingCard ->
+                "[卡片: 投递记录 ${card.company} ${card.status}]"
+            is UiCard.GreetingCard ->
+                "[卡片: 打招呼话术 ${card.companyName} ${card.position}]"
+            is UiCard.InterviewTurnCard ->
+                "[卡片: 面试第 ${card.questionNumber}/${card.totalQuestions} 题]"
+            is UiCard.UploadPromptCard ->
+                "[卡片: 上传提示 ${card.title}]"
+            is UiCard.ResumeSourceChoiceCard ->
+                "[卡片: 简历来源选择 ${card.title}]"
+            is UiCard.DynamicCard ->
+                "[卡片: ${card.title}，结构 ${card.sections.joinToString("、") { it.type }}]"
+        }
     }
 
     /**

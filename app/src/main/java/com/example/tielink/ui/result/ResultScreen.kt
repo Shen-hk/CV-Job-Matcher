@@ -123,14 +123,14 @@ import kotlin.math.PI
 // ── Brand colors ────────────────────────────────────────────
 private val BrandBlue = Color(0xFF2563EB)
 private val BrandBlueLight = Color(0xFFEFF6FF)
-private val SuccessGreen = Color(0xFF16A34A)
+private val SuccessGreen = BrandBlue
 private val DangerRed = Color(0xFFDC2626)
 private val TextPrimary = Color(0xFF111827)
-private val TextSecondary = Color(0xFF4B5563)
-private val TextTertiary = Color(0xFF9CA3AF)
-private val BorderLight = Color(0xFFE5E7EB)
+private val TextSecondary = Color(0xFF475569)
+private val TextTertiary = Color(0xFF94A3B8)
+private val BorderLight = Color(0xFFE2E8F0)
 private val BgWhite = Color(0xFFFFFFFF)
-private val BgSurface = Color(0xFFF9FAFB)
+private val BgSurface = Color(0xFFF8FAFC)
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN SCREEN
@@ -222,7 +222,7 @@ fun ResultScreen(
                         Card(
                             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                             shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF102A43))
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1220))
                         ) {
                             Column(Modifier.padding(16.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -233,10 +233,10 @@ fun ResultScreen(
                                         Text(
                                             "VIBE RESUME",
                                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                                            color = Color(0xFF7EE7D8),
+                                            color = Color(0xFFBFDBFE),
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            letterSpacing = 1.sp
+                                            letterSpacing = 0.sp
                                         )
                                     }
                                     Spacer(Modifier.weight(1f))
@@ -269,8 +269,8 @@ fun ResultScreen(
                                         enabled = state.resumeData != null,
                                         modifier = Modifier.weight(1f),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFF2DD4BF),
-                                            contentColor = Color(0xFF082F35)
+                                            containerColor = Color(0xFFDBEAFE),
+                                            contentColor = Color(0xFF0B1220)
                                         )
                                     ) {
                                         Icon(Icons.Default.Fullscreen, null, Modifier.size(17.dp))
@@ -450,19 +450,19 @@ private fun ResumeImpactStrip(
             modifier = Modifier.weight(1f),
             value = "$sectionCount/5",
             label = "结构板块",
-            accent = Color(0xFF0E7490)
+            accent = BrandBlue
         )
         ResumeImpactMetric(
             modifier = Modifier.weight(1f),
             value = "${quantifiedCount}处",
             label = "量化表达",
-            accent = Color(0xFFB45309)
+            accent = Color(0xFF1D4ED8)
         )
         ResumeImpactMetric(
             modifier = Modifier.weight(1f),
             value = "${data.skills.size}项",
             label = "技能关键词",
-            accent = Color(0xFF047857)
+            accent = Color(0xFF0B1220)
         )
     }
 }
@@ -722,7 +722,7 @@ private fun KeywordsDetailPanel(
                     .background(
                         when (level) {
                             com.example.tielink.domain.model.MatchLevel.HIGH -> SuccessGreen
-                            com.example.tielink.domain.model.MatchLevel.MEDIUM -> Color(0xFFD97706)
+                            com.example.tielink.domain.model.MatchLevel.MEDIUM -> Color(0xFFF59E0B)
                             com.example.tielink.domain.model.MatchLevel.LOW -> DangerRed
                         }
                     )
@@ -734,7 +734,7 @@ private fun KeywordsDetailPanel(
         Spacer(Modifier.height(4.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             matched.forEach { kw ->
-                Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFFDCFCE7)) {
+                Surface(shape = RoundedCornerShape(4.dp), color = BrandBlueLight) {
                     Text(kw, Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 11.sp, color = SuccessGreen)
                 }
             }
@@ -938,14 +938,14 @@ private fun ResumeTransformationCard(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFE6FFFA)),
+                        .background(BrandBlueLight),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.AutoAwesome,
                         null,
                         Modifier.size(18.dp),
-                        tint = Color(0xFF0F766E)
+                        tint = BrandBlue
                     )
                 }
                 Spacer(Modifier.width(10.dp))
@@ -976,15 +976,15 @@ private fun ResumeTransformationCard(
                     TransformationTextBlock(
                         label = "原始表达",
                         text = originalText,
-                        background = Color(0xFFFFF7ED),
-                        labelColor = Color(0xFFB45309)
+                        background = BgSurface,
+                        labelColor = TextSecondary
                     )
                     Spacer(Modifier.height(8.dp))
                     TransformationTextBlock(
                         label = "Vibe 优化后",
                         text = polishedText,
-                        background = Color(0xFFECFDF5),
-                        labelColor = Color(0xFF047857)
+                        background = BrandBlueLight,
+                        labelColor = BrandBlue
                     )
                 }
             }
@@ -1006,7 +1006,7 @@ private fun TransformationTextBlock(
                 color = labelColor,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.8.sp
+                letterSpacing = 0.sp
             )
             Spacer(Modifier.height(5.dp))
             Text(
