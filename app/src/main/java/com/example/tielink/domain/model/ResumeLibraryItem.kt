@@ -6,5 +6,6 @@ data class ResumeLibraryItem(
     val title: String,
     val subtitle: String,
     val matchScore: Int = 0,
-    val createdAt: Long
+    val createdAt: Long,
+    val isActive: Boolean = false
 )

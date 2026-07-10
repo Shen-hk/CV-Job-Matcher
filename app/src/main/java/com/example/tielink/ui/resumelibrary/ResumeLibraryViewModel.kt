@@ -8,9 +8,10 @@ import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.data.local.db.dao.ResumeVersionDao
 import com.example.tielink.data.local.db.entity.HistoryEntity
 import com.example.tielink.data.local.db.entity.ResumeVersionEntity
+import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
-import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.ResumeLibraryItem
+import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.util.OriginalResumeFileStore
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -37,6 +38,7 @@ data class ResumeLibraryUiState(
 class ResumeLibraryViewModel @Inject constructor(
     private val historyDao: com.example.tielink.data.local.db.dao.HistoryDao,
     private val resumeVersionDao: ResumeVersionDao,
+    private val historyRepository: HistoryRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val appPreferences: AppPreferences
 ) : ViewModel() {
@@ -60,8 +62,76 @@ class ResumeLibraryViewModel @Inject constructor(
 
     fun selectResumeForOptimize(versionId: Long) {
         viewModelScope.launch {
-            runCatching { resumeVersionRepository.setActive(versionId) }
-            runCatching { appPreferences.setResumeOptimizeContinue(true) }
+            runCatching {
+                resumeVersionRepository.setActive(versionId)
+                appPreferences.setResumeOptimizeContinue(true)
+                refreshItems()
+            }.onFailure { error ->
+                _uiState.update { it.copy(error = "选择简历失败: ${error.message}") }
+            }
+        }
+    }
+
+    fun activateVersion(versionId: Long) {
+        viewModelScope.launch {
+            runCatching {
+                resumeVersionRepository.setActive(versionId)
+                refreshItems()
+            }.onFailure { error ->
+                _uiState.update { it.copy(error = "设为当前失败: ${error.message}") }
+            }
+        }
+    }
+
+    fun renameItem(item: ResumeLibraryItem, newTitle: String) {
+        val title = newTitle.trim()
+        if (title.isBlank()) {
+            _uiState.update { it.copy(error = "名称不能为空") }
+            return
+        }
+
+        viewModelScope.launch {
+            runCatching {
+                if (item.type == "history") {
+                    historyRepository.rename(item.id, title)
+                } else {
+                    val version = resumeVersionRepository.getById(item.id)
+                        ?: error("简历版本不存在")
+                    resumeVersionRepository.save(
+                        version.copy(
+                            name = title,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                }
+                refreshItems()
+            }.onFailure { error ->
+                _uiState.update { it.copy(error = "重命名失败: ${error.message}") }
+            }
+        }
+    }
+
+    fun deleteItem(item: ResumeLibraryItem) {
+        viewModelScope.launch {
+            runCatching {
+                if (item.type == "history") {
+                    historyRepository.deleteById(item.id)
+                } else {
+                    val version = resumeVersionRepository.getById(item.id)
+                        ?: error("简历版本不存在")
+                    val isActive = version.isActive
+                    resumeVersionRepository.delete(version)
+                    if (isActive) {
+                        val remaining = resumeVersionRepository.getAll()
+                        if (remaining.isNotEmpty() && remaining.none { it.isActive }) {
+                            resumeVersionRepository.setActive(remaining.first().id)
+                        }
+                    }
+                }
+                refreshItems()
+            }.onFailure { error ->
+                _uiState.update { it.copy(error = "删除失败: ${error.message}") }
+            }
         }
     }
 
@@ -124,7 +194,7 @@ class ResumeLibraryViewModel @Inject constructor(
                     ResumeLibraryItem(
                         id = h.id,
                         type = "history",
-                        title = historyTitle(h.jdTitle, h.polishedResume),
+                        title = h.customTitle.ifBlank { historyTitle(h.jdTitle, h.polishedResume) },
                         subtitle = if (h.jdTitle.isNotBlank()) "关联JD：${h.jdTitle}" else "未关联JD",
                         matchScore = h.matchScore,
                         createdAt = h.createdAt
@@ -153,12 +223,13 @@ class ResumeLibraryViewModel @Inject constructor(
                             tagList.joinToString(" · ")
                         },
                         matchScore = v.matchScore.toInt(),
-                        createdAt = v.createdAt
+                        createdAt = v.createdAt,
+                        isActive = v.isActive
                     )
                 )
             }
         }.sortedByDescending { it.createdAt }
 
-        _uiState.update { it.copy(items = merged, isLoading = false) }
+        _uiState.update { it.copy(items = merged, isLoading = false, error = null) }
     }
 }

@@ -339,6 +339,9 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPreview = { versionId ->
                     navController.navigate(Routes.resumeFullPreview(versionId))
+                },
+                onNavigateToHistoryPreview = { sessionId ->
+                    navController.navigate(Routes.result(sessionId))
                 }
             )
         }
@@ -348,6 +351,9 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPreview = { versionId ->
                     navController.navigate(Routes.resumeFullPreview(versionId))
+                },
+                onNavigateToHistoryPreview = { sessionId ->
+                    navController.navigate(Routes.result(sessionId))
                 },
                 selectionMode = true,
                 onResumeSelected = {
