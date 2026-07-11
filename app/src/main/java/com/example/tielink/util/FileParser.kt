@@ -9,6 +9,7 @@ import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.resume
@@ -32,15 +33,7 @@ object FileParser {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri)
                 ?: return Result.failure(Exception("无法打开文件"))
-            val text = inputStream.use { stream ->
-                val doc = PDDocument.load(stream)
-                Log.d(TAG, "PDF 页数: ${doc.numberOfPages}")
-                val stripper = PDFTextStripper()
-                val result = stripper.getText(doc)
-                doc.close()
-                result
-            }
-            val cleaned = TextCleaner.clean(text)
+            val cleaned = inputStream.use(::extractPdfTextFromStream)
             Log.i(TAG, "PDF 提取完成: ${cleaned.length} 字符")
             Result.success(cleaned)
         } catch (e: Exception) {
@@ -54,13 +47,46 @@ object FileParser {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri)
                 ?: return Result.failure(Exception("无法打开文件"))
-            val text = inputStream.use { stream -> parseDocxXml(stream) }
-            val cleaned = TextCleaner.clean(text)
+            val cleaned = inputStream.use(::extractDocxTextFromStream)
             Log.i(TAG, "DOCX 提取完成: ${cleaned.length} 字符")
             Result.success(cleaned)
         } catch (e: Exception) {
             Log.e(TAG, "DOCX 解析失败: ${e.message}", e)
             Result.failure(Exception("DOCX 解析失败: ${e.localizedMessage}"))
+        }
+    }
+
+    suspend fun extractTextFromFile(context: Context, filePath: String, mimeType: String?): Result<String> {
+        Log.d(TAG, "extractTextFromFile: path=$filePath, mimeType=$mimeType")
+        val file = File(filePath)
+        if (!file.exists()) {
+            return Result.failure(Exception("原始文件不存在"))
+        }
+        return try {
+            when {
+                mimeType == "application/pdf" || file.extension.equals("pdf", ignoreCase = true) -> {
+                    val cleaned = file.inputStream().use(::extractPdfTextFromStream)
+                    Result.success(cleaned)
+                }
+
+                mimeType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+                    file.extension.equals("docx", ignoreCase = true) -> {
+                    val cleaned = file.inputStream().use(::extractDocxTextFromStream)
+                    Result.success(cleaned)
+                }
+
+                mimeType != null && mimeType.startsWith("image/") -> {
+                    extractImageText(context, Uri.fromFile(file))
+                }
+
+                else -> {
+                    Log.w(TAG, "不支持的本地文件格式: mimeType=$mimeType, path=$filePath")
+                    Result.failure(Exception("不支持的文件格式，请选择 PDF、DOCX 或图片"))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "本地文件解析失败: ${e.message}", e)
+            Result.failure(Exception("文件解析失败: ${e.localizedMessage}"))
         }
     }
 
@@ -104,6 +130,22 @@ object FileParser {
             Log.e(TAG, "图片 OCR 失败: ${e.message}", e)
             Result.failure(Exception("图片 OCR 失败: ${e.localizedMessage}"))
         }
+    }
+
+    private fun extractPdfTextFromStream(inputStream: InputStream): String {
+        val doc = PDDocument.load(inputStream)
+        return try {
+            Log.d(TAG, "PDF 页数: ${doc.numberOfPages}")
+            val stripper = PDFTextStripper()
+            TextCleaner.clean(stripper.getText(doc))
+        } finally {
+            doc.close()
+        }
+    }
+
+    private fun extractDocxTextFromStream(inputStream: InputStream): String {
+        val text = parseDocxXml(inputStream)
+        return TextCleaner.clean(text)
     }
 
     private fun parseDocxXml(inputStream: InputStream): String {

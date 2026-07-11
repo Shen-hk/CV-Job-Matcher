@@ -10,6 +10,7 @@ import com.example.tielink.data.remote.dto.Message
 import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.JdLibraryRepository
+import com.example.tielink.data.repository.PolishRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.repository.TrackingRepository
 import com.example.tielink.domain.model.AgentContext
@@ -17,6 +18,9 @@ import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.model.DynamicCardItem
 import com.example.tielink.domain.model.DynamicCardSection
 import com.example.tielink.domain.model.GreetingVersion
+import com.example.tielink.domain.model.PolishResult
+import com.example.tielink.domain.model.ResumeData
+import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.nlp.NlpEngine
 import com.example.tielink.util.AgentWorkspace
@@ -31,6 +35,7 @@ class AgentToolCoordinator @Inject constructor(
     private val agentContextRepository: AgentContextRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val jdLibraryRepository: JdLibraryRepository,
+    private val polishRepository: PolishRepository,
     private val matchScoreDetailUseCase: MatchScoreDetailUseCase,
     private val skillGapAnalyzer: SkillGapAnalyzer,
     private val quantifyAssistant: QuantifyAssistant,
@@ -50,7 +55,9 @@ class AgentToolCoordinator @Inject constructor(
         "show_resume_preview",
         "get_interview_turn",
         "get_latest_application",
+        "create_application_from_current_jd",
         "generate_greeting",
+        "analyze_boss_opportunities",
         "render_card"
     )
 
@@ -112,8 +119,20 @@ class AgentToolCoordinator @Inject constructor(
                 required = emptyList()
             ),
             functionTool(
+                name = "create_application_from_current_jd",
+                description = "把当前 JD 加入投递记录。只有用户明确要求记录、创建、加入投递时调用。",
+                properties = emptyMap(),
+                required = emptyList()
+            ),
+            functionTool(
                 name = "generate_greeting",
                 description = "根据当前 JD 和简历生成多版招聘平台打招呼话术，并展示话术卡片。",
+                properties = emptyMap(),
+                required = emptyList()
+            ),
+            functionTool(
+                name = "analyze_boss_opportunities",
+                description = "分析 BOSS 直聘导入的岗位池，结合当前简历给出优先投递建议，并把最佳岗位设为当前 JD。",
                 properties = emptyMap(),
                 required = emptyList()
             ),
@@ -136,7 +155,9 @@ class AgentToolCoordinator @Inject constructor(
         "show_resume_preview" -> "正在加载简历预览..."
         "get_interview_turn" -> "正在读取面试会话..."
         "get_latest_application" -> "正在读取投递记录..."
+        "create_application_from_current_jd" -> "正在创建投递记录..."
         "generate_greeting" -> "正在生成打招呼话术..."
+        "analyze_boss_opportunities" -> "正在分析 BOSS 岗位池..."
         "render_card" -> "正在组织卡片内容..."
         else -> customToolsByName[toolName]?.progressDescription ?: "正在执行工具..."
     }
@@ -179,10 +200,13 @@ class AgentToolCoordinator @Inject constructor(
                         missingContextResult("缺少当前简历，暂时无法优化。", needsResume = true)
                     } else {
                         val instruction = arguments.optString("instruction").ifBlank { fallbackUserText }
-                        val cards = listOfNotNull(executeResumeTool(instruction), buildResumePreviewCard())
+                        val polishedCard = optimizeResumeAndSave(instruction)
+                        val cards = listOfNotNull(polishedCard ?: executeResumeTool(instruction))
                         ToolExecutionResult(
                             content = if (cards.isEmpty()) {
                                 "当前简历中没有找到可安全自动修改的内容，请向用户询问具体段落。"
+                            } else if (polishedCard != null) {
+                                "简历已完成 AI 润色，并保存到简历库。现在可以直接查看 HTML 预览。"
                             } else {
                                 "简历优化分析已完成，建议和预览已经用卡片展示。"
                             },
@@ -204,9 +228,15 @@ class AgentToolCoordinator @Inject constructor(
                 "get_latest_application" -> executeTrackingTool()?.let {
                     ToolExecutionResult("最近一条投递记录已经展示。", listOf(it))
                 } ?: ToolExecutionResult("当前还没有投递记录。")
+                "create_application_from_current_jd" -> {
+                    createApplicationFromCurrentJd()
+                }
                 "generate_greeting" -> executePlatformTool()?.let {
                     ToolExecutionResult("打招呼话术已经生成并展示。", listOf(it))
                 } ?: ToolExecutionResult("缺少当前 JD，或话术生成失败。")
+                "analyze_boss_opportunities" -> {
+                    executeBossOpportunityTool()
+                }
                 "render_card" -> {
                     val card = parseDynamicCard(arguments)
                     ToolExecutionResult("信息已经整理成卡片展示。", listOf(card))
@@ -253,6 +283,13 @@ class AgentToolCoordinator @Inject constructor(
 
     private fun stringProperty(description: String): Map<String, Any?> =
         mapOf("type" to "string", "description" to description)
+
+    private data class OpportunityRank(
+        val jd: com.example.tielink.data.local.db.entity.JdLibraryEntity,
+        val score: Int,
+        val matchedSkills: List<String>,
+        val reason: String
+    )
 
     private fun dynamicCardTool(): LlmToolDefinition = functionTool(
         name = "render_card",
@@ -484,6 +521,80 @@ class AgentToolCoordinator @Inject constructor(
         )
     }
 
+    private suspend fun optimizeResumeAndSave(instruction: String): UiCard.ResumePreviewCard? {
+        val activeResume = resumeVersionRepository.getActive() ?: return null
+        val sourceText = if (activeResume.isPolished) {
+            activeResume.cleanedText.ifBlank { activeResume.rawText }
+        } else {
+            activeResume.rawText.ifBlank { activeResume.cleanedText }
+        }.trim()
+        if (sourceText.isBlank()) return null
+
+        val context = agentContextRepository.getAgentContext()
+        val jdOrGoal = context.currentJdText
+            ?.takeIf { it.isNotBlank() }
+            ?: buildGenericOptimizationGoal(instruction)
+
+        val rawOutput = polishRepository.polishResume(
+            jdText = jdOrGoal,
+            resumeText = sourceText,
+            fullPolish = true
+        ).getOrElse { error ->
+            Log.e(TAG, "AI 润色失败: ${error.message}", error)
+            return null
+        }
+
+        val polishResult = PolishResult.fromLlmOutput(rawOutput)
+        val polishedText = polishResult.polishedResume.trim()
+        if (polishedText.isBlank()) return null
+
+        val resumeData = polishResult.resumeJson
+            .takeIf { it.isNotBlank() }
+            ?.let(ResumeData::fromJsonString)
+            ?: ResumeData.fromPolishedText(polishedText)
+
+        val versionId = resumeVersionRepository.insertAndActivate(
+            ResumeVersion(
+                name = buildPolishedVersionName(activeResume.name),
+                rawText = activeResume.rawText.ifBlank { sourceText },
+                cleanedText = polishedText,
+                matchScore = polishResult.matchAnalysis.score.toFloat(),
+                tags = (activeResume.tags + listOf("AI润色")).distinct(),
+                jdMatchedWith = context.currentJdCompany.orEmpty(),
+                originalFilePath = activeResume.originalFilePath,
+                originalMimeType = activeResume.originalMimeType,
+                isPolished = true
+            )
+        )
+
+        return UiCard.ResumePreviewCard(
+            versionName = buildPolishedVersionName(activeResume.name),
+            versionId = versionId,
+            previewText = polishedText.take(600),
+            resumeData = resumeData
+        )
+    }
+
+    private fun buildGenericOptimizationGoal(instruction: String): String {
+        val normalizedInstruction = instruction.trim().ifBlank { "请通用优化这份简历" }
+        return """
+            请基于以下要求对简历做通用优化，不编造经历，保留真实信息：
+            1. 强化表达与量化成果
+            2. 优化结构与可读性
+            3. 补齐常见招聘筛选关键词
+            4. 额外要求：$normalizedInstruction
+        """.trimIndent()
+    }
+
+    private fun buildPolishedVersionName(baseName: String): String {
+        val normalizedBase = baseName.trim().ifBlank { "我的简历" }
+        return if (normalizedBase.contains("AI润色")) {
+            normalizedBase
+        } else {
+            "$normalizedBase · AI润色"
+        }
+    }
+
     suspend fun tryAutoSaveJd(userText: String) {
         try {
             if (!looksLikeJd(userText)) return
@@ -523,6 +634,213 @@ class AgentToolCoordinator @Inject constructor(
     }
 
     fun shouldAutoSaveJd(userText: String): Boolean = looksLikeJd(userText)
+
+    private suspend fun executeBossOpportunityTool(): ToolExecutionResult {
+        val allJds = jdLibraryRepository.getAll()
+        if (allJds.isEmpty()) {
+            val card = UiCard.DynamicCard(
+                title = "BOSS 机会池还没有岗位",
+                subtitle = "先导入岗位，再做匹配排序和投递建议",
+                sections = listOf(
+                    DynamicCardSection(
+                        type = "steps",
+                        items = listOf(
+                            DynamicCardItem(
+                                label = "打开 JD 库",
+                                value = "待执行",
+                                description = "使用 BOSS 一键导入，或者手动粘贴岗位描述。",
+                                status = "active"
+                            ),
+                            DynamicCardItem(
+                                label = "选择当前简历",
+                                value = "待执行",
+                                description = "有简历后会按匹配度给岗位排序。",
+                                status = "todo"
+                            )
+                        )
+                    )
+                ),
+                actions = listOf(
+                    DynamicCardAction(
+                        label = "打开 JD 库",
+                        type = DynamicCardAction.TYPE_OPEN_JD_LIBRARY
+                    ),
+                    DynamicCardAction(
+                        label = "选择简历",
+                        type = DynamicCardAction.TYPE_OPEN_RESUME_LIBRARY
+                    )
+                )
+            )
+            return ToolExecutionResult("当前没有可分析的岗位。", listOf(card))
+        }
+
+        val bossJds = allJds.filter { it.sourceType == "boss_auto" }
+        val candidates = (bossJds.ifEmpty { allJds }).take(30)
+        val resume = resumeVersionRepository.getActive()
+        val resumeText = resume?.rawText?.ifBlank { resume.cleanedText }.orEmpty()
+        val hasResume = resumeText.isNotBlank()
+        val ranks = candidates
+            .map { jd -> rankOpportunity(jd, resumeText) }
+            .sortedByDescending { it.score }
+        val top = ranks.first()
+
+        agentContextRepository.updateAgentContext(
+            currentJdId = top.jd.id,
+            currentJdText = top.jd.rawText,
+            currentJdCompany = top.jd.companyName
+        )
+
+        val title = if (bossJds.isNotEmpty()) "BOSS 机会分析" else "岗位机会分析"
+        val subtitle = if (hasResume) {
+            "已结合当前简历排序，最佳岗位已设为当前 JD"
+        } else {
+            "未选择简历，先按岗位信息完整度做初筛"
+        }
+        val card = UiCard.DynamicCard(
+            title = title,
+            subtitle = subtitle,
+            sections = listOf(
+                DynamicCardSection(
+                    type = "metrics",
+                    items = listOf(
+                        DynamicCardItem("岗位数", candidates.size.toString()),
+                        DynamicCardItem("BOSS 导入", bossJds.size.toString()),
+                        DynamicCardItem("当前简历", resume?.name ?: "未选择")
+                    )
+                ),
+                DynamicCardSection(
+                    type = "table",
+                    title = "优先投递 Top 5",
+                    columns = listOf("公司", "岗位", "分数", "依据"),
+                    items = ranks.take(5).map { rank ->
+                        DynamicCardItem(
+                            label = rank.companyLabel(),
+                            value = rank.positionLabel(),
+                            cells = listOf(
+                                rank.companyLabel(),
+                                rank.positionLabel(),
+                                "${rank.score}",
+                                rank.reason
+                            )
+                        )
+                    }
+                ),
+                DynamicCardSection(
+                    type = "decision",
+                    title = "建议先推进",
+                    items = listOf(
+                        DynamicCardItem(
+                            label = "${top.companyLabel()} · ${top.positionLabel()}",
+                            value = "${top.score}",
+                            description = buildString {
+                                append(top.reason)
+                                if (top.matchedSkills.isNotEmpty()) {
+                                    append("；命中：")
+                                    append(top.matchedSkills.take(5).joinToString("、"))
+                                }
+                            },
+                            status = "active"
+                        )
+                    )
+                ),
+                DynamicCardSection(
+                    type = "steps",
+                    title = "下一步",
+                    items = listOf(
+                        DynamicCardItem(
+                            label = "生成 BOSS 打招呼话术",
+                            value = "建议",
+                            description = "基于已选中的最佳岗位和当前简历生成 3 版开场白。",
+                            status = "active"
+                        ),
+                        DynamicCardItem(
+                            label = "创建投递记录",
+                            value = "建议",
+                            description = "发出话术后，把公司和岗位加入投递看板，后续追踪状态。",
+                            status = "todo"
+                        )
+                    )
+                )
+            ),
+            actions = listOf(
+                DynamicCardAction(
+                    label = "生成话术",
+                    type = DynamicCardAction.TYPE_PROMPT,
+                    prompt = "基于当前最佳 BOSS 岗位，生成打招呼话术"
+                ),
+                DynamicCardAction(
+                    label = "创建投递",
+                    type = DynamicCardAction.TYPE_PROMPT,
+                    prompt = "把当前最佳岗位加入投递记录"
+                ),
+                DynamicCardAction(
+                    label = "看 JD 库",
+                    type = DynamicCardAction.TYPE_OPEN_JD_LIBRARY
+                )
+            )
+        )
+
+        return ToolExecutionResult(
+            content = "BOSS 机会池已分析，最佳岗位已设为当前 JD。",
+            cards = listOf(card)
+        )
+    }
+
+    private fun rankOpportunity(
+        jd: com.example.tielink.data.local.db.entity.JdLibraryEntity,
+        resumeText: String
+    ): OpportunityRank {
+        val skills = splitSkills(jd.skills)
+        val hasResume = resumeText.isNotBlank()
+        val matchedSkills = if (hasResume) {
+            skills.filter { resumeText.contains(it, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+        val score = if (hasResume) {
+            val semantic = (NlpEngine.matchScore(jd.rawText, resumeText) * 100).toInt()
+            val skillScore = if (skills.isEmpty()) {
+                50
+            } else {
+                (matchedSkills.size * 100 / skills.size).coerceIn(0, 100)
+            }
+            (semantic * 0.7 + skillScore * 0.3).toInt().coerceIn(0, 100)
+        } else {
+            val fieldScore = listOf(
+                jd.companyName.isNotBlank(),
+                jd.positionName.isNotBlank(),
+                jd.salary.isNotBlank(),
+                skills.isNotEmpty(),
+                jd.rawText.length >= 200
+            ).count { it } * 16
+            (20 + fieldScore).coerceIn(0, 100)
+        }
+
+        val reason = when {
+            hasResume && matchedSkills.size >= 3 -> "技能重合较多"
+            hasResume && score >= 60 -> "文本匹配较好"
+            hasResume -> "可作为备选，需要补强关键词"
+            jd.salary.isNotBlank() && skills.isNotEmpty() -> "信息完整，可优先判断"
+            jd.sourceType == "boss_auto" -> "来自 BOSS 导入，等待简历匹配"
+            else -> "岗位信息可继续补全"
+        }
+        return OpportunityRank(jd, score, matchedSkills, reason)
+    }
+
+    private fun splitSkills(skills: String): List<String> =
+        skills.split(",", "，", "、", "/", "|")
+            .map { it.trim() }
+            .filter { it.length >= 2 }
+            .distinct()
+
+    private fun OpportunityRank.companyLabel(): String =
+        jd.companyName.ifBlank { "未识别公司" }
+
+    private fun OpportunityRank.positionLabel(): String =
+        jd.positionName.ifBlank {
+            jd.rawText.lineSequence().firstOrNull { it.trim().length in 2..32 }?.trim()
+                ?: "未识别岗位"
+        }
 
     private suspend fun executeMatchTool(): UiCard? {
         val ctx = agentContextRepository.getAgentContext()
@@ -592,6 +910,55 @@ class AgentToolCoordinator @Inject constructor(
         )
     }
 
+    private suspend fun createApplicationFromCurrentJd(): ToolExecutionResult {
+        val ctx = agentContextRepository.getAgentContext()
+        val jd = ctx.currentJdId?.let { jdLibraryRepository.getById(it) }
+        val jdText = jd?.rawText ?: ctx.currentJdText
+        if (jdText.isNullOrBlank()) {
+            return ToolExecutionResult("缺少当前 JD，暂时无法创建投递记录。")
+        }
+
+        val company = jd?.companyName?.ifBlank { ctx.currentJdCompany.orEmpty() }
+            ?: ctx.currentJdCompany.orEmpty()
+        val position = jd?.positionName?.ifBlank { extractPositionHint(jdText) }
+            ?: extractPositionHint(jdText)
+        val normalizedCompany = company.ifBlank { "目标公司" }
+        val normalizedPosition = position.ifBlank { "目标岗位" }
+        val existing = trackingRepository.getAll().firstOrNull {
+            it.companyName == normalizedCompany && it.positionName == normalizedPosition
+        }
+        val item = existing ?: run {
+            val resume = resumeVersionRepository.getActive()
+            val id = trackingRepository.insert(
+                com.example.tielink.data.repository.TrackingItem(
+                    companyName = normalizedCompany,
+                    positionName = normalizedPosition,
+                    status = "已投",
+                    resumeVersionId = resume?.id,
+                    jdRawText = jdText,
+                    notes = "由 BOSS 机会分析助手创建"
+                )
+            )
+            trackingRepository.getById(id)
+        }
+
+        val saved = item ?: return ToolExecutionResult("投递记录创建失败，请稍后重试。")
+        return ToolExecutionResult(
+            content = if (existing == null) {
+                "已把当前岗位加入投递记录。"
+            } else {
+                "该岗位已在投递记录中，已展示现有记录。"
+            },
+            cards = listOf(
+                UiCard.TrackingCard(
+                    company = saved.companyName,
+                    status = saved.status,
+                    applicationId = saved.id
+                )
+            )
+        )
+    }
+
     private suspend fun executeTrackingTool(): UiCard? {
         val items = trackingRepository.getAll()
         val latest = items.maxByOrNull { it.updatedAt } ?: return null
@@ -601,6 +968,12 @@ class AgentToolCoordinator @Inject constructor(
             applicationId = latest.id
         )
     }
+
+    private fun extractPositionHint(jdText: String): String =
+        jdText.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.length in 2..32 && !it.contains("职位描述") && !it.contains("岗位职责") }
+            .orEmpty()
 
     private suspend fun executePlatformTool(): UiCard? {
         val ctx = agentContextRepository.getAgentContext()

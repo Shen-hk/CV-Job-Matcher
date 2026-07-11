@@ -130,7 +130,7 @@ class JdListViewModel @Inject constructor(
         }
     }
 
-    fun selectJdForAgent(jdId: Long) {
+    fun selectJdForAgent(jdId: Long, onSelected: () -> Unit = {}) {
         viewModelScope.launch {
             val jd = jdLibraryRepository.getById(jdId) ?: return@launch
             agentContextRepository.updateAgentContext(
@@ -142,6 +142,7 @@ class JdListViewModel @Inject constructor(
             appPreferences.setCachedJdStructuredJson(jd.structuredJson)
             appPreferences.setCachedJdCompanyName(jd.companyName)
             _uiState.update { it.copy(currentJdId = jd.id) }
+            onSelected()
         }
     }
 

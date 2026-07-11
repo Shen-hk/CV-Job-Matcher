@@ -33,7 +33,7 @@ object Routes {
     const val RESUME_OPTIMIZE = "resume_optimize"
     const val TRACKING = "tracking?jdCompany={jdCompany}&jdPosition={jdPosition}"
     const val AGENT_CHAT = "agent_chat"
-    const val AGENT_CHAT_ROUTE = "agent_chat?historyId={historyId}"
+    const val AGENT_CHAT_ROUTE = "agent_chat?historyId={historyId}&prompt={prompt}"
     const val JD_LIST = "jd_list"
     const val JD_LIST_SELECT = "jd_list_select"
     const val RESUME_LIBRARY = "resume_library"
@@ -73,6 +73,7 @@ object Routes {
 
     fun result(sessionId: Long): String = "result/$sessionId"
     fun agentChatHistory(historyId: Long): String = "agent_chat?historyId=$historyId"
+    fun agentChatPrompt(prompt: String): String = "agent_chat?prompt=${Uri.encode(prompt)}"
     fun resumeFullPreview(versionId: Long): String = "resume_full_preview/$versionId"
 
     fun tracking(jdCompany: String = "", jdPosition: String = ""): String {
@@ -93,12 +94,19 @@ fun NavGraph(navController: NavHostController) {
                 navArgument("historyId") {
                     type = NavType.LongType
                     defaultValue = -1L
+                },
+                navArgument("prompt") {
+                    type = NavType.StringType
+                    defaultValue = ""
                 }
             )
         ) { backStackEntry ->
             val historyId = backStackEntry.arguments
                 ?.getLong("historyId")
                 ?.takeIf { it > 0 }
+            val initialPrompt = backStackEntry.arguments
+                ?.getString("prompt")
+                ?.takeIf { it.isNotBlank() }
             AgentChatScreen(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToResumeOptimize = { navController.navigate(Routes.RESUME_OPTIMIZE) },
@@ -113,7 +121,8 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToResumePreview = { versionId ->
                     navController.navigate(Routes.resumeFullPreview(versionId))
                 },
-                initialHistoryId = historyId
+                initialHistoryId = historyId,
+                initialPrompt = initialPrompt
             )
         }
 
@@ -307,9 +316,12 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToTracking = { jdCompany, jdPosition ->
                     navController.navigate(Routes.tracking(jdCompany, jdPosition))
                 },
-                onNavigateToGreeting = { jdRawText, jdCompany ->
-                    // Navigate to agent chat for greeting generation
-                    navController.popBackStack()
+                onNavigateToGreeting = { _, jdCompany ->
+                    navController.navigate(
+                        Routes.agentChatPrompt(
+                            "基于当前 JD，帮我生成 BOSS 打招呼话术，并给出是否值得投递的判断。公司：$jdCompany"
+                        )
+                    )
                 }
             )
         }
@@ -323,8 +335,12 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToTracking = { jdCompany, jdPosition ->
                     navController.navigate(Routes.tracking(jdCompany, jdPosition))
                 },
-                onNavigateToGreeting = { _, _ ->
-                    navController.popBackStack()
+                onNavigateToGreeting = { _, jdCompany ->
+                    navController.navigate(
+                        Routes.agentChatPrompt(
+                            "基于当前 JD，帮我生成 BOSS 打招呼话术，并给出是否值得投递的判断。公司：$jdCompany"
+                        )
+                    )
                 },
                 selectionMode = true,
                 onJdSelected = {

@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -81,6 +82,7 @@ fun AgentChatScreen(
     onNavigateToResumeLibraryForChoice: () -> Unit = {},
     onNavigateToResumePreview: (Long) -> Unit = {},
     initialHistoryId: Long? = null,
+    initialPrompt: String? = null,
     viewModel: AgentViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -97,6 +99,15 @@ fun AgentChatScreen(
 
     LaunchedEffect(initialHistoryId) {
         initialHistoryId?.let(viewModel::openHistorySession)
+    }
+
+    var consumedInitialPrompt by rememberSaveable(initialPrompt) { mutableStateOf(false) }
+    LaunchedEffect(initialPrompt) {
+        val prompt = initialPrompt?.trim().orEmpty()
+        if (prompt.isNotBlank() && !consumedInitialPrompt) {
+            consumedInitialPrompt = true
+            viewModel.sendPrompt(prompt)
+        }
     }
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {

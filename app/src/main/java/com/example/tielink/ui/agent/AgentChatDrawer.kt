@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -210,141 +211,143 @@ fun AgentDrawerContent(
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.background
     ) {
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
+                .padding(horizontal = AppSpacing.md),
+            contentPadding = PaddingValues(vertical = AppSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            DrawerAccountCard(
-                modelSummary = historyState.modelSummary,
-                syncSummary = historyState.syncSummary,
-                onClick = onOpenSettings
-            )
+            item {
+                DrawerAccountCard(
+                    modelSummary = historyState.modelSummary,
+                    syncSummary = historyState.syncSummary,
+                    onClick = onOpenSettings
+                )
+            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = onCreateNewSession) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("新建会话")
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = onCreateNewSession) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("新建会话")
+                    }
+                    IconButton(onClick = { onToggleBulkMode(!historyState.bulkMode) }) {
+                        Icon(
+                            if (historyState.bulkMode) Icons.Default.Close else Icons.Default.MoreVert,
+                            contentDescription = if (historyState.bulkMode) "退出批量模式" else "更多操作"
+                        )
+                    }
                 }
-                IconButton(onClick = { onToggleBulkMode(!historyState.bulkMode) }) {
-                    Icon(
-                        if (historyState.bulkMode) Icons.Default.Close else Icons.Default.MoreVert,
-                        contentDescription = if (historyState.bulkMode) "退出批量模式" else "更多操作"
+            }
+
+            item {
+                OutlinedTextField(
+                    value = historyState.searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    placeholder = { Text("搜索历史标题、摘要或内容") }
+                )
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("工作区", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    DrawerQuickActionGrid(
+                        onOpenResumeOptimize = onOpenResumeOptimize,
+                        onOpenTracking = onOpenTracking,
+                        onOpenJdList = onOpenJdList,
+                        onOpenResumeLibrary = onOpenResumeLibrary,
+                        onOpenSettings = onOpenSettings
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = historyState.searchQuery,
-                onValueChange = onSearchQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                placeholder = { Text("搜索历史标题、摘要或内容") }
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text("工作区", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(8.dp))
-            DrawerQuickActionGrid(
-                onOpenResumeOptimize = onOpenResumeOptimize,
-                onOpenTracking = onOpenTracking,
-                onOpenJdList = onOpenJdList,
-                onOpenResumeLibrary = onOpenResumeLibrary,
-                onOpenSettings = onOpenSettings
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                HistoryDateFilter.values().forEach { filter ->
-                    FilterChip(
-                        selected = historyState.dateFilter == filter,
-                        onClick = { onDateFilterChange(filter) },
-                        label = { Text(filter.label) }
-                    )
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HistoryDateFilter.values().forEach { filter ->
+                        FilterChip(
+                            selected = historyState.dateFilter == filter,
+                            onClick = { onDateFilterChange(filter) },
+                            label = { Text(filter.label) }
+                        )
+                    }
                 }
             }
 
             if (historyState.bulkMode) {
-                Spacer(modifier = Modifier.height(10.dp))
-                BulkActionBar(
-                    selectedCount = historyState.selectedIds.size,
-                    hasVisibleItems = historyState.filteredItems.isNotEmpty(),
-                    onSelectAll = onSelectAll,
-                    onClearSelection = onClearSelection,
-                    onPinSelected = { onPinSelected(true) },
-                    onDeleteSelected = { showDeleteSelectedConfirm = true }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (!historyState.bulkMode && historyState.filteredItems.isNotEmpty()) {
-                val latest = historyState.filteredItems.first()
-                DrawerContinueCard(
-                    title = "继续最近记录",
-                    subtitle = latest.displayTitle,
-                    onClick = { onOpenHistoryRecord(latest.id) }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            Text("最近记录", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(280.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (historyState.filteredItems.isEmpty()) {
-                    item {
-                        Text(
-                            text = if (historyState.searchQuery.isBlank()) "还没有会话记录。" else "没有找到匹配记录。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    items(historyState.filteredItems, key = { it.id }) { item ->
-                        DrawerHistoryRow(
-                            item = item,
-                            isBulkMode = historyState.bulkMode,
-                            isSelected = historyState.selectedIds.contains(item.id),
-                            onClick = {
-                                if (historyState.bulkMode) onToggleSelection(item.id)
-                                else onOpenHistoryRecord(item.id)
-                            },
-                            onLongClick = {
-                                if (!historyState.bulkMode) activeItem = item
-                            },
-                            onCheckedChange = { onToggleSelection(item.id) }
-                        )
-                    }
+                item {
+                    BulkActionBar(
+                        selectedCount = historyState.selectedIds.size,
+                        hasVisibleItems = historyState.filteredItems.isNotEmpty(),
+                        onSelectAll = onSelectAll,
+                        onClearSelection = onClearSelection,
+                        onPinSelected = { onPinSelected(true) },
+                        onDeleteSelected = { showDeleteSelectedConfirm = true }
+                    )
                 }
             }
 
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(10.dp))
+            if (!historyState.bulkMode && historyState.filteredItems.isNotEmpty()) {
+                val latest = historyState.filteredItems.first()
+                item {
+                    DrawerContinueCard(
+                        title = "继续最近记录",
+                        subtitle = latest.displayTitle,
+                        onClick = { onOpenHistoryRecord(latest.id) }
+                    )
+                }
+            }
 
-            BottomStatusBar(
-                storageSummary = historyState.storageSummary,
-                syncSummary = historyState.syncSummary,
-                onOpenSettings = onOpenSettings,
-                onOpenHistoryOverview = onOpenJdList,
-                onClearAll = { showClearAllConfirm = true }
-            )
+            item {
+                Text("最近记录", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            }
+
+            if (historyState.filteredItems.isEmpty()) {
+                item {
+                    Text(
+                        text = if (historyState.searchQuery.isBlank()) "还没有会话记录。" else "没有找到匹配记录。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                items(historyState.filteredItems, key = { it.id }) { item ->
+                    DrawerHistoryRow(
+                        item = item,
+                        isBulkMode = historyState.bulkMode,
+                        isSelected = historyState.selectedIds.contains(item.id),
+                        onClick = {
+                            if (historyState.bulkMode) onToggleSelection(item.id)
+                            else onOpenHistoryRecord(item.id)
+                        },
+                        onLongClick = {
+                            if (!historyState.bulkMode) activeItem = item
+                        },
+                        onCheckedChange = { onToggleSelection(item.id) }
+                    )
+                }
+            }
+
+            item {
+                HorizontalDivider()
+            }
+
+            item {
+                BottomStatusBar(
+                    storageSummary = historyState.storageSummary,
+                    syncSummary = historyState.syncSummary,
+                    onOpenSettings = onOpenSettings,
+                    onOpenHistoryOverview = onOpenJdList,
+                    onClearAll = { showClearAllConfirm = true }
+                )
+            }
         }
     }
 }

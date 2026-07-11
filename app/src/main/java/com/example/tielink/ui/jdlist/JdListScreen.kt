@@ -305,7 +305,9 @@ fun JdListScreen(
                                     onNavigateToTracking(jd.companyName, jd.positionName)
                                 },
                                 onGoGreeting = {
-                                    onNavigateToGreeting(jd.rawText, jd.companyName)
+                                    viewModel.selectJdForAgent(jd.id) {
+                                        onNavigateToGreeting(jd.rawText, jd.companyName)
+                                    }
                                 }
                             )
                         }

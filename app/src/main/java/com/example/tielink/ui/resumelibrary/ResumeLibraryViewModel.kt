@@ -12,6 +12,7 @@ import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.ResumeLibraryItem
 import com.example.tielink.domain.model.ResumeVersion
+import com.example.tielink.util.FileParser
 import com.example.tielink.util.OriginalResumeFileStore
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -145,39 +146,64 @@ class ResumeLibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isUploading = true, error = null) }
 
-            val result = withContext(Dispatchers.IO) {
+            val storedFile = withContext(Dispatchers.IO) {
                 OriginalResumeFileStore.copyFromUri(
                     context,
                     uri,
                     fileName ?: "我的简历"
                 )
+            }.getOrElse { error ->
+                _uiState.update {
+                    it.copy(
+                        isUploading = false,
+                        error = "上传失败: ${error.message}"
+                    )
+                }
+                return@launch
             }
 
-            result.fold(
-                onSuccess = { storedFile ->
-                    val versionId = resumeVersionRepository.insertAndActivate(
-                        ResumeVersion(
-                            name = fileName?.substringBeforeLast(".").orEmpty()
-                                .ifBlank { "我的简历" },
-                            rawText = "",
-                            originalFilePath = storedFile.absolutePath,
-                            originalMimeType = mimeType.orEmpty(),
-                            isPolished = false
-                        )
+            val extractedText = withContext(Dispatchers.IO) {
+                FileParser.extractTextFromFile(
+                    context = context,
+                    filePath = storedFile.absolutePath,
+                    mimeType = mimeType
+                )
+            }.getOrElse { error ->
+                storedFile.delete()
+                _uiState.update {
+                    it.copy(
+                        isUploading = false,
+                        error = "简历内容提取失败: ${error.message}"
                     )
-                    refreshItems()
-                    _uiState.update { it.copy(isUploading = false) }
-                    onUploaded(versionId)
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isUploading = false,
-                            error = "上传失败: ${error.message}"
-                        )
-                    }
                 }
+                return@launch
+            }.trim()
+
+            if (extractedText.isBlank()) {
+                storedFile.delete()
+                _uiState.update {
+                    it.copy(
+                        isUploading = false,
+                        error = "没有从简历中提取到可用内容，请检查文件是否清晰"
+                    )
+                }
+                return@launch
+            }
+
+            val versionId = resumeVersionRepository.insertAndActivate(
+                ResumeVersion(
+                    name = fileName?.substringBeforeLast(".").orEmpty()
+                        .ifBlank { "我的简历" },
+                    rawText = extractedText,
+                    cleanedText = extractedText,
+                    originalFilePath = storedFile.absolutePath,
+                    originalMimeType = mimeType.orEmpty(),
+                    isPolished = false
+                )
             )
+            refreshItems()
+            _uiState.update { it.copy(isUploading = false) }
+            onUploaded(versionId)
         }
     }
 

@@ -20,6 +20,8 @@ import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentOutput
 import com.example.tielink.domain.model.IntentType
 import com.example.tielink.domain.model.GreetingVersion
+import com.example.tielink.domain.model.ResumeData
+import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.nlp.IntentClassifier
@@ -504,6 +506,10 @@ class AgentUseCase @Inject constructor(
         resume?.let {
             sb.append("\n\n【当前简历】${it.name}")
             agentContextRepository.updateAgentContext(currentResumeVersionId = it.id)
+            buildResumeSnapshot(it)?.let { snapshot ->
+                sb.append("\n")
+                sb.append(snapshot)
+            }
         }
 
         // 文件 I/O 必须在 IO 线程上执行（调用方已 withContext(IO)，这里直接调用即可）
@@ -520,6 +526,51 @@ class AgentUseCase @Inject constructor(
             ?.let { sb.append("\n\n【用户面试记忆】\n${it.take(500)}") }
 
         return sb.toString()
+    }
+
+    private fun buildResumeSnapshot(resume: ResumeVersion): String? {
+        val resumeText = resume.rawText.ifBlank { resume.cleanedText }.trim()
+        if (resumeText.isBlank()) return null
+
+        val parsed = ResumeData.fromPolishedText(resumeText)
+        val summaryLines = buildList {
+            parsed.name.takeIf { it.isNotBlank() }?.let { add("姓名：$it") }
+            parsed.targetPosition.takeIf { it.isNotBlank() }?.let { add("目标岗位：$it") }
+            parsed.summary.takeIf { it.isNotBlank() }?.let { add("摘要：${it.take(120)}") }
+            parsed.skills
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(12)
+                .takeIf { it.isNotEmpty() }
+                ?.let { add("技能：${it.joinToString("、")}") }
+            parsed.experiences
+                .take(2)
+                .mapNotNull { exp ->
+                    val company = exp.company.ifBlank { null } ?: return@mapNotNull null
+                    listOf(exp.title, company, exp.period)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" | ")
+                }
+                .takeIf { it.isNotEmpty() }
+                ?.let { add("经历：${it.joinToString("；")}") }
+        }
+
+        val excerpt = resumeText
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .take(12)
+            .joinToString("\n")
+            .take(1600)
+
+        return buildString {
+            if (summaryLines.isNotEmpty()) {
+                appendLine("【当前简历信息】")
+                appendLine(summaryLines.joinToString("\n"))
+            }
+            appendLine("【当前简历原文摘录】")
+            append(excerpt)
+        }.trim()
     }
 
     /**
@@ -593,8 +644,18 @@ class AgentUseCase @Inject constructor(
         val asksResumeEdit = text.containsAny("优化简历", "润色简历", "改简历", "修改简历", "简历优化", "量化", "star")
         val asksResumePreview = text.containsAny("预览简历", "简历预览", "看看简历", "显示简历")
         val asksInterview = text.containsAny("模拟面试", "练面试", "面试题", "面试练习", "准备面试", "问我")
+        val asksBossOpportunity = text.containsAny(
+            "boss机会", "boss 岗位", "boss岗位", "boss分析", "boss 机会",
+            "机会池", "岗位池", "哪些岗位值得投", "优先投", "投哪个", "投哪些",
+            "岗位推荐", "分析师助理", "机会分析"
+        )
         val asksTracking = text.containsAny("投递", "申请状态", "投递记录", "投递进度", "跟进", "看板")
-        val asksGreeting = text.containsAny("打招呼", "话术", "boss", "开场白", "私信", "怎么聊")
+        val asksCreateApplication = text.containsAny(
+            "加入投递", "创建投递", "新建投递", "记录投递", "添加投递",
+            "加入投递记录", "放进投递", "记到投递", "记录这个岗位"
+        )
+        val asksGreeting = text.containsAny("打招呼", "话术", "开场白", "私信", "怎么聊") ||
+            (text.contains("boss") && text.containsAny("招呼", "话术", "开场", "私信", "沟通"))
         val isFollowUpToCard = conversationHistory.takeLast(4).any { it.card != null } &&
             text.containsAny("继续", "展开", "换一个", "再来", "详细", "采用", "撤回")
 
@@ -605,7 +666,9 @@ class AgentUseCase @Inject constructor(
             if (asksResumeEdit) allowed += "optimize_resume"
             if (asksResumePreview) allowed += "show_resume_preview"
             if (asksInterview && hasActiveInterview) allowed += "get_interview_turn"
-            if (asksTracking) allowed += "get_latest_application"
+            if (asksBossOpportunity) allowed += "analyze_boss_opportunities"
+            if (asksCreateApplication) allowed += "create_application_from_current_jd"
+            if (asksTracking && !asksCreateApplication) allowed += "get_latest_application"
             if (asksGreeting) allowed += "generate_greeting"
         }
 
@@ -627,7 +690,7 @@ class AgentUseCase @Inject constructor(
         val reason = when {
             allowed.isEmpty() -> "当前更适合文本回答，避免弹出无关卡片。"
             asksVisual -> "用户明确要求可视化或操作面板。"
-            asksMatch || asksResumeEdit || asksJd || asksInterview || asksTracking || asksGreeting ->
+            asksMatch || asksResumeEdit || asksJd || asksInterview || asksBossOpportunity || asksTracking || asksGreeting ->
                 "用户请求命中具体求职任务。"
             isFollowUpToCard -> "用户在延续上一张卡片。"
             else -> "用户需要规划型回答。"

@@ -58,7 +58,7 @@ class AgentViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val appPreferences: AppPreferences,
-    @ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     companion object {
@@ -145,7 +145,9 @@ class AgentViewModel @Inject constructor(
             "optimize_resume", "show_resume_preview", "resume_tool" -> "当前简历"
             "get_interview_turn", "interview_tool" -> "模拟面试会话"
             "get_latest_application", "tracking_tool" -> "投递记录"
+            "create_application_from_current_jd" -> "当前 JD + 投递记录"
             "generate_greeting", "platform_tool" -> "JD + 简历"
+            "analyze_boss_opportunities" -> "BOSS 岗位池 + 当前简历"
             "analyze_jd", "jd_tool" -> "JD 文本"
             "render_card" -> "动态卡片"
             else -> null
@@ -157,7 +159,9 @@ class AgentViewModel @Inject constructor(
             "show_resume_preview" -> listOf("当前简历", "预览")
             "get_interview_turn", "interview_tool" -> listOf("会话记录", "最近问答")
             "get_latest_application", "tracking_tool" -> listOf("投递记录", "最新状态")
+            "create_application_from_current_jd" -> listOf("当前 JD", "当前简历", "投递记录")
             "generate_greeting", "platform_tool" -> listOf("JD", "简历", "话术生成")
+            "analyze_boss_opportunities" -> listOf("JD 库", "BOSS 导入", "当前简历", "投递建议")
             "analyze_jd", "jd_tool" -> listOf("JD 文本", "结构化提取")
             "render_card" -> listOf("当前问题", "可视化结构")
             else -> emptyList()
@@ -651,17 +655,6 @@ class AgentViewModel @Inject constructor(
             } else {
                 null
             }
-            if (fromCardToolName == "resume_tool") {
-                _uiState.update { it.copy(isParsingFile = false) }
-                saveResumeAndAutoTrigger(
-                    text = "",
-                    fileName = fileName ?: "我的简历",
-                    toolName = fromCardToolName,
-                    originalFilePath = storedFile?.absolutePath.orEmpty(),
-                    originalMimeType = mimeType.orEmpty()
-                )
-                return@launch
-            }
             val result = withContext(Dispatchers.IO) { FileParser.extractText(context, uri, mimeType) }
             result.fold(
                 onSuccess = { text ->
@@ -702,12 +695,20 @@ class AgentViewModel @Inject constructor(
         originalMimeType: String
     ) {
         Log.d(TAG, "saveResumeAndAutoTrigger: fileName=$fileName, toolName=$toolName, textLen=${text.length}")
+        val normalizedText = text.trim()
+        if (normalizedText.isBlank()) {
+            _uiState.update {
+                it.copy(error = "没有从简历中提取到可用内容，请换一个清晰的 PDF、DOCX 或图片文件")
+            }
+            return
+        }
         val cleanName = fileName.substringBeforeLast(".").ifBlank { "我的简历" }
         try {
             val versionId = resumeVersionRepository.insertAndActivate(
                 ResumeVersion(
                     name = cleanName,
-                    rawText = text,
+                    rawText = normalizedText,
+                    cleanedText = normalizedText,
                     originalFilePath = originalFilePath,
                     originalMimeType = originalMimeType,
                     isPolished = false
@@ -730,7 +731,7 @@ class AgentViewModel @Inject constructor(
                     if (uploadCardIndex >= 0) {
                         messages[uploadCardIndex] = AgentMessage(
                             role = AgentMessageRole.AGENT,
-                            content = "原始文件已保存，未改动排版和内容。"
+                            content = "原始文件已保存，并已提取简历内容供后续分析使用。"
                         )
                     }
                     messages += AgentMessage(
@@ -743,7 +744,8 @@ class AgentViewModel @Inject constructor(
                         card = UiCard.ResumePreviewCard(
                             versionName = cleanName,
                             versionId = versionId,
-                            previewText = "原始文件已保留，可查看原文件或选择 AI 润色。"
+                            previewText = normalizedText.take(300),
+                            resumeData = ResumeData.fromPolishedText(normalizedText)
                         )
                     )
                     state.copy(
