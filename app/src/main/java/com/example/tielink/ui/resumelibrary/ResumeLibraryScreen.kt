@@ -226,7 +226,7 @@ fun ResumeLibraryScreen(
                         if (selectionMode) {
                             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                                 Text(
-                                    text = "请选择一份简历，随后系统会自动继续优化",
+                                    text = "请选择一份简历，返回后会作为当前简历使用",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

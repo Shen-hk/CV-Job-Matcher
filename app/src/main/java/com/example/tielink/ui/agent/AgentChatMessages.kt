@@ -76,6 +76,10 @@ import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
 import com.example.tielink.domain.model.ContextBarState
 import com.example.tielink.domain.model.DynamicCardAction
+import com.example.tielink.ui.theme.ActionBlue
+import com.example.tielink.ui.theme.AppRadius
+import com.example.tielink.ui.theme.AppSpacing
+import com.example.tielink.ui.theme.FocusCyan
 import com.example.tielink.ui.theme.TieLinkTheme
 
 @Composable
@@ -96,30 +100,36 @@ fun WelcomePage(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp)
+            .padding(horizontal = AppSpacing.page)
     ) {
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(AppSpacing.sm))
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
-            color = Color.Transparent
+            shape = RoundedCornerShape(AppRadius.xl),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
                         Brush.linearGradient(
-                            listOf(Color(0xFF0B1220), Color(0xFF1D4ED8), Color(0xFF2563EB))
+                            listOf(
+                                MaterialTheme.colorScheme.surface,
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f),
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.42f)
+                            )
                         )
                     )
-                    .padding(20.dp)
+                    .padding(AppSpacing.lg)
             ) {
                 Column(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
-                            shape = RoundedCornerShape(50),
-                            color = Color.White.copy(alpha = 0.12f)
+                            shape = RoundedCornerShape(AppRadius.pill),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.66f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Row(
                                 Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -129,14 +139,14 @@ fun WelcomePage(
                                     Icons.Default.AutoAwesome,
                                     null,
                                     Modifier.size(14.dp),
-                                    tint = Color(0xFFBFDBFE)
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     "CAREER AGENT",
-                                    color = Color(0xFFDBEAFE),
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     letterSpacing = 0.sp
                                 )
                             }
@@ -144,23 +154,27 @@ fun WelcomePage(
                         Spacer(Modifier.weight(1f))
                         Text(
                             "$readyCount / 2 已就绪",
-                            color = Color.White.copy(alpha = 0.72f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
                     Spacer(Modifier.height(18.dp))
                     Text(
-                        "把岗位变成\n你的下一次机会",
-                        color = Color.White,
+                        if (readyCount == 0) "今天想推进哪一步？" else "我已经准备好继续推进",
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 28.sp,
                         lineHeight = 34.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.sp
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "岗位理解、简历重塑、投递节奏，由一个 Agent 串成完整闭环。",
-                        color = Color.White.copy(alpha = 0.74f),
+                        if (readyCount == 0) {
+                            "选择目标岗位或上传简历后，我会把下一步拆成可执行的建议。"
+                        } else {
+                            "我会结合岗位、简历版本和投递节奏，给出更具体的下一步。"
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                         lineHeight = 20.sp
                     )
@@ -195,40 +209,41 @@ fun WelcomePage(
         }
 
         Spacer(Modifier.height(14.dp))
-        Text(
-            "开始一条工作流",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            shape = RoundedCornerShape(AppRadius.lg),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            WorkspaceAction(
-                modifier = Modifier.weight(1f),
-                title = "岗位雷达",
-                caption = "导入 JD",
-                icon = Icons.Default.Radar,
-                color = MaterialTheme.colorScheme.primary,
-                onClick = onOpenJd
-            )
-            WorkspaceAction(
-                modifier = Modifier.weight(1f),
-                title = "简历重塑",
-                caption = "上传原件",
-                icon = Icons.Default.UploadFile,
-                color = Color(0xFF1D4ED8),
-                onClick = onUploadResume
-            )
-            WorkspaceAction(
-                modifier = Modifier.weight(1f),
-                title = "投递节奏",
-                caption = "查看看板",
-                icon = Icons.Default.CheckCircle,
-                color = Color(0xFF0B1220),
-                onClick = onOpenTracking
-            )
+            Column(Modifier.padding(AppSpacing.md)) {
+                Text(
+                    "Agent 建议下一步",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(AppSpacing.xs))
+                WorkbenchCommandRow(
+                    title = if (hasJd) "基于当前 JD 分析匹配度" else "先导入一个目标岗位",
+                    subtitle = if (hasJd) "拆出关键词、经验要求和简历差距" else "让 Agent 建立岗位上下文",
+                    icon = Icons.Default.Radar,
+                    color = ActionBlue,
+                    onClick = onOpenJd
+                )
+                WorkbenchCommandRow(
+                    title = if (hasResume) "继续优化当前简历" else "上传或选择一份简历",
+                    subtitle = if (hasResume) "把建议写成可采用的修改清单" else "保留原文件，后续再做结构化润色",
+                    icon = Icons.Default.UploadFile,
+                    color = FocusCyan,
+                    onClick = if (hasResume) onOpenResume else onUploadResume
+                )
+                WorkbenchCommandRow(
+                    title = "查看投递节奏",
+                    subtitle = "把机会状态、面试节点和下一步动作放到一处",
+                    icon = Icons.Default.CheckCircle,
+                    color = MaterialTheme.colorScheme.secondary,
+                    onClick = onOpenTracking
+                )
+            }
         }
 
         Spacer(Modifier.height(18.dp))
@@ -239,14 +254,14 @@ fun WelcomePage(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "让 Agent 接着做",
+                    text = "可直接发送给 Agent",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 prompts.take(3).forEach { prompt ->
                     Surface(
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(AppRadius.md),
                         color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(
                             1.dp,
@@ -294,7 +309,7 @@ private fun WorkspaceContextCard(
 ) {
     Surface(
         modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(AppRadius.lg),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
@@ -336,6 +351,58 @@ private fun WorkspaceContextCard(
 }
 
 @Composable
+private fun WorkbenchCommandRow(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(AppRadius.md))
+            .clickable(onClick = onClick)
+            .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(AppRadius.sm))
+                .background(color.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, Modifier.size(17.dp), tint = color)
+        }
+        Spacer(Modifier.width(AppSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Icon(
+            Icons.Default.NorthEast,
+            null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun WorkspaceAction(
     modifier: Modifier,
     title: String,
@@ -346,14 +413,15 @@ private fun WorkspaceAction(
 ) {
     Surface(
         modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = color.copy(alpha = 0.08f)
+        shape = RoundedCornerShape(AppRadius.md),
+        color = color.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.10f))
     ) {
         Column(Modifier.padding(12.dp)) {
             Box(
                 Modifier
                     .size(32.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(AppRadius.sm))
                     .background(color),
                 contentAlignment = Alignment.Center
             ) {
@@ -418,19 +486,19 @@ fun AgentBubble(
 
         if (message.content.isNotBlank() || message.isStreaming || inlineProcessState?.isActive == true) {
             Surface(
-                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
+                shape = RoundedCornerShape(topStart = AppRadius.sm, topEnd = AppRadius.lg, bottomStart = AppRadius.lg, bottomEnd = AppRadius.lg),
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                tonalElevation = 1.dp,
+                tonalElevation = 0.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(modifier = Modifier.padding(12.dp)) {
+                Row(modifier = Modifier.padding(AppSpacing.sm)) {
                     Box(
                         modifier = Modifier
-                            .width(3.dp)
+                            .width(2.dp)
                             .heightIn(min = 24.dp)
-                            .clip(RoundedCornerShape(99.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                            .clip(RoundedCornerShape(AppRadius.pill))
+                            .background(ActionBlue.copy(alpha = 0.72f))
                     )
                     Spacer(Modifier.width(10.dp))
                     Column {
@@ -553,14 +621,14 @@ fun UserBubble(message: AgentMessage) {
     ) {
         Surface(
             modifier = Modifier.widthIn(max = 300.dp),
-            shape = RoundedCornerShape(topStart = 18.dp, topEnd = 6.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
+            shape = RoundedCornerShape(topStart = AppRadius.lg, topEnd = AppRadius.sm, bottomStart = AppRadius.lg, bottomEnd = AppRadius.lg),
             color = Color.Transparent
         ) {
             Box(
                 modifier = Modifier.background(
                     Brush.linearGradient(
                         listOf(
-                            Color(0xFF1D4ED8),
+                            MaterialTheme.colorScheme.primary,
                             MaterialTheme.colorScheme.primary
                         )
                     )
@@ -588,7 +656,7 @@ fun ToolLoadingBubble(message: AgentMessage) {
             shape = RoundedCornerShape(topStart = 8.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 1.dp
+            tonalElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),

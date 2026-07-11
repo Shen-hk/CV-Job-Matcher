@@ -28,12 +28,12 @@ data class TrackingUiState(
 
 val STATUS_OPTIONS = listOf("已投", "简历过筛", "待面试", "已面试", "已offer", "已拒")
 val STATUS_COLORS = mapOf(
-    "已投" to 0xFF475569,
-    "简历过筛" to 0xFF2563EB,
-    "待面试" to 0xFFF59E0B,
-    "已面试" to 0xFF1D4ED8,
-    "已offer" to 0xFF0B1220,
-    "已拒" to 0xFFDC2626
+    "已投" to 0xFF627080,
+    "简历过筛" to 0xFF52657A,
+    "待面试" to 0xFFB8874B,
+    "已面试" to 0xFF7D9A8D,
+    "已offer" to 0xFF2E3844,
+    "已拒" to 0xFFB56D6A
 )
 
 @HiltViewModel

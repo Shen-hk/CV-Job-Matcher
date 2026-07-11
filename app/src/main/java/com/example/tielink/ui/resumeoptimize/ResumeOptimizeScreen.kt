@@ -74,6 +74,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.domain.model.SkillImportance
 import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.theme.AppRadius
 import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -219,8 +220,10 @@ fun ResumeOptimizeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onNavigateToJdInput),
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                shape = RoundedCornerShape(AppRadius.md),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -274,7 +277,9 @@ fun ResumeOptimizeScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(AppRadius.md),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(Modifier.padding(14.dp)) {
                         Text(
@@ -414,8 +419,10 @@ fun ResumeOptimizeScreen(
                 Text("AI 润色结果", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    shape = RoundedCornerShape(AppRadius.md),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Text(state.polishedText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(12.dp))
                 }
@@ -481,8 +488,10 @@ fun ResumeOptimizeScreen(
 @Composable
 private fun MatchScoreCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimizeViewModel) {
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        shape = RoundedCornerShape(AppRadius.md),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -495,7 +504,7 @@ private fun MatchScoreCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimi
                         strokeWidth = 5.dp,
                         color = when {
                             state.matchScore >= 80 -> MaterialTheme.colorScheme.primary
-                            state.matchScore >= 50 -> Color(0xFFF59E0B)
+                    state.matchScore >= 50 -> Color(0xFFB8874B)
                             else -> MaterialTheme.colorScheme.error
                         }
                     )
@@ -534,7 +543,7 @@ private fun MatchScoreCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimi
 private fun ScoreBar(label: String, score: Float) {
     val color = when {
         score >= 0.8f -> MaterialTheme.colorScheme.primary
-        score >= 0.5f -> Color(0xFFF59E0B)
+        score >= 0.5f -> Color(0xFFB8874B)
         else -> MaterialTheme.colorScheme.error
     }
     Row(
@@ -602,8 +611,10 @@ private fun ResumeOptimizeScreenPreview() {
 @Composable
 private fun SkillGapCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimizeViewModel) {
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        shape = RoundedCornerShape(AppRadius.md),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -629,10 +640,10 @@ private fun SkillGapCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimize
                 Spacer(Modifier.height(6.dp))
             }
             if (preferred.isNotEmpty()) {
-                Text("优先考虑", style = MaterialTheme.typography.labelSmall, color = Color(0xFFF59E0B), fontWeight = FontWeight.SemiBold)
+                Text("优先考虑", style = MaterialTheme.typography.labelSmall, color = Color(0xFFB8874B), fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    preferred.forEach { gap -> SkillGapChip(gap, viewModel, chipColor = Color(0xFFFEF3C7)) }
+                    preferred.forEach { gap -> SkillGapChip(gap, viewModel, chipColor = Color(0xFFF3E8D5)) }
                 }
                 Spacer(Modifier.height(6.dp))
             }
@@ -664,8 +675,10 @@ private fun SkillGapChip(gap: com.example.tielink.domain.model.SkillGap, viewMod
 @Composable
 private fun QuantifySuggestionsCard(state: ResumeOptimizeUiState, viewModel: ResumeOptimizeViewModel) {
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        shape = RoundedCornerShape(AppRadius.md),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -681,7 +694,7 @@ private fun QuantifySuggestionsCard(state: ResumeOptimizeUiState, viewModel: Res
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(AppRadius.sm)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         Text(
@@ -726,7 +739,7 @@ private fun StarInputDialog(
 ) {
     var text by remember { mutableStateOf(initialText) }
     Dialog(onDismissRequest = onDismiss) {
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = RoundedCornerShape(AppRadius.lg)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("STAR 格式化", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
@@ -759,7 +772,7 @@ private fun StarResultDialog(
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = RoundedCornerShape(AppRadius.lg)) {
             Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("STAR 格式化结果", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -803,7 +816,7 @@ private fun SaveVersionCard(
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
-    Card(shape = RoundedCornerShape(12.dp)) {
+    Card(shape = RoundedCornerShape(AppRadius.md)) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text("保存为新版本", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
@@ -844,7 +857,7 @@ private fun VersionCompareDialog(
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = RoundedCornerShape(AppRadius.lg)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("版本对比", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -860,7 +873,7 @@ private fun VersionCompareDialog(
                 ) {
                     Column(
                         modifier = Modifier.weight(1f).fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(AppRadius.sm))
                             .padding(8.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
@@ -871,7 +884,7 @@ private fun VersionCompareDialog(
                     VerticalDivider()
                     Column(
                         modifier = Modifier.weight(1f).fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(AppRadius.sm))
                             .padding(8.dp)
                             .verticalScroll(rememberScrollState())
                     ) {

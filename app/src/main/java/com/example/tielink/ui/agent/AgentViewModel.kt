@@ -197,10 +197,9 @@ class AgentViewModel @Inject constructor(
         viewModelScope.launch {
             appPreferences.getResumeOptimizeContinueFlow().collect { shouldContinue ->
                 if (!shouldContinue) return@collect
+                appPreferences.clearResumeOptimizeContinue()
                 if (!_uiState.value.isLoading) {
                     sendPrompt("帮我优化简历")
-                } else {
-                    updateInputText("帮我优化简历")
                 }
             }
         }

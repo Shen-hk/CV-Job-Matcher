@@ -66,6 +66,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.data.repository.TimelineEvent
 import com.example.tielink.data.repository.TrackingItem
 import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.theme.AppRadius
+import com.example.tielink.ui.theme.AppSpacing
 import com.example.tielink.ui.theme.TieLinkTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -140,10 +142,12 @@ fun TrackingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onNavigateToJdInput),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(AppRadius.md),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Text(
                     text = jdState.displayLabel,
@@ -343,42 +347,48 @@ private fun TrackingOverviewCard(items: List<TrackingItem>) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        shape = RoundedCornerShape(AppRadius.lg),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF0B1220), Color(0xFF1D4ED8), Color(0xFF2563EB))
+                        listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.44f),
+                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.34f)
+                        )
                     )
                 )
-                .padding(16.dp)
+                .padding(AppSpacing.md)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         "APPLICATION PULSE",
-                        color = Color(0xFFBFDBFE),
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 10.sp,
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.sp
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         if (items.isEmpty()) "从第一份投递开始" else "$activeCount 个机会正在推进",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
                 Icon(
                     Icons.Default.QueryStats,
                     null,
                     Modifier.size(34.dp),
-                    tint = Color.White.copy(alpha = 0.72f)
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
                 )
             }
 
@@ -387,13 +397,13 @@ private fun TrackingOverviewCard(items: List<TrackingItem>) {
                 Modifier
                     .fillMaxWidth()
                     .height(7.dp)
-                    .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(50))
             ) {
                 Box(
                     Modifier
                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                         .height(7.dp)
-                        .background(Color(0xFF93C5FD), RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
                 )
             }
             Spacer(Modifier.height(14.dp))
@@ -428,18 +438,19 @@ private fun TrackingMetric(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = Color.White.copy(alpha = 0.10f)
+        shape = RoundedCornerShape(AppRadius.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
     ) {
         Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(value, color = Color.White, fontWeight = FontWeight.ExtraBold)
+                Text(value, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                 if (icon != null) {
                     Spacer(Modifier.width(4.dp))
-                    Icon(icon, null, Modifier.size(14.dp), tint = Color(0xFFFBBF24))
+                    Icon(icon, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
-            Text(label, color = Color.White.copy(alpha = 0.62f), style = MaterialTheme.typography.labelSmall)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -637,9 +648,10 @@ private fun TrackingItemCard(
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(AppRadius.md),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier

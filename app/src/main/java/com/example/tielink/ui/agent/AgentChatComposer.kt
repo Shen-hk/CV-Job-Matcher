@@ -2,6 +2,7 @@ package com.example.tielink.ui.agent
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,9 +22,10 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,12 +39,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.tielink.ui.theme.AppRadius
+import com.example.tielink.ui.theme.AppSpacing
+import com.example.tielink.ui.theme.ActionBlue
+import com.example.tielink.ui.theme.EnergyIndigo
+import com.example.tielink.ui.theme.FocusCyan
 import com.example.tielink.ui.theme.TieLinkTheme
 
 @Composable
@@ -53,26 +60,46 @@ fun QuickActionsBar(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)
     ) {
-        val chipColor = AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        CommandChip(
+            text = "优化这份简历",
+            icon = Icons.Outlined.Description,
+            onClick = onResumeOptimize
         )
-        AssistChip(
-            onClick = onResumeOptimize,
-            label = { Text("简历优化") },
-            leadingIcon = { Icon(Icons.Outlined.Description, null, modifier = Modifier.size(14.dp)) },
-            shape = RoundedCornerShape(16.dp),
-            colors = chipColor
+        CommandChip(
+            text = "查看投递节奏",
+            icon = Icons.Default.Checklist,
+            onClick = onTracking
         )
-        AssistChip(
-            onClick = onTracking,
-            label = { Text("投递追踪") },
-            leadingIcon = { Icon(Icons.Default.Checklist, null, modifier = Modifier.size(14.dp)) },
-            shape = RoundedCornerShape(16.dp),
-            colors = chipColor
+    }
+}
+
+@Composable
+private fun CommandChip(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(AppRadius.pill),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
         )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Icon(icon, null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+            Icon(Icons.Default.NorthEast, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -83,16 +110,24 @@ fun AttachmentBar(
     onClear: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 1.dp
+        color = Color.Transparent,
+        tonalElevation = 0.dp
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .padding(horizontal = AppSpacing.md, vertical = 2.dp)
         ) {
             if (isParsing) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(AppRadius.pill),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                     Text(
@@ -100,18 +135,17 @@ fun AttachmentBar(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    }
                 }
             } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                Surface(
+                    shape = RoundedCornerShape(AppRadius.pill),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 5.dp, bottom = 5.dp)
                     ) {
                         Icon(
                             Icons.Default.AttachFile,
@@ -119,18 +153,18 @@ fun AttachmentBar(
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            fileName ?: "文件已附加",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        IconButton(onClick = onClear, modifier = Modifier.size(26.dp)) {
+                            Icon(Icons.Default.Close, "移除附件", modifier = Modifier.size(13.dp))
+                        }
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        fileName ?: "文件已附加",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                IconButton(onClick = onClear, modifier = Modifier.size(28.dp).align(Alignment.CenterEnd)) {
-                    Icon(Icons.Default.Close, "移除附件", modifier = Modifier.size(14.dp))
                 }
             }
         }
@@ -149,45 +183,46 @@ fun InputArea(
 ) {
     val gradientColors = remember {
         listOf(
-            Color(0xFF0B1220),
-            Color(0xFF1D4ED8),
-            Color(0xFF2563EB),
-            Color(0xFF93C5FD)
+            FocusCyan.copy(alpha = 0.72f),
+            ActionBlue.copy(alpha = 0.86f),
+            EnergyIndigo.copy(alpha = 0.70f),
+            FocusCyan.copy(alpha = 0.48f)
         )
     }
-    val inputShape = remember { RoundedCornerShape(28.dp) }
+    val inputShape = remember { RoundedCornerShape(AppRadius.xl) }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
-            .padding(bottom = 16.dp)
+            .padding(bottom = AppSpacing.md)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-                .shadow(elevation = 8.dp, shape = inputShape)
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
                 .border(
-                    width = 2.dp,
+                    width = 1.dp,
                     brush = Brush.horizontalGradient(gradientColors),
                     shape = inputShape
                 )
                 .clip(inputShape)
-                .background(MaterialTheme.colorScheme.surface)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
         ) {
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChange,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 58.dp),
                 placeholder = {
                     Text(
-                        if (hasAttachment) "可选补充说明..." else "想聊点什么？",
+                        if (hasAttachment) "补充一点背景，Agent 会一起参考" else "把目标、简历或困惑交给 Agent",
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 },
                 maxLines = 4,
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(AppRadius.xl),
                 leadingIcon = {
                     IconButton(
                         onClick = onAttach,
@@ -207,20 +242,21 @@ fun InputArea(
                     }
                 },
                 trailingIcon = {
-                    IconButton(
+                    FilledIconButton(
                         onClick = if (isStreaming) onCancel else onSend,
                         enabled = isStreaming || text.isNotBlank() || hasAttachment,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(38.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = ActionBlue,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.34f)
+                        )
                     ) {
                         Icon(
                             imageVector = if (isStreaming) Icons.Default.Close else Icons.AutoMirrored.Filled.Send,
                             contentDescription = if (isStreaming) "停止" else "发送",
                             modifier = Modifier.size(20.dp),
-                            tint = if (isStreaming || text.isNotBlank() || hasAttachment) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            }
                         )
                     }
                 },

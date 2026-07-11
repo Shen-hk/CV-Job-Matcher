@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -44,6 +45,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.domain.model.HistoryItem
 import com.example.tielink.domain.model.displayTitle
 import com.example.tielink.domain.model.isAgentChat
+import com.example.tielink.ui.components.AppStatusPill
+import com.example.tielink.ui.theme.AppRadius
+import com.example.tielink.ui.theme.AppSpacing
 import com.example.tielink.ui.theme.TieLinkTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -139,7 +143,8 @@ fun HistoryScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = AppSpacing.page),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.xs)
                 ) {
                     items(state.items, key = { it.id }) { item ->
                         HistoryItemCard(
@@ -166,12 +171,14 @@ private fun HistoryItemCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
             .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(AppRadius.md),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(AppSpacing.sm),
             verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -188,12 +195,8 @@ private fun HistoryItemCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (item.isAgentChat) {
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = "聊天会话",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AppStatusPill(text = "聊天会话", color = MaterialTheme.colorScheme.primary)
                 }
                 if (item.jdSkills.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))

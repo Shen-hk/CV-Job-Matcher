@@ -1,5 +1,6 @@
 package com.example.tielink.ui.agent
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -70,6 +71,8 @@ import com.example.tielink.domain.model.displayTitle
 import com.example.tielink.domain.model.previewText
 import com.example.tielink.ui.history.HistoryDateFilter
 import com.example.tielink.ui.history.HistoryUiState
+import com.example.tielink.ui.theme.AppRadius
+import com.example.tielink.ui.theme.AppSpacing
 import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -204,11 +207,13 @@ fun AgentDrawerContent(
         }
     }
 
-    ModalDrawerSheet {
+    ModalDrawerSheet(
+        drawerContainerColor = MaterialTheme.colorScheme.background
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
         ) {
             DrawerAccountCard(
                 modelSummary = historyState.modelSummary,
@@ -245,7 +250,7 @@ fun AgentDrawerContent(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            Text("快捷入口", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("工作区", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
             DrawerQuickActionGrid(
                 onOpenResumeOptimize = onOpenResumeOptimize,
@@ -294,7 +299,7 @@ fun AgentDrawerContent(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            Text("历史记录", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("最近记录", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(
@@ -306,7 +311,7 @@ fun AgentDrawerContent(
                 if (historyState.filteredItems.isEmpty()) {
                     item {
                         Text(
-                            text = if (historyState.searchQuery.isBlank()) "还没有历史记录。" else "没有找到匹配记录。",
+                            text = if (historyState.searchQuery.isBlank()) "还没有会话记录。" else "没有找到匹配记录。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -354,11 +359,12 @@ fun DrawerAccountCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(AppSpacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterStart)) {
                 Box(
                     modifier = Modifier
@@ -371,7 +377,7 @@ fun DrawerAccountCard(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("TieLink 工作台", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("个人工作空间", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(modelSummary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(syncSummary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -395,11 +401,11 @@ fun DrawerQuickActionGrid(
     onOpenSettings: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        DrawerQuickActionCard("简历优化", "继续处理简历", Icons.Outlined.Description, onOpenResumeOptimize)
-        DrawerQuickActionCard("投递追踪", "管理流程进度", Icons.Default.Checklist, onOpenTracking)
-        DrawerQuickActionCard("JD 列表", "查看岗位资料", Icons.Default.Work, onOpenJdList)
-        DrawerQuickActionCard("简历库", "打开版本仓库", Icons.Outlined.Description, onOpenResumeLibrary)
-        DrawerQuickActionCard("模型配置", "切换当前模型", Icons.Default.Settings, onOpenSettings)
+        DrawerQuickActionCard("优化这份简历", "继续处理当前版本", Icons.Outlined.Description, onOpenResumeOptimize)
+        DrawerQuickActionCard("查看投递节奏", "管理机会和下一步", Icons.Default.Checklist, onOpenTracking)
+        DrawerQuickActionCard("目标岗位库", "查看已保存 JD", Icons.Default.Work, onOpenJdList)
+        DrawerQuickActionCard("简历版本库", "打开版本仓库", Icons.Outlined.Description, onOpenResumeLibrary)
+        DrawerQuickActionCard("模型与偏好", "切换当前模型", Icons.Default.Settings, onOpenSettings)
     }
 }
 
@@ -414,8 +420,9 @@ fun DrawerQuickActionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -425,7 +432,7 @@ fun DrawerQuickActionCard(
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(AppRadius.sm))
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -472,8 +479,9 @@ fun DrawerContinueCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
-        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f)),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -510,8 +518,9 @@ fun DrawerHistoryRow(
     }
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {

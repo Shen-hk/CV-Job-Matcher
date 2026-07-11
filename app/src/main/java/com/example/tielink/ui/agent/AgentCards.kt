@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -63,6 +64,8 @@ import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.model.DynamicCardItem
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.UiCard
+import com.example.tielink.ui.theme.ActionBlue
+import com.example.tielink.ui.theme.AppRadius
 
 /** Routes each UiCard variant to the right composable. */
 @Composable
@@ -99,32 +102,30 @@ fun UiCardComposable(
 fun MatchCardComposable(card: UiCard.MatchCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp)) {
-            // Header + overall score
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .background(scoreColor(card.overallScore).copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
+            ResultCardHeader(
+                label = "AI ANALYSIS",
+                title = "匹配度分析",
+                subtitle = scoreLabel(card.overallScore),
+                accent = scoreColor(card.overallScore)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(AppRadius.md),
+                    color = scoreColor(card.overallScore).copy(alpha = 0.10f),
+                    border = BorderStroke(1.dp, scoreColor(card.overallScore).copy(alpha = 0.18f))
                 ) {
                     Text(
                         text = "${card.overallScore}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = scoreColor(card.overallScore)
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = scoreColor(card.overallScore),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("匹配度分析", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text(scoreLabel(card.overallScore), style = MaterialTheme.typography.bodySmall,
-                        color = scoreColor(card.overallScore))
                 }
             }
 
@@ -197,16 +198,72 @@ private fun ScoreDimRow(label: String, score: Int) {
 
 @Composable
 private fun SkillPill(text: String, color: Color, textColor: Color) {
-    Surface(shape = RoundedCornerShape(8.dp), color = color) {
+    Surface(shape = RoundedCornerShape(AppRadius.sm), color = color) {
         Text(text, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
             style = MaterialTheme.typography.labelSmall, color = textColor)
     }
 }
 
 private fun scoreColor(score: Int): Color = when {
-    score >= 80 -> Color(0xFF2563EB)
-    score >= 60 -> Color(0xFFF59E0B)
-    else -> Color(0xFFDC2626)
+    score >= 80 -> ActionBlue
+    score >= 60 -> Color(0xFFB8874B)
+    else -> Color(0xFFB56D6A)
+}
+
+@Composable
+private fun ResultCardHeader(
+    label: String,
+    title: String,
+    subtitle: String?,
+    accent: Color = MaterialTheme.colorScheme.primary,
+    trailing: @Composable (() -> Unit)? = null
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                subtitle?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            trailing?.invoke()
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .clip(RoundedCornerShape(AppRadius.pill))
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            accent,
+                            accent.copy(alpha = 0.26f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+    }
 }
 
 private fun scoreLabel(score: Int): String = when {
@@ -221,18 +278,23 @@ private fun scoreLabel(score: Int): String = when {
 fun ResumeDiffCardComposable(card: UiCard.ResumeDiffCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("简历优化建议 · ${card.section}",
-                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            ResultCardHeader(
+                label = "RESUME REVISION",
+                title = "简历优化建议",
+                subtitle = card.section,
+                accent = MaterialTheme.colorScheme.primary
+            )
             Spacer(Modifier.height(10.dp))
 
             // Before
             Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(8.dp)) {
+                shape = RoundedCornerShape(AppRadius.sm)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp)) {
                     Text("原文", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error)
@@ -246,7 +308,7 @@ fun ResumeDiffCardComposable(card: UiCard.ResumeDiffCard, modifier: Modifier = M
 
             // After
             Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(8.dp)) {
+                shape = RoundedCornerShape(AppRadius.sm)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp)) {
                     Text("优化后", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary)
@@ -309,16 +371,17 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column {
             // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -386,9 +449,10 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
 fun EvalCardComposable(card: UiCard.EvalCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -433,9 +497,10 @@ fun EvalCardComposable(card: UiCard.EvalCard, modifier: Modifier = Modifier) {
 fun TrackingCardComposable(card: UiCard.TrackingCard, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -480,9 +545,10 @@ fun GreetingCardComposable(card: UiCard.GreetingCard, modifier: Modifier = Modif
     var expanded by remember { mutableStateOf(0) }
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text("求职信 · ${card.companyName} · ${card.position}",
@@ -508,7 +574,7 @@ private fun GreetingVersionItem(
 ) {
     val clipboard = LocalClipboardManager.current
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(10.dp)
     ) {
         Column(Modifier.fillMaxWidth()) {
@@ -555,11 +621,11 @@ fun InterviewTurnCardComposable(card: UiCard.InterviewTurnCard, modifier: Modifi
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(AppRadius.lg)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(8.dp),
+            Surface(shape = RoundedCornerShape(AppRadius.sm),
                     color = MaterialTheme.colorScheme.primary) {
                     Text("第 ${card.questionNumber} / ${card.totalQuestions} 题",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -580,7 +646,7 @@ fun InterviewTurnCardComposable(card: UiCard.InterviewTurnCard, modifier: Modifi
             if (card.feedback != null) {
                 Spacer(Modifier.height(10.dp))
                 Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(8.dp)) {
+                shape = RoundedCornerShape(AppRadius.sm)) {
                     Text(card.feedback,
                         modifier = Modifier.fillMaxWidth().padding(10.dp),
                         style = MaterialTheme.typography.bodySmall,
@@ -599,7 +665,7 @@ fun UploadPromptCardComposable(card: UiCard.UploadPromptCard, modifier: Modifier
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -660,7 +726,7 @@ fun ResumeSourceChoiceCardComposable(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -729,29 +795,22 @@ fun DynamicCardComposable(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.lg),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = card.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                card.subtitle?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            ResultCardHeader(
+                label = "AGENT OUTPUT",
+                title = card.title,
+                subtitle = card.subtitle,
+                accent = MaterialTheme.colorScheme.primary
+            )
 
             card.sections.forEachIndexed { index, section ->
                 if (index > 0) HorizontalDivider()

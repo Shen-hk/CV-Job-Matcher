@@ -65,6 +65,7 @@ import com.example.tielink.domain.model.AgentUiAction
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.ui.history.HistoryViewModel
+import com.example.tielink.ui.theme.AppSpacing
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -246,9 +247,9 @@ fun AgentChatScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
-                            MaterialTheme.colorScheme.surface
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.72f),
+                            MaterialTheme.colorScheme.background
                         )
                     )
                 )
@@ -258,7 +259,22 @@ fun AgentChatScreen(
                 topBar = {
                     CenterAlignedTopAppBar(
                         title = {
-                            Text("TieLink", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "TieLink",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    if (state.contextBar.jdTitle != null || state.contextBar.resumeVersionName != null) {
+                                        "Career Agent · 上下文已连接"
+                                    } else {
+                                        "Career Agent · 等待上下文"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         },
                         navigationIcon = {
                             IconButton(onClick = { drawerScope.launch { drawerState.open() } }) {
@@ -275,13 +291,13 @@ fun AgentChatScreen(
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
-                            scrolledContainerColor = MaterialTheme.colorScheme.surface
+                            scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
                         )
                     )
                 },
                 bottomBar = {
                     Column(
-                        modifier = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                        modifier = Modifier.background(MaterialTheme.colorScheme.background.copy(alpha = 0.97f))
                     ) {
                         QuickActionsBar(
                             onResumeOptimize = onNavigateToResumeOptimize,
@@ -326,8 +342,8 @@ fun AgentChatScreen(
                     } else {
                         LazyColumn(
                             state = listState,
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             item { Spacer(modifier = Modifier.height(4.dp)) }
 
