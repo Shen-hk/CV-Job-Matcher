@@ -17,6 +17,8 @@ import com.example.tielink.ui.agent.AgentChatScreen
 import com.example.tielink.ui.history.HistoryScreen
 import com.example.tielink.ui.jdinput.JdInputScreen
 import com.example.tielink.ui.jdlist.JdListScreen
+import com.example.tielink.ui.interview.DebriefScreen
+import com.example.tielink.ui.interview.InterviewScreen
 import com.example.tielink.ui.polish.PolishScreen
 import com.example.tielink.ui.result.ResultScreen
 import com.example.tielink.ui.resumeinput.ResumeInputScreen
@@ -32,6 +34,8 @@ object Routes {
     // ── New: Parallel workbench ──
     const val RESUME_OPTIMIZE = "resume_optimize"
     const val TRACKING = "tracking?jdCompany={jdCompany}&jdPosition={jdPosition}"
+    const val MOCK_INTERVIEW = "mock_interview"
+    const val INTERVIEW_DEBRIEF = "interview_debrief"
     const val AGENT_CHAT = "agent_chat"
     const val AGENT_CHAT_ROUTE = "agent_chat?historyId={historyId}&prompt={prompt}"
     const val JD_LIST = "jd_list"
@@ -110,6 +114,8 @@ fun NavGraph(navController: NavHostController) {
             AgentChatScreen(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToResumeOptimize = { navController.navigate(Routes.RESUME_OPTIMIZE) },
+                onNavigateToInterview = { navController.navigate(Routes.MOCK_INTERVIEW) },
+                onNavigateToDebrief = { navController.navigate(Routes.INTERVIEW_DEBRIEF) },
                 onNavigateToTracking = { navController.navigate(Routes.tracking()) },
                 onNavigateToHistoryRecord = { sessionId ->
                     navController.navigate(Routes.result(sessionId))
@@ -162,6 +168,20 @@ fun NavGraph(navController: NavHostController) {
                 },
                 initialJdCompany = jdCompany,
                 initialJdPosition = jdPosition
+            )
+        }
+
+        // ── Mock Interview (new) ───────────────────────────
+        composable(Routes.MOCK_INTERVIEW) {
+            InterviewScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── Real Interview Debrief ────────────────────────
+        composable(Routes.INTERVIEW_DEBRIEF) {
+            DebriefScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

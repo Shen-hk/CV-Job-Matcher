@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.VideoCall
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.AlertDialog
@@ -96,6 +98,8 @@ fun AgentDrawerContent(
     onCreateBranch: (HistoryItem) -> Unit,
     onCreateNewSession: () -> Unit,
     onOpenResumeOptimize: () -> Unit,
+    onOpenInterview: () -> Unit,
+    onOpenDebrief: () -> Unit,
     onOpenTracking: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenHistoryRecord: (Long) -> Unit,
@@ -258,6 +262,8 @@ fun AgentDrawerContent(
                     Text("工作区", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     DrawerQuickActionGrid(
                         onOpenResumeOptimize = onOpenResumeOptimize,
+                        onOpenInterview = onOpenInterview,
+                        onOpenDebrief = onOpenDebrief,
                         onOpenTracking = onOpenTracking,
                         onOpenJdList = onOpenJdList,
                         onOpenResumeLibrary = onOpenResumeLibrary,
@@ -398,6 +404,8 @@ fun DrawerAccountCard(
 @Composable
 fun DrawerQuickActionGrid(
     onOpenResumeOptimize: () -> Unit,
+    onOpenInterview: () -> Unit,
+    onOpenDebrief: () -> Unit,
     onOpenTracking: () -> Unit,
     onOpenJdList: () -> Unit,
     onOpenResumeLibrary: () -> Unit,
@@ -405,6 +413,8 @@ fun DrawerQuickActionGrid(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         DrawerQuickActionCard("优化这份简历", "继续处理当前版本", Icons.Outlined.Description, onOpenResumeOptimize)
+        DrawerQuickActionCard("开始视频面试", "前置摄像头 + 现场问答记录", Icons.Default.VideoCall, onOpenInterview)
+        DrawerQuickActionCard("真实面试复盘", "上传录音/视频并生成改进建议", Icons.Default.Analytics, onOpenDebrief)
         DrawerQuickActionCard("查看投递节奏", "管理机会和下一步", Icons.Default.Checklist, onOpenTracking)
         DrawerQuickActionCard("目标岗位库", "查看已保存 JD", Icons.Default.Work, onOpenJdList)
         DrawerQuickActionCard("简历版本库", "打开版本仓库", Icons.Outlined.Description, onOpenResumeLibrary)
@@ -668,6 +678,8 @@ private fun AgentDrawerContentPreview() {
             onCreateBranch = {},
             onCreateNewSession = {},
             onOpenResumeOptimize = {},
+            onOpenInterview = {},
+            onOpenDebrief = {},
             onOpenTracking = {},
             onOpenSettings = {},
             onOpenHistoryRecord = {},

@@ -74,6 +74,8 @@ import kotlinx.coroutines.launch
 fun AgentChatScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToResumeOptimize: () -> Unit,
+    onNavigateToInterview: () -> Unit,
+    onNavigateToDebrief: () -> Unit,
     onNavigateToTracking: () -> Unit,
     onNavigateToHistoryRecord: (Long) -> Unit = {},
     onNavigateToJdList: () -> Unit = {},
@@ -214,6 +216,18 @@ fun AgentChatScreen(
                         onNavigateToResumeOptimize()
                     }
                 },
+                onOpenInterview = {
+                    drawerScope.launch {
+                        drawerState.close()
+                        onNavigateToInterview()
+                    }
+                },
+                onOpenDebrief = {
+                    drawerScope.launch {
+                        drawerState.close()
+                        onNavigateToDebrief()
+                    }
+                },
                 onOpenTracking = {
                     drawerScope.launch {
                         drawerState.close()
@@ -331,7 +345,9 @@ fun AgentChatScreen(
                             onAttach = {
                                 pendingPickerToolName = ""
                                 filePickerLauncher.launch("*/*")
-                            }
+                            },
+                            onVoiceInput = viewModel::sendVoiceInput,
+                            onVoiceError = viewModel::setError
                         )
                     }
                 }

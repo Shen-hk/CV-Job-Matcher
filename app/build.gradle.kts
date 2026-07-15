@@ -77,6 +77,11 @@ dependencies {
     // ViewModel Compose
     implementation(libs.lifecycle.viewmodel.compose)
 
+    // CameraX
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+
     // Coroutines
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)

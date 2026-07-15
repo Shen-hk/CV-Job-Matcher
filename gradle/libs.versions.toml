@@ -33,6 +33,7 @@ konfetti = "2.0.5"
 benchmark = "1.5.0-alpha06"
 profileinstaller = "1.4.1"
 uiautomator = "2.3.0"
+cameraX = "1.4.1"
 
 [libraries]
 # Existing
@@ -99,6 +100,9 @@ konfetti-compose = { group = "nl.dionsegijn", name = "konfetti-compose", version
 benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
 profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraX" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraX" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
