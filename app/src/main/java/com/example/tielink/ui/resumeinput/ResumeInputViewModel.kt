@@ -90,6 +90,20 @@ class ResumeInputViewModel @Inject constructor(
         _uiState.update { it.copy(resumeText = text, error = null) }
     }
 
+    fun appendResumeText(text: String) {
+        val cleaned = TextCleaner.clean(text)
+        if (cleaned.isBlank()) return
+
+        _uiState.update { state ->
+            val combined = if (state.resumeText.isBlank()) cleaned else "${state.resumeText}\n$cleaned"
+            state.copy(resumeText = combined, error = null)
+        }
+    }
+
+    fun setError(message: String?) {
+        _uiState.update { it.copy(error = message) }
+    }
+
     fun clearResume() {
         Log.d(TAG, "清空简历")
         _uiState.update { it.copy(

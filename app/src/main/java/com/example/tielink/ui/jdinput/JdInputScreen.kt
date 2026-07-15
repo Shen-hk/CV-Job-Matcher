@@ -3,6 +3,7 @@ package com.example.tielink.ui.jdinput
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.ui.components.ErrorBanner
 import com.example.tielink.ui.components.SectionCard
+import com.example.tielink.ui.components.VoiceInputButton
 import com.example.tielink.ui.theme.TieLinkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,6 +115,14 @@ fun JdInputScreen(
                         Text("从图片识别")
                     }
                 }
+
+                VoiceInputButton(
+                    onTextRecognized = viewModel::appendJdText,
+                    onError = viewModel::setError,
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isProcessing && !state.isOcrProcessing,
+                    prompt = "请朗读 JD 内容"
+                )
 
                 if (state.jdRawText.isNotBlank()) {
                     Spacer(modifier = Modifier.width(8.dp))

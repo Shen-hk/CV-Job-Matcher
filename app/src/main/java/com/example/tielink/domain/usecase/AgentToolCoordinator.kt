@@ -595,9 +595,9 @@ class AgentToolCoordinator @Inject constructor(
         }
     }
 
-    suspend fun tryAutoSaveJd(userText: String) {
-        try {
-            if (!looksLikeJd(userText)) return
+    suspend fun tryAutoSaveJd(userText: String): Boolean {
+        return try {
+            if (!looksLikeJd(userText)) return false
 
             val prompt = """你是一位招聘专家。请从以下文本中提取岗位信息，只返回JSON：
 {"company":"公司名（如未提及则为空字符串）","position":"职位名称","salary":"薪资范围（如20k-40k，未提及则为空字符串）","skills":["技能1","技能2","技能3"]}"""
@@ -615,10 +615,10 @@ class AgentToolCoordinator @Inject constructor(
                 .removeSuffix("```").trim()
 
             val adapter = moshi.adapter(JdExtractResultMoshi::class.java)
-            val result = adapter.fromJson(json) ?: return
+            val result = adapter.fromJson(json) ?: return false
 
             if (result.position.isNotBlank()) {
-                jdLibraryRepository.saveFromAi(
+                val savedId = jdLibraryRepository.saveFromAi(
                     companyName = result.company,
                     positionName = result.position,
                     rawText = userText,
@@ -626,10 +626,19 @@ class AgentToolCoordinator @Inject constructor(
                     skills = result.skills,
                     salary = result.salary
                 )
+                agentContextRepository.updateAgentContext(
+                    currentJdId = savedId,
+                    currentJdText = userText,
+                    currentJdCompany = result.company
+                )
                 Log.d(TAG, "已自动保存 JD: ${result.company} ${result.position}")
+                true
+            } else {
+                false
             }
         } catch (e: Exception) {
             Log.w(TAG, "自动保存 JD 失败: ${e.message}")
+            false
         }
     }
 

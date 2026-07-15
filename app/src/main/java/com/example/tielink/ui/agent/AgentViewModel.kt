@@ -12,10 +12,10 @@ import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.data.local.db.entity.HistoryEntity
 import com.example.tielink.domain.model.AgentChatUiState
+import com.example.tielink.domain.model.AgentContext
 import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentOutput
-import com.example.tielink.domain.model.ContextBarState
 import com.example.tielink.domain.model.AgentUiAction
 import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
@@ -29,6 +29,7 @@ import com.example.tielink.domain.model.UiCardSnapshotCodec
 import com.example.tielink.domain.usecase.AgentUseCase
 import com.example.tielink.util.FileParser
 import com.example.tielink.util.OriginalResumeFileStore
+import com.example.tielink.util.TextCleaner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -179,11 +180,19 @@ class AgentViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // 首页每次创建 ViewModel 都从空白会话开始；旧草稿只做一次清理，不再自动恢复。
-            agentChatDraftRepository.clear()
-            loadContextBar()
-            if (_uiState.value.messages.isEmpty()) {
+            val draft = agentChatDraftRepository.load()
+            currentHistoryId = draft.historyId
+            if (hasDraftContent(draft)) {
+                restoreDraft(draft)
+            }
+            if (!hasDraftContent(_uiState.value)) {
                 loadWelcomeMessage()
+            }
+        }
+        viewModelScope.launch {
+            agentContextRepository.observeAgentContext().collect { context ->
+                updateContextBar(context)
+                refreshWelcomePromptsIfEmpty()
             }
         }
         viewModelScope.launch {
@@ -196,6 +205,7 @@ class AgentViewModel @Inject constructor(
                         )
                     )
                 }
+                refreshWelcomePromptsIfEmpty()
             }
         }
         viewModelScope.launch {
@@ -245,30 +255,52 @@ class AgentViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadContextBar() {
-        val agentContext = agentContextRepository.getAgentContext()
+    private fun hasDraftContent(draft: PersistedAgentChatDraft): Boolean {
+        return draft.messages.isNotEmpty() ||
+            draft.inputText.isNotBlank() ||
+            !draft.pendingAttachmentText.isNullOrBlank()
+    }
+
+    private fun hasDraftContent(state: AgentChatUiState): Boolean {
+        return state.messages.isNotEmpty() ||
+            state.inputText.isNotBlank() ||
+            !state.pendingAttachmentText.isNullOrBlank()
+    }
+
+    private fun refreshWelcomePromptsIfEmpty() {
+        if (!hasDraftContent(_uiState.value)) {
+            loadWelcomeMessage()
+        }
+    }
+
+    private fun updateContextBar(agentContext: AgentContext, resume: ResumeVersion? = activeResume.value) {
         val jdTitle = agentContext.currentJdText?.let { text ->
             val firstLine = text.lines().firstOrNull()?.trim()?.take(50) ?: ""
             if (agentContext.currentJdCompany != null) "${agentContext.currentJdCompany} · $firstLine"
             else firstLine
         }
-        val resume = resumeVersionRepository.getActive()
         _uiState.update {
-            it.copy(contextBar = ContextBarState(
-                jdTitle = jdTitle?.ifBlank { null },
-                jdCompany = agentContext.currentJdCompany?.ifBlank { null },
-                resumeVersionName = resume?.name,
-                resumeVersionId = resume?.id
-            ))
+            it.copy(
+                contextBar = it.contextBar.copy(
+                    jdTitle = jdTitle?.ifBlank { null },
+                    jdCompany = agentContext.currentJdCompany?.ifBlank { null },
+                    resumeVersionName = resume?.name,
+                    resumeVersionId = resume?.id
+                )
+            )
         }
+    }
+
+    private suspend fun loadContextBar() {
+        val agentContext = agentContextRepository.getAgentContext()
+        val resume = resumeVersionRepository.getActive()
+        updateContextBar(agentContext, resume)
     }
 
     fun refreshContextBar() {
         viewModelScope.launch {
             loadContextBar()
-            if (_uiState.value.messages.isEmpty()) {
-                loadWelcomeMessage()
-            }
+            refreshWelcomePromptsIfEmpty()
         }
     }
 
@@ -328,6 +360,28 @@ class AgentViewModel @Inject constructor(
         schedulePersistDraft()
     }
 
+    fun appendInputText(text: String) {
+        val cleaned = TextCleaner.clean(text)
+        if (cleaned.isBlank()) return
+
+        _uiState.update { state ->
+            val combined = if (state.inputText.isBlank()) cleaned else "${state.inputText}\n$cleaned"
+            state.copy(inputText = combined, error = null)
+        }
+        schedulePersistDraft()
+    }
+
+    fun sendVoiceInput(text: String) {
+        val cleaned = TextCleaner.clean(text)
+        if (cleaned.isBlank() || _uiState.value.isLoading) return
+
+        _uiState.update { state ->
+            val combined = if (state.inputText.isBlank()) cleaned else "${state.inputText}\n$cleaned"
+            state.copy(inputText = combined, error = null)
+        }
+        sendMessage()
+    }
+
     fun startNewSession(prefillPrompt: String = "") {
         if (_uiState.value.isLoading) return
         viewModelScope.launch {
@@ -336,6 +390,7 @@ class AgentViewModel @Inject constructor(
             currentHistoryId = null
             currentSessionCreatedAt = System.currentTimeMillis()
             resetSessionState(prefillPrompt)
+            persistCurrentDraftCache()
         }
     }
 
@@ -356,6 +411,7 @@ class AgentViewModel @Inject constructor(
             resetSessionState()
             restoreDraft(draft)
             if (_uiState.value.messages.isEmpty()) loadWelcomeMessage()
+            persistCurrentDraftCache()
         }
     }
 
@@ -831,6 +887,10 @@ class AgentViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
+    fun setError(message: String?) {
+        _uiState.update { it.copy(error = message) }
+    }
+
     fun cancelStream() {
         streamJob?.cancel()
         streamJob = null
@@ -928,7 +988,19 @@ class AgentViewModel @Inject constructor(
     }
 
     private suspend fun persistDraftNow() {
-        archiveCurrentSessionNow()
+        val draft = buildPersistedDraft(_uiState.value)
+        val archivedDraft = archiveCurrentSessionNow(draft)
+        persistCurrentDraftCache(archivedDraft)
+    }
+
+    private suspend fun persistCurrentDraftCache(
+        draft: PersistedAgentChatDraft = buildPersistedDraft(_uiState.value)
+    ) {
+        if (hasDraftContent(draft)) {
+            agentChatDraftRepository.save(draft)
+        } else {
+            agentChatDraftRepository.clear()
+        }
     }
 
     private fun buildPersistedDraft(state: AgentChatUiState): PersistedAgentChatDraft {
@@ -954,6 +1026,7 @@ class AgentViewModel @Inject constructor(
             }
 
         return PersistedAgentChatDraft(
+            historyId = currentHistoryId,
             messages = persistedMessages,
             inputText = state.inputText,
             pendingAttachmentName = state.pendingAttachmentName,
@@ -961,17 +1034,17 @@ class AgentViewModel @Inject constructor(
         )
     }
 
-    private suspend fun archiveCurrentSessionNow() = withContext(NonCancellable) {
+    private suspend fun archiveCurrentSessionNow(
+        draft: PersistedAgentChatDraft = buildPersistedDraft(_uiState.value)
+    ): PersistedAgentChatDraft = withContext(NonCancellable) {
         persistMutex.withLock {
-            archiveCurrentSessionLocked()
+            archiveCurrentSessionLocked(draft)
         }
     }
 
-    private suspend fun archiveCurrentSessionLocked() {
-        val state = _uiState.value
-        val draft = buildPersistedDraft(state)
+    private suspend fun archiveCurrentSessionLocked(draft: PersistedAgentChatDraft): PersistedAgentChatDraft {
         val hasConversation = draft.messages.any { it.role == AgentMessageRole.USER }
-        if (!hasConversation) return
+        if (!hasConversation) return draft
 
         val now = System.currentTimeMillis()
         val firstUserText = draft.messages
@@ -1023,8 +1096,10 @@ class AgentViewModel @Inject constructor(
         )
 
         val savedId = historyRepository.insert(entity)
+        val historyId = existing?.id ?: savedId
         if (existing == null) {
-            currentHistoryId = savedId
+            currentHistoryId = historyId
         }
+        return draft.copy(historyId = historyId)
     }
 }

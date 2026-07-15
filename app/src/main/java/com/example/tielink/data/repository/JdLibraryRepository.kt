@@ -23,7 +23,7 @@ class JdLibraryRepository @Inject constructor(
     /**
      * 批量保存 AI 提取的 JD，自动去重（相同公司+职位覆盖旧记录）。
      */
-    suspend fun saveFromAi(companyName: String, positionName: String, rawText: String, structuredJson: String, skills: List<String>, salary: String = "") {
+    suspend fun saveFromAi(companyName: String, positionName: String, rawText: String, structuredJson: String, skills: List<String>, salary: String = ""): Long {
         val entity = JdLibraryEntity(
             companyName = companyName,
             positionName = positionName,
@@ -33,6 +33,6 @@ class JdLibraryRepository @Inject constructor(
             skills = skills.joinToString(","),
             sourceType = "ai_auto"
         )
-        dao.insert(entity)
+        return dao.insert(entity)
     }
 }

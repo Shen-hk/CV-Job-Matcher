@@ -48,6 +48,20 @@ class JdInputViewModel @Inject constructor(
         _uiState.update { it.copy(jdRawText = text, isStructured = false, error = null) }
     }
 
+    fun appendJdText(text: String) {
+        val cleaned = TextCleaner.clean(text)
+        if (cleaned.isBlank()) return
+
+        _uiState.update { state ->
+            val combined = if (state.jdRawText.isBlank()) cleaned else "${state.jdRawText}\n$cleaned"
+            state.copy(jdRawText = combined, isStructured = false, error = null)
+        }
+    }
+
+    fun setError(message: String?) {
+        _uiState.update { it.copy(error = message) }
+    }
+
     fun clearText() {
         _uiState.update { JdInputUiState() }
     }

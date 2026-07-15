@@ -78,5 +78,6 @@ data class PersistedAgentChatDraft(
     val inputText: String = "",
     val pendingAttachmentName: String? = null,
     val pendingAttachmentText: String? = null,
-    val lastSavedAt: Long = System.currentTimeMillis()
+    val lastSavedAt: Long = System.currentTimeMillis(),
+    val historyId: Long? = null
 )

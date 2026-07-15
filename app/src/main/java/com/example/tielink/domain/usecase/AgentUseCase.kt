@@ -11,23 +11,15 @@ import com.example.tielink.data.remote.dto.Message
 import com.example.tielink.data.remote.dto.MessageToolCall
 import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.InterviewRepository
-import com.example.tielink.data.repository.JdLibraryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
-import com.example.tielink.data.repository.TrackingRepository
-import com.example.tielink.domain.model.AgentIntent
 import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.AgentOutput
-import com.example.tielink.domain.model.IntentType
 import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
-import com.example.tielink.domain.model.DynamicCardAction
-import com.example.tielink.domain.nlp.IntentClassifier
-import com.example.tielink.domain.nlp.NlpEngine
 import com.example.tielink.util.AgentWorkspace
-import com.squareup.moshi.Moshi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
@@ -47,28 +39,16 @@ class AgentUseCase @Inject constructor(
     private val agentContextRepository: AgentContextRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val agentToolCoordinator: AgentToolCoordinator,
-    private val jdLibraryRepository: JdLibraryRepository,
-    private val matchScoreDetailUseCase: MatchScoreDetailUseCase,
-    private val skillGapAnalyzer: SkillGapAnalyzer,
-    private val quantifyAssistant: QuantifyAssistant,
-    private val trackingRepository: TrackingRepository,
-    private val interviewRepository: InterviewRepository,
-    private val moshi: Moshi
+    private val interviewRepository: InterviewRepository
 ) {
     companion object {
         private const val TAG = "AgentUseCase"
         private const val MAX_CONTEXT_MESSAGES = 20
         private const val MAX_TOOL_ROUNDS = 6
         private const val MAX_TOOL_CALLS_PER_ROUND = 4
-        // TODO: 调试开关，测试完记得改回 false
+        // Local preview switch for manually rendering all supported cards.
         private const val DEBUG_SHOW_ALL_CARDS = false
     }
-
-    private data class IntentRouteDecision(
-        val decision: String,
-        val clarificationNeeded: Boolean = false,
-        val clarificationPrompt: String? = null
-    )
 
     private data class AgentTurnPolicy(
         val allowedToolNames: Set<String>,
@@ -90,13 +70,30 @@ class AgentUseCase @Inject constructor(
             return@flow
         }
         val turnPolicy = withContext(Dispatchers.IO) { buildTurnPolicy(userText, conversationHistory) }
-        val systemPrompt = withContext(Dispatchers.IO) { buildSystemPrompt(appContext, turnPolicy) }
+        val effectiveTurnPolicy = withContext(Dispatchers.IO) {
+            preloadCurrentJdIfNeeded(userText, turnPolicy)
+        }
+        val systemPrompt = withContext(Dispatchers.IO) { buildSystemPrompt(appContext, effectiveTurnPolicy) }
         val messages = buildMessages(systemPrompt, conversationHistory, userText).toMutableList()
-        val tools = agentToolCoordinator.definitions(turnPolicy.allowedToolNames)
+        val tools = agentToolCoordinator.definitions(effectiveTurnPolicy.allowedToolNames)
         val seenCalls = mutableSetOf<String>()
         var finalText = ""
 
         try {
+            if (tools.isEmpty()) {
+                emitStreamingTextResponse(
+                    request = LlmRequest(
+                        messages = messages,
+                        temperature = 0.7,
+                        maxTokens = 4096
+                    ),
+                    userText = userText,
+                    appContext = appContext,
+                    detail = "正在直接回答，不需要调用工具"
+                )
+                return@flow
+            }
+
             for (round in 0 until MAX_TOOL_ROUNDS) {
                 emit(
                     AgentOutput.ProcessPhase(
@@ -150,7 +147,7 @@ class AgentUseCase @Inject constructor(
                 )
 
                 for (call in calls) {
-                    if (!turnPolicy.isAllowed(call.name)) {
+                    if (!effectiveTurnPolicy.isAllowed(call.name)) {
                         messages += Message(
                             role = "tool",
                             content = "本轮用户请求不适合调用 ${call.name}。请不要弹出卡片或执行无关工具，改用简洁文本直接回答。",
@@ -214,14 +211,15 @@ class AgentUseCase @Inject constructor(
         } catch (e: Exception) {
             Log.w(TAG, "原生工具调用不可用，回退到普通流式聊天: ${e.message}")
             try {
-                emitStreamingFallback(
+                emitStreamingTextResponse(
                     LlmRequest(
                         messages = buildMessages(systemPrompt, conversationHistory, userText),
                         temperature = 0.7,
                         maxTokens = 4096
                     ),
                     userText,
-                    appContext
+                    appContext,
+                    detail = "当前模型不支持工具协议，已切换为普通回答"
                 )
             } catch (fallbackError: Exception) {
                 Log.e(TAG, "LLM 调用异常", fallbackError)
@@ -234,17 +232,18 @@ class AgentUseCase @Inject constructor(
         }
     }
 
-    private suspend fun FlowCollector<AgentOutput>.emitStreamingFallback(
+    private suspend fun FlowCollector<AgentOutput>.emitStreamingTextResponse(
         request: LlmRequest,
         userText: String,
-        appContext: Context
+        appContext: Context,
+        detail: String
     ) {
         val textBuilder = StringBuilder()
         emit(
             AgentOutput.ProcessPhase(
                 stage = com.example.tielink.domain.model.AgentProcessStage.TEXT_GENERATION,
                 title = "文本生成中",
-                detail = "当前模型不支持工具协议，已切换为普通回答",
+                detail = detail,
                 canCancel = true
             )
         )
@@ -267,205 +266,20 @@ class AgentUseCase @Inject constructor(
         }
     }
 
-    private suspend fun resolveIntent(
+    private suspend fun preloadCurrentJdIfNeeded(
         userText: String,
-        conversationHistory: List<AgentMessage>
-    ): AgentIntent {
-        val ruleIntent = IntentClassifier.classify(userText)
-        if (ruleIntent.type != IntentType.CHAT || ruleIntent.toolCall != null || ruleIntent.clarificationNeeded) {
-            return ruleIntent
-        }
+        turnPolicy: AgentTurnPolicy
+    ): AgentTurnPolicy {
+        if ("analyze_jd" !in turnPolicy.allowedToolNames) return turnPolicy
+        if (!agentToolCoordinator.shouldAutoSaveJd(userText)) return turnPolicy
 
-        return runCatching {
-            withContext(Dispatchers.IO) {
-                routeIntentWithModel(userText, conversationHistory)
-            }
-        }.getOrElse {
-            Log.w(TAG, "模型路由失败，回退到规则分类: ${it.message}")
-            ruleIntent
-        }
-    }
+        val saved = agentToolCoordinator.tryAutoSaveJd(userText)
+        if (!saved) return turnPolicy
 
-    private suspend fun routeIntentWithModel(
-        userText: String,
-        conversationHistory: List<AgentMessage>
-    ): AgentIntent {
-        val recentContext = conversationHistory
-            .takeLast(6)
-            .joinToString(separator = "\n") { message ->
-                val label = when (message.role) {
-                    AgentMessageRole.USER -> "user"
-                    AgentMessageRole.AGENT -> "assistant"
-                    AgentMessageRole.SYSTEM -> "system"
-                }
-                val cardName = message.card?.javaClass?.simpleName
-                buildString {
-                    append(label)
-                    append(": ")
-                    append(message.content.ifBlank { "(empty)" })
-                    if (cardName != null) {
-                        append(" [card=")
-                        append(cardName)
-                        append("]")
-                    }
-                    if (message.toolLoadingName != null) {
-                        append(" [loading=")
-                        append(message.toolLoadingName)
-                        append("]")
-                    }
-                }
-            }
-
-        val activeResume = resumeVersionRepository.getActive()?.name ?: "none"
-        val activeJd = agentContextRepository.getAgentContext().currentJdText?.take(120) ?: "none"
-        val systemPrompt = """
-            你是一个意图路由器。你的任务是判断用户当前应该触发哪个工具/卡片，而不是直接回答用户。
-            可选 decision 只能是下面之一：
-            jd_tool, match_tool, resume_tool, interview_tool, tracking_tool, platform_tool, debrief_tool, chat
-
-            路由原则：
-            - 用户说“优化简历”“润色简历”“改简历”“给我弹简历卡片” -> resume_tool
-            - 用户说“匹配度”“JD 匹配”“岗位分析” -> match_tool 或 jd_tool
-            - 用户说“模拟面试”“面试练习” -> interview_tool
-            - 用户说“投递记录”“跟进投递”“申请状态” -> tracking_tool
-            - 用户说“打招呼”“话术”“外部平台回复” -> platform_tool
-            - 用户说“复盘”“录音分析” -> debrief_tool
-            - 用户表达不清、无法安全判断时，设置 clarificationNeeded=true，并给出最短澄清问题
-            - 如果只是正常聊天，decision=chat
-
-            输出必须是严格 JSON，不要包含多余文字：
-            {"decision":"resume_tool","clarificationNeeded":false,"clarificationPrompt":null}
-        """.trimIndent()
-
-        val userPrompt = buildString {
-            appendLine("当前用户输入：")
-            appendLine(userText)
-            appendLine()
-            appendLine("上下文摘要：")
-            appendLine("当前简历：$activeResume")
-            appendLine("当前JD：$activeJd")
-            if (recentContext.isNotBlank()) {
-                appendLine("最近对话：")
-                appendLine(recentContext)
-            }
-            appendLine()
-            appendLine("请根据上面的信息选择最合适的 decision。")
-        }
-
-        val response = aiProviderManager.chatWithFallback(
-            LlmRequest(
-                messages = listOf(
-                    Message(role = "system", content = systemPrompt),
-                    Message(role = "user", content = userPrompt)
-                ),
-                temperature = 0.0,
-                maxTokens = 256
-            )
+        return turnPolicy.copy(
+            allowedToolNames = turnPolicy.allowedToolNames - "analyze_jd",
+            reason = "${turnPolicy.reason} 已预先保存当前 JD。"
         )
-
-        val decision = moshi.adapter(IntentRouteDecision::class.java).fromJson(sanitizeJson(response.content))
-        if (decision == null) {
-            return chatIntent()
-        }
-
-        return when (decision.decision.lowercase()) {
-            "jd_tool" -> buildIntent(IntentType.JD_ANALYZE, userText)
-            "match_tool" -> buildIntent(IntentType.MATCH, userText)
-            "resume_tool" -> buildIntent(IntentType.RESUME_EDIT, userText)
-            "interview_tool" -> buildIntent(IntentType.INTERVIEW, userText)
-            "tracking_tool" -> buildIntent(IntentType.TRACKING, userText)
-            "platform_tool" -> buildIntent(IntentType.PLATFORM, userText)
-            "debrief_tool" -> buildIntent(IntentType.DEBRIEF, userText)
-            else -> {
-                if (decision.clarificationNeeded) {
-                    AgentIntent(
-                        type = IntentType.CHAT,
-                        clarificationNeeded = true,
-                        clarificationPrompt = decision.clarificationPrompt ?: "你想让我帮你弹哪张卡？"
-                    )
-                } else {
-                    chatIntent()
-                }
-            }
-        }
-    }
-
-    private fun buildIntent(type: IntentType, userText: String): AgentIntent {
-        return when (type) {
-            IntentType.JD_ANALYZE -> AgentIntent(
-                type = type,
-                toolCall = com.example.tielink.domain.model.ToolCall(
-                    toolName = "jd_tool",
-                    function = "analyze_jd",
-                    params = mapOf("text" to userText)
-                )
-            )
-            IntentType.MATCH -> AgentIntent(
-                type = type,
-                toolCall = com.example.tielink.domain.model.ToolCall(
-                    toolName = "match_tool",
-                    function = "calculate_match",
-                    params = emptyMap()
-                )
-            )
-            IntentType.RESUME_EDIT -> AgentIntent(
-                type = type,
-                toolCall = com.example.tielink.domain.model.ToolCall(
-                    toolName = "resume_tool",
-                    function = "edit_section",
-                    params = mapOf("instruction" to userText)
-                )
-            )
-            IntentType.INTERVIEW -> AgentIntent(
-                type = type,
-                toolCall = com.example.tielink.domain.model.ToolCall(
-                    toolName = "interview_tool",
-                    function = "start_interview",
-                    params = emptyMap()
-                )
-            )
-            IntentType.TRACKING -> AgentIntent(
-                type = type,
-                toolCall = com.example.tielink.domain.model.ToolCall(
-                    toolName = "tracking_tool",
-                    function = "create_application",
-                    params = emptyMap()
-                )
-            )
-            IntentType.PLATFORM -> AgentIntent(
-                type = type,
-                toolCall = com.example.tielink.domain.model.ToolCall(
-                    toolName = "platform_tool",
-                    function = "generate_greeting",
-                    params = emptyMap()
-                )
-            )
-            IntentType.DEBRIEF -> AgentIntent(
-                type = type,
-                toolCall = com.example.tielink.domain.model.ToolCall(
-                    toolName = "debrief_tool",
-                    function = "upload_recording",
-                    params = emptyMap()
-                )
-            )
-            IntentType.CHAT -> AgentIntent(type = type)
-        }
-    }
-
-    private fun chatIntent(): AgentIntent {
-        return AgentIntent(type = IntentType.CHAT)
-    }
-
-    private fun sanitizeJson(content: String): String {
-        val trimmed = content.trim()
-        if (!trimmed.contains("```")) return trimmed
-
-        val fenced = Regex("```(?:json)?\\s*([\\s\\S]*?)\\s*```", RegexOption.IGNORE_CASE)
-            .find(trimmed)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.trim()
-        return fenced ?: trimmed.substringAfter("```json", trimmed).substringBefore("```").trim()
     }
 
     /**
@@ -753,252 +567,13 @@ class AgentUseCase @Inject constructor(
         }
     }
 
-    // ── Tool execution ─────────────────────────────────────────────────────────
-
-    private suspend fun executeTool(toolName: String, userText: String, appContext: Context): UiCard? {
-        return try {
-            when (toolName) {
-                "match_tool" -> executeMatchTool()
-                "resume_tool" -> executeResumeTool(userText)
-                "interview_tool" -> executeInterviewTool()
-                "tracking_tool" -> executeTrackingTool()
-                "platform_tool" -> executePlatformTool()
-                else -> null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "工具执行失败: $toolName", e)
-            null
-        }
-    }
-
-    private suspend fun executeMatchTool(): UiCard? {
-        val ctx = agentContextRepository.getAgentContext()
-        val jdText = ctx.currentJdText ?: return null
-        val resume = resumeVersionRepository.getActive() ?: return null
-        val resumeText = resume.rawText.ifBlank { resume.cleanedText }
-        if (resumeText.isBlank()) return null
-
-        val jdKeywords = NlpEngine.extractKeywords(jdText, topN = 25, referenceText = resumeText)
-        val resumeLower = resumeText.lowercase()
-        val missing = jdKeywords.filter { !resumeLower.contains(it.lowercase()) }
-        val matched = jdKeywords - missing.toSet()
-
-        val detail = matchScoreDetailUseCase.compute(
-            jdText = jdText,
-            resumeText = resumeText,
-            jdKeywords = jdKeywords,
-            missingKeywords = missing
-        )
-        val gaps = skillGapAnalyzer.analyze(jdText, resumeText, jdKeywords)
-        val overallScore = (
-            detail.keywordCoverage * 0.30f +
-            detail.skillFit * 0.30f +
-            detail.experienceRelevance * 0.25f +
-            detail.educationMatch * 0.15f
-        ).times(100).toInt().coerceIn(0, 100)
-
-        return UiCard.MatchCard(
-            overallScore = overallScore,
-            keywordScore = (detail.keywordCoverage * 100).toInt(),
-            experienceScore = (detail.experienceRelevance * 100).toInt(),
-            educationScore = (detail.educationMatch * 100).toInt(),
-            skillScore = (detail.skillFit * 100).toInt(),
-            missingSkills = gaps.take(8).map { it.skill },
-            highlights = matched.take(6)
-        )
-    }
-
-    // 从已保存的 resume 版本构建预览卡（含 HTML 渲染数据）
-    private suspend fun buildResumePreviewCard(): UiCard.ResumePreviewCard? {
-        val resume = resumeVersionRepository.getActive() ?: return null
-        val rawText = resume.rawText.ifBlank { resume.cleanedText }
-        if (rawText.isBlank()) return null
-        val resumeData = com.example.tielink.domain.model.ResumeData.fromPolishedText(rawText)
-        return UiCard.ResumePreviewCard(
-            versionName = resume.name,
-            versionId = resume.id,
-            previewText = rawText.take(600),
-            resumeData = resumeData
-        )
-    }
-
-    private suspend fun executeResumeTool(userText: String): UiCard? {
-        val resume = resumeVersionRepository.getActive() ?: return null
-        val resumeText = resume.rawText.ifBlank { resume.cleanedText }
-        if (resumeText.isBlank()) return null
-
-        val suggestions = quantifyAssistant.analyzeAndSuggest(resumeText)
-        val best = suggestions.maxByOrNull { it.confidence } ?: return null
-
-        return UiCard.ResumeDiffCard(
-            section = "经历描述",
-            before = best.original,
-            after = best.quantified,
-            onAccept = {},   // callbacks injected by ViewModel (A-L3)
-            onRollback = {}
-        )
-    }
-
-    private suspend fun executeInterviewTool(): UiCard? {
-        val session = interviewRepository.getActiveSession() ?: return null
-        val messages = interviewRepository.getMessages(session.id)
-        val lastQuestion = messages.lastOrNull { it.role.name == "ASSISTANT" }?.content
-            ?: return null
-
-        return UiCard.InterviewTurnCard(
-            questionNumber = session.questionCount,
-            totalQuestions = 10,
-            question = lastQuestion,
-            feedback = null
-        )
-    }
-
-    private suspend fun executeTrackingTool(): UiCard? {
-        val items = trackingRepository.getAll()
-        val latest = items.maxByOrNull { it.updatedAt } ?: return null
-        return UiCard.TrackingCard(
-            company = latest.companyName,
-            status = latest.status,
-            applicationId = latest.id
-        )
-    }
-
-    private suspend fun executePlatformTool(): UiCard? {
-        val ctx = agentContextRepository.getAgentContext()
-        val jdText = ctx.currentJdText ?: return null
-        val company = ctx.currentJdCompany ?: ""
-        val resume = resumeVersionRepository.getActive()
-        val resumeSummary = resume?.rawText?.take(600) ?: ""
-
-        val positionHint = jdText.lines().firstOrNull { it.length in 4..30 }?.trim() ?: "该职位"
-
-        val systemPrompt = """你是一位 HR 专家，帮求职者撰写 Boss直聘打招呼话术。
-请根据岗位信息和简历亮点，输出 JSON 格式的三个版本，格式严格如下：
-{"versions":[{"style":"简洁版","content":"...","skills":["技能A"]},{"style":"详细版","content":"...","skills":["技能A","技能B"]},{"style":"亮点突出版","content":"...","skills":["技能A","技能B","技能C"]}]}
-要求：语言自然不生硬，每版不超过120字，突出与岗位相关的具体亮点。"""
-
-        val userPrompt = buildString {
-            append("岗位：$positionHint")
-            if (company.isNotBlank()) append("（${company}）")
-            appendLine()
-            append("JD摘要：${jdText.take(400)}")
-            if (resumeSummary.isNotBlank()) {
-                appendLine()
-                append("简历亮点：${resumeSummary}")
-            }
-        }
-
-        val request = LlmRequest(
-            messages = listOf(
-                Message("system", systemPrompt),
-                Message("user", userPrompt)
-            ),
-            temperature = 0.8,
-            maxTokens = 800
-        )
-        val response = aiProviderManager.chatWithFallback(request)
-        val greetings = parseGreetingResponse(response.content)
-        if (greetings.isEmpty()) return null
-
-        return UiCard.GreetingCard(
-            companyName = company.ifBlank { "目标公司" },
-            position = positionHint,
-            greetings = greetings
-        )
-    }
-
-    private fun parseGreetingResponse(json: String): List<GreetingVersion> {
-        return try {
-            val cleaned = json.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-            // Find the versions array manually (avoid extra Moshi type gymnastics)
-            val regex = Regex(""""style"\s*:\s*"([^"]+)"\s*,\s*"content"\s*:\s*"([^"]+)"\s*,\s*"skills"\s*:\s*\[([^\]]*)]""")
-            regex.findAll(cleaned).map { match ->
-                val style = match.groupValues[1]
-                val content = match.groupValues[2]
-                val skills = match.groupValues[3]
-                    .split(",")
-                    .map { it.trim().removeSurrounding("\"") }
-                    .filter { it.isNotBlank() }
-                GreetingVersion(style = style, content = content, highlightedSkills = skills)
-            }.toList()
-        } catch (e: Exception) {
-            Log.w(TAG, "解析 greeting 响应失败", e)
-            emptyList()
-        }
-    }
-
-    // ── JD 自动保存 ─────────────────────────────────────────────────────────
-
-    /**
-     * 判断文本是否像 JD：长度足够 + 包含岗位关键词。
-     */
-    private fun looksLikeJd(text: String): Boolean {
-        if (text.length < 60) return false
-        val jdKeywords = listOf(
-            "岗位", "职责", "要求", "任职", "招聘", "学历", "经验", "薪资",
-            "本科", "硕士", "负责", "团队", "开发", "设计", "产品", "项目",
-            "职位", "工作", "技能", "能力", "熟悉", "掌握", "了解"
-        )
-        val hitCount = jdKeywords.count { text.contains(it) }
-        return hitCount >= 4
-    }
-
-    /**
-     * 尝试从用户输入中提取 JD 并保存到 JD 库。
-     * 后台执行，不阻塞对话流。
-     */
-    private suspend fun tryAutoSaveJd(userText: String) {
-        try {
-            // 用 AI 提取关键信息
-            val prompt = """你是一位招聘专家。请从以下文本中提取岗位信息，只返回JSON：
-{"company":"公司名（如未提及则为空字符串）","position":"职位名称","salary":"薪资范围（如20k-40k，未提及则为空字符串）","skills":["技能1","技能2","技能3"]}"""
-            val request = LlmRequest(
-                messages = listOf(
-                    Message("system", prompt),
-                    Message("user", "请提取: ${userText.take(2000)}")
-                ),
-                temperature = 0.3,
-                maxTokens = 300
-            )
-            val response = aiProviderManager.chatWithFallback(request)
-            val json = response.content
-                .removePrefix("```json").removePrefix("```")
-                .removeSuffix("```").trim()
-
-            val adapter = moshi.adapter(JdExtractResultMoshi::class.java)
-            val result = adapter.fromJson(json) ?: return
-
-            if (result.position.isNotBlank()) {
-                jdLibraryRepository.saveFromAi(
-                    companyName = result.company,
-                    positionName = result.position,
-                    rawText = userText,
-                    structuredJson = json,
-                    skills = result.skills,
-                    salary = result.salary
-                )
-                Log.d(TAG, "已自动保存 JD: ${result.company} ${result.position}")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "自动保存 JD 失败: ${e.message}")
-        }
-    }
-
-    @com.squareup.moshi.JsonClass(generateAdapter = false)
-    data class JdExtractResultMoshi(
-        val company: String = "",
-        val position: String = "",
-        val salary: String = "",
-        val skills: List<String> = emptyList()
-    )
-
     // ── 调试用：弹出所有卡片类型 ───────────────────────────────────────────────
 
     private suspend fun FlowCollector<AgentOutput>.emitDebugCards() {
         emit(AgentOutput.StreamText("🔧 **调试模式** — 依次展示所有卡片类型\n\n"))
 
         // MatchCard
-        emit(AgentOutput.ToolStart("match_tool", "正在分析简历与岗位匹配度..."))
+        emit(AgentOutput.ToolStart("calculate_match", "正在分析简历与岗位匹配度..."))
         emit(AgentOutput.ToolResult(UiCard.MatchCard(
             overallScore = 78,
             keywordScore = 82,
@@ -1010,7 +585,7 @@ class AgentUseCase @Inject constructor(
         )))
 
         // ResumeDiffCard
-        emit(AgentOutput.ToolStart("resume_tool", "正在扫描简历可优化点..."))
+        emit(AgentOutput.ToolStart("optimize_resume", "正在扫描简历可优化点..."))
         emit(AgentOutput.ToolResult(UiCard.ResumeDiffCard(
             section = "工作经验",
             before = "负责公司内部系统的开发与维护工作",
@@ -1050,7 +625,7 @@ class AgentUseCase @Inject constructor(
         )))
 
         // EvalCard
-        emit(AgentOutput.ToolStart("interview_tool", "正在生成面试评估..."))
+        emit(AgentOutput.ToolStart("get_interview_turn", "正在生成面试评估..."))
         emit(AgentOutput.ToolResult(UiCard.EvalCard(
             overallScore = 85,
             dimensions = mapOf("技术深度" to 88, "表达清晰度" to 82, "项目经验" to 90, "问题解决" to 80),
@@ -1058,7 +633,7 @@ class AgentUseCase @Inject constructor(
         )))
 
         // TrackingCard
-        emit(AgentOutput.ToolStart("tracking_tool", "正在读取投递记录..."))
+        emit(AgentOutput.ToolStart("get_latest_application", "正在读取投递记录..."))
         emit(AgentOutput.ToolResult(UiCard.TrackingCard(
             company = "字节跳动",
             status = "面试",
@@ -1066,7 +641,7 @@ class AgentUseCase @Inject constructor(
         )))
 
         // GreetingCard
-        emit(AgentOutput.ToolStart("platform_tool", "正在生成打招呼话术..."))
+        emit(AgentOutput.ToolStart("generate_greeting", "正在生成打招呼话术..."))
         emit(AgentOutput.ToolResult(UiCard.GreetingCard(
             companyName = "字节跳动",
             position = "高级Android开发工程师",

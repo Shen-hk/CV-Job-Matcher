@@ -49,7 +49,7 @@ class UiCardPersistenceTest {
                     DynamicCardSection(
                         type = "metrics",
                         title = "核心指标",
-                        items = listOf(DynamicCardItem("薪资", "30K", 80))
+                        items = listOf(DynamicCardItem(label = "薪资", value = "30K", progress = 80))
                     )
                 ),
                 actions = listOf(DynamicCardAction("继续比较", "继续比较成长空间"))
@@ -129,7 +129,7 @@ class UiCardPersistenceTest {
             sections = listOf(
                 DynamicCardSection(
                     type = "progress",
-                    items = listOf(DynamicCardItem("Kotlin", "85%", 85))
+                    items = listOf(DynamicCardItem(label = "Kotlin", value = "85%", progress = 85))
                 )
             )
         )

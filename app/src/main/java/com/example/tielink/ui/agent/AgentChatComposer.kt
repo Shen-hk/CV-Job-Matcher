@@ -1,4 +1,4 @@
-package com.example.tielink.ui.agent
+﻿package com.example.tielink.ui.agent
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,6 +50,7 @@ import com.example.tielink.ui.theme.ActionBlue
 import com.example.tielink.ui.theme.EnergyIndigo
 import com.example.tielink.ui.theme.FocusCyan
 import com.example.tielink.ui.theme.TieLinkTheme
+import com.example.tielink.ui.components.VoiceInputIconButton
 
 @Composable
 fun QuickActionsBar(
@@ -179,7 +180,9 @@ fun InputArea(
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
     onCancel: () -> Unit,
-    onAttach: () -> Unit
+    onAttach: () -> Unit,
+    onVoiceInput: (String) -> Unit,
+    onVoiceError: (String) -> Unit
 ) {
     val gradientColors = remember {
         listOf(
@@ -242,22 +245,33 @@ fun InputArea(
                     }
                 },
                 trailingIcon = {
-                    FilledIconButton(
-                        onClick = if (isStreaming) onCancel else onSend,
-                        enabled = isStreaming || text.isNotBlank() || hasAttachment,
-                        modifier = Modifier.size(38.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = ActionBlue,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.34f)
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (isStreaming) Icons.Default.Close else Icons.AutoMirrored.Filled.Send,
-                            contentDescription = if (isStreaming) "停止" else "发送",
-                            modifier = Modifier.size(20.dp),
+                        VoiceInputIconButton(
+                            onTextRecognized = onVoiceInput,
+                            onError = onVoiceError,
+                            enabled = !isStreaming,
+                            modifier = Modifier.size(38.dp)
                         )
+                        FilledIconButton(
+                            onClick = if (isStreaming) onCancel else onSend,
+                            enabled = isStreaming || text.isNotBlank() || hasAttachment,
+                            modifier = Modifier.size(38.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = ActionBlue,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.34f)
+                            )
+                        ) {
+                            Icon(
+                                imageVector = if (isStreaming) Icons.Default.Close else Icons.AutoMirrored.Filled.Send,
+                                contentDescription = if (isStreaming) "停止" else "发送",
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -297,7 +311,9 @@ private fun AgentChatComposerPreview() {
                 onTextChange = {},
                 onSend = {},
                 onCancel = {},
-                onAttach = {}
+                onAttach = {},
+                onVoiceInput = {},
+                onVoiceError = {}
             )
         }
     }

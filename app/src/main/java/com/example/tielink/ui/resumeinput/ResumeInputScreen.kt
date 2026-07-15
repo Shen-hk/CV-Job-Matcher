@@ -1,4 +1,4 @@
-package com.example.tielink.ui.resumeinput
+﻿package com.example.tielink.ui.resumeinput
 
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -63,6 +63,7 @@ import com.example.tielink.domain.model.MatchLevel
 import com.example.tielink.ui.components.ErrorBanner
 import com.example.tielink.ui.components.ScoreRingChart
 import com.example.tielink.ui.components.SectionCard
+import com.example.tielink.ui.components.VoiceInputButton
 import com.example.tielink.ui.theme.TieLinkTheme
 
 private val BrandBlue = Color(0xFF2563EB)
@@ -193,6 +194,14 @@ fun ResumeInputScreen(
                         Text("清空")
                     }
                 }
+
+                VoiceInputButton(
+                    onTextRecognized = viewModel::appendResumeText,
+                    onError = viewModel::setError,
+                    modifier = Modifier.weight(1f),
+                    enabled = !state.isFileProcessing && !state.isAnalyzing,
+                    prompt = "请朗读简历内容"
+                )
             }
 
             // ── JD优化: 历史版本选择 ──────────────────────

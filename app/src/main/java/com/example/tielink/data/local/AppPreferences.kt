@@ -290,6 +290,9 @@ class AppPreferences @Inject constructor(
 
     suspend fun getAgentContextJson(): String = snapshot.agentContextJson
 
+    fun getAgentContextJsonFlow(): Flow<String> =
+        dataStore.data.map { it[PrefKeys.AGENT_CONTEXT_JSON] ?: "" }
+
     suspend fun setAgentContextJson(json: String) {
         snapshot = snapshot.copy(agentContextJson = json)
         dataStore.edit { prefs ->

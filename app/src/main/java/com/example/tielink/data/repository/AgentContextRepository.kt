@@ -23,28 +23,24 @@ class AgentContextRepository @Inject constructor(
 
     private val adapter = moshi.adapter(AgentContext::class.java)
 
+    private fun decode(json: String): AgentContext {
+        if (json.isBlank()) return AgentContext()
+        return runCatching { adapter.fromJson(json) ?: AgentContext() }
+            .getOrDefault(AgentContext())
+    }
+
     /**
      * 获取当前 Agent 上下文
      */
     suspend fun getAgentContext(): AgentContext {
-        val json = appPreferences.getAgentContextJson()
-        return if (json.isNotBlank()) {
-            try {
-                adapter.fromJson(json) ?: AgentContext()
-            } catch (e: Exception) {
-                AgentContext()
-            }
-        } else {
-            AgentContext()
-        }
+        return decode(appPreferences.getAgentContextJson())
     }
 
     /**
      * 观察 Agent 上下文变化
      */
     fun observeAgentContext(): Flow<AgentContext> {
-        // 简化实现，不观察变化，只在需要时获取
-        return kotlinx.coroutines.flow.flow { emit(getAgentContext()) }
+        return appPreferences.getAgentContextJsonFlow().map(::decode)
     }
 
     /**
