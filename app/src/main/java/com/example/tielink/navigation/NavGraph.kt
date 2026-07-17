@@ -1,10 +1,5 @@
 package com.example.tielink.navigation
 
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import android.net.Uri
 import androidx.navigation.NavHostController
@@ -27,6 +22,10 @@ import com.example.tielink.ui.resumeoptimize.ResumeOptimizeScreen
 import com.example.tielink.ui.settings.ModelConfigScreen
 import com.example.tielink.ui.settings.SettingsScreen
 import com.example.tielink.ui.tracking.TrackingScreen
+import com.example.tielink.ui.theme.motionBackEnter
+import com.example.tielink.ui.theme.motionBackExit
+import com.example.tielink.ui.theme.motionForwardEnter
+import com.example.tielink.ui.theme.motionForwardExit
 import com.example.tielink.domain.model.isAgentChat
 import java.net.URLEncoder
 
@@ -89,7 +88,11 @@ object Routes {
 fun NavGraph(navController: NavHostController) {
     NavHost(
         navController = navController,
-        startDestination = Routes.AGENT_CHAT  // Agent as main entry point
+        startDestination = Routes.AGENT_CHAT,  // Agent as main entry point
+        enterTransition = { motionForwardEnter() },
+        exitTransition = { motionForwardExit() },
+        popEnterTransition = { motionBackEnter() },
+        popExitTransition = { motionBackExit() }
     ) {
         // ── Agent Chat (new main entry) ────────────────────
         composable(
@@ -401,19 +404,7 @@ fun NavGraph(navController: NavHostController) {
         // ── Resume Full Preview (from Agent chat card) → reuses ResultScreen ──
         composable(
             route = Routes.RESUME_FULL_PREVIEW,
-            arguments = listOf(navArgument("versionId") { type = NavType.LongType }),
-            enterTransition = {
-                slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) +
-                        fadeIn(animationSpec = tween(300))
-            },
-            exitTransition = {
-                slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(300)) +
-                        fadeOut(animationSpec = tween(300))
-            },
-            popExitTransition = {
-                slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) +
-                        fadeOut(animationSpec = tween(300))
-            }
+            arguments = listOf(navArgument("versionId") { type = NavType.LongType })
         ) {
             ResultScreen(
                 onNavigateBack = { navController.popBackStack() },

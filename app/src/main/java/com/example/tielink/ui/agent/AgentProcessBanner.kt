@@ -2,18 +2,10 @@ package com.example.tielink.ui.agent
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +35,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
+import com.example.tielink.ui.theme.appMotionTween
+import com.example.tielink.ui.theme.motionBreathingSpec
+import com.example.tielink.ui.theme.motionCollapseOut
+import com.example.tielink.ui.theme.motionEmphasizedExpandIn
+import com.example.tielink.ui.theme.motionFadeThrough
+import com.example.tielink.ui.theme.motionQuickFadeThrough
 
 @Composable
 fun AgentProcessBanner(
@@ -51,16 +49,13 @@ fun AgentProcessBanner(
     modifier: Modifier = Modifier
 ) {
     val pulse = rememberInfiniteTransition(label = "process_pulse").animateFloat(
-        initialValue = 0.82f,
+        initialValue = 0.94f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        animationSpec = motionBreathingSpec(),
         label = "process_pulse_alpha"
     )
 
-    val activeColor = when (processState.stage) {
+    val targetActiveColor = when (processState.stage) {
         AgentProcessStage.THINKING -> MaterialTheme.colorScheme.tertiary
         AgentProcessStage.RETRIEVING -> MaterialTheme.colorScheme.primary
         AgentProcessStage.DRAWING -> MaterialTheme.colorScheme.secondary
@@ -68,7 +63,7 @@ fun AgentProcessBanner(
         AgentProcessStage.INTERRUPTED -> MaterialTheme.colorScheme.outline
         AgentProcessStage.IDLE -> MaterialTheme.colorScheme.outline
     }
-    val surfaceTint = when (processState.stage) {
+    val targetSurfaceTint = when (processState.stage) {
         AgentProcessStage.THINKING -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f)
         AgentProcessStage.RETRIEVING -> MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
         AgentProcessStage.DRAWING -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f)
@@ -77,10 +72,28 @@ fun AgentProcessBanner(
         AgentProcessStage.IDLE -> MaterialTheme.colorScheme.surfaceContainerLow
     }
 
+    val activeColor by animateColorAsState(
+        targetValue = targetActiveColor,
+        animationSpec = appMotionTween(),
+        label = "process_accent"
+    )
+    val surfaceTint by animateColorAsState(
+        targetValue = targetSurfaceTint,
+        animationSpec = appMotionTween(),
+        label = "process_surface"
+    )
+    val stageTransition = updateTransition(processState.stage, label = "process_stage")
+    val stageAlpha by stageTransition.animateFloat(
+        transitionSpec = { appMotionTween() },
+        label = "process_stage_alpha"
+    ) { stage ->
+        if (stage == AgentProcessStage.INTERRUPTED) 0.72f else 1f
+    }
+
     AnimatedVisibility(
         visible = processState.isActive,
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically(),
+        enter = motionEmphasizedExpandIn(),
+        exit = motionCollapseOut(),
         modifier = modifier.fillMaxWidth()
     ) {
         Surface(
@@ -90,6 +103,7 @@ fun AgentProcessBanner(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp)
+                .graphicsLayer { alpha = stageAlpha }
                 .border(
                     width = 1.dp,
                     brush = Brush.horizontalGradient(
@@ -125,8 +139,7 @@ fun AgentProcessBanner(
                         targetState = processState.stage,
                         label = "stage_header",
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith
-                                fadeOut(animationSpec = tween(120))
+                            motionFadeThrough()
                         }
                     ) { stage ->
                         Row(
@@ -150,8 +163,7 @@ fun AgentProcessBanner(
                         targetState = processState.detail,
                         label = "stage_detail",
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(180)) togetherWith
-                                fadeOut(animationSpec = tween(120))
+                            motionQuickFadeThrough()
                         }
                     ) { detail ->
                         if (detail.isNotBlank()) {
@@ -204,12 +216,9 @@ fun AgentProcessBanner(
 @Composable
 private fun StageRail(currentStage: AgentProcessStage) {
     val pulse = rememberInfiniteTransition(label = "stage_pulse").animateFloat(
-        initialValue = 0.86f,
+        initialValue = 0.94f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1100, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        animationSpec = motionBreathingSpec(),
         label = "stage_pulse_alpha"
     )
     val stages = listOf(
@@ -256,10 +265,11 @@ private fun StageRail(currentStage: AgentProcessStage) {
                 ),
                 shape = RoundedCornerShape(999.dp),
                 modifier = Modifier
-                    .alpha(if (selected) pulse.value else 0.72f)
+                    .alpha(if (selected) pulse.value else 0.68f)
                     .graphicsLayer {
-                        scaleX = if (selected) 1.02f else 1f
-                        scaleY = if (selected) 1.02f else 1f
+                        val selectedScale = 0.98f + (pulse.value * 0.02f)
+                        scaleX = if (selected) selectedScale else 1f
+                        scaleY = if (selected) selectedScale else 1f
                     }
             )
         }

@@ -7,16 +7,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -115,6 +109,9 @@ import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.ui.components.ResumePreviewWebView
 import com.example.tielink.ui.components.ScoreRingChart
 import com.example.tielink.ui.theme.TieLinkTheme
+import com.example.tielink.ui.theme.appMotionTween
+import com.example.tielink.ui.theme.motionCollapseOut
+import com.example.tielink.ui.theme.motionExpandIn
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
@@ -1682,7 +1679,7 @@ private fun ExpandableSectionCard(
     Card(
         Modifier
             .fillMaxWidth()
-            .animateContentSize(),
+            .animateContentSize(appMotionTween()),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isExpanded) BrandBlueLight.copy(alpha = 0.3f) else BgWhite
@@ -1719,8 +1716,8 @@ private fun ExpandableSectionCard(
             // Expanded content
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+                enter = motionExpandIn(),
+                exit = motionCollapseOut()
             ) {
                 Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
                     content()
@@ -1742,15 +1739,15 @@ private fun CompletionCelebration(
     // Auto-dismiss after particles finish
     LaunchedEffect(visible) {
         if (visible) {
-            delay(3200)
+            delay(1800)
             onDismiss()
         }
     }
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(200)),
-        exit = fadeOut(tween(300))
+        enter = motionExpandIn(),
+        exit = motionCollapseOut()
     ) {
         Box(
             modifier = Modifier
@@ -1788,10 +1785,30 @@ private fun CompletionCelebration(
                 }
             }
 
-            nl.dionsegijn.konfetti.compose.KonfettiView(
-                modifier = Modifier.fillMaxSize(),
-                parties = if (visible) parties else emptyList()
-            )
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                shadowElevation = 6.dp,
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = BrandBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("优化已完成", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                        Text("结果已更新，可继续查看和编辑", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    }
+                }
+            }
         }
     }
 }

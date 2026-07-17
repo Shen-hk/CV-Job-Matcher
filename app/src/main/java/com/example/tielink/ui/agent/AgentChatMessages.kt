@@ -51,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +80,9 @@ import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.ui.theme.ActionBlue
 import com.example.tielink.ui.theme.AppRadius
 import com.example.tielink.ui.theme.AppSpacing
+import com.example.tielink.ui.theme.appMotionTween
+import com.example.tielink.ui.theme.rememberEnterFromBottom
+import com.example.tielink.ui.theme.rememberExitToBottom
 import com.example.tielink.ui.theme.FocusCyan
 import com.example.tielink.ui.theme.TieLinkTheme
 
@@ -95,6 +99,9 @@ fun WelcomePage(
     val hasJd = contextBar.jdTitle != null
     val hasResume = contextBar.resumeVersionName != null
     val readyCount = listOf(hasJd, hasResume).count { it }
+    var heroVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { heroVisible = true }
 
     Column(
         modifier = Modifier
@@ -104,6 +111,11 @@ fun WelcomePage(
     ) {
         Spacer(Modifier.height(AppSpacing.sm))
 
+        AnimatedVisibility(
+            visible = heroVisible,
+            enter = rememberEnterFromBottom(16.dp),
+            exit = rememberExitToBottom(8.dp)
+        ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(AppRadius.xl),
@@ -180,6 +192,7 @@ fun WelcomePage(
                     )
                 }
             }
+        }
         }
 
         Spacer(Modifier.height(14.dp))
@@ -440,6 +453,36 @@ private fun WorkspaceAction(
 }
 
 @Composable
+fun AnimatedMessageRow(
+    message: AgentMessage,
+    inlineProcessState: AgentProcessState? = null,
+    onCancelInlineProcess: () -> Unit = {},
+    onNavigateToResumePreview: (Long) -> Unit = {},
+    onNavigateToResumeLibrary: () -> Unit = {},
+    onRequestResumeUpload: () -> Unit = {},
+    onDynamicAction: (DynamicCardAction) -> Unit = {}
+) {
+    var visible by remember(message.id) { mutableStateOf(false) }
+    LaunchedEffect(message.id) { visible = true }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = rememberEnterFromBottom(),
+        exit = rememberExitToBottom()
+    ) {
+        MessageRow(
+            message = message,
+            inlineProcessState = inlineProcessState,
+            onCancelInlineProcess = onCancelInlineProcess,
+            onNavigateToResumePreview = onNavigateToResumePreview,
+            onNavigateToResumeLibrary = onNavigateToResumeLibrary,
+            onRequestResumeUpload = onRequestResumeUpload,
+            onDynamicAction = onDynamicAction
+        )
+    }
+}
+
+@Composable
 fun MessageRow(
     message: AgentMessage,
     inlineProcessState: AgentProcessState? = null,
@@ -547,7 +590,11 @@ private fun InlineProcessStatus(
         border = BorderStroke(1.dp, accent.copy(alpha = 0.16f)),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.animateContentSize()) {
+        Column(
+            modifier = Modifier.animateContentSize(
+                animationSpec = appMotionTween()
+            )
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -600,7 +647,11 @@ private fun InlineProcessStatus(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            AnimatedVisibility(visible = expanded && processState.sourceBreakdown.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = expanded && processState.sourceBreakdown.isNotEmpty(),
+                enter = rememberEnterFromBottom(8.dp),
+                exit = rememberExitToBottom(8.dp)
+            ) {
                 Column(modifier = Modifier.padding(start = 30.dp, end = 10.dp, bottom = 8.dp)) {
                     Text(
                         text = processState.sourceBreakdown.joinToString(" / "),
@@ -694,7 +745,11 @@ fun ThinkingPanel(thinkingContent: String, isStreaming: Boolean) {
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.animateContentSize()) {
+        Column(
+            modifier = Modifier.animateContentSize(
+                animationSpec = appMotionTween()
+            )
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -724,7 +779,11 @@ fun ThinkingPanel(thinkingContent: String, isStreaming: Boolean) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = rememberEnterFromBottom(8.dp),
+                exit = rememberExitToBottom(8.dp)
+            ) {
                 Column {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Text(

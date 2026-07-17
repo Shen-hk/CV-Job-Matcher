@@ -1,8 +1,13 @@
 ﻿package com.example.tielink.ui.agent
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,10 +40,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +53,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.tielink.ui.theme.AppRadius
 import com.example.tielink.ui.theme.AppSpacing
+import com.example.tielink.ui.theme.AppMotion
+import com.example.tielink.ui.theme.appMotionTween
+import com.example.tielink.ui.theme.motionIconTransform
 import com.example.tielink.ui.theme.ActionBlue
 import com.example.tielink.ui.theme.EnergyIndigo
 import com.example.tielink.ui.theme.FocusCyan
@@ -83,8 +93,20 @@ private fun CommandChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = appMotionTween(AppMotion.quick),
+        label = "command_chip_scale"
+    )
     Surface(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
         shape = RoundedCornerShape(AppRadius.pill),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         border = androidx.compose.foundation.BorderStroke(
@@ -184,6 +206,20 @@ fun InputArea(
     onVoiceInput: (String) -> Unit,
     onVoiceError: (String) -> Unit
 ) {
+    val inputSurfaceColor by animateColorAsState(
+        targetValue = if (isStreaming) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.46f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+        },
+        animationSpec = appMotionTween(),
+        label = "input_surface"
+    )
+    val actionColor by animateColorAsState(
+        targetValue = if (isStreaming) MaterialTheme.colorScheme.secondary else ActionBlue,
+        animationSpec = appMotionTween(AppMotion.quick),
+        label = "input_action"
+    )
     val gradientColors = remember {
         listOf(
             FocusCyan.copy(alpha = 0.72f),
@@ -210,7 +246,7 @@ fun InputArea(
                     shape = inputShape
                 )
                 .clip(inputShape)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
+                .background(inputSurfaceColor)
         ) {
             OutlinedTextField(
                 value = text,
@@ -260,17 +296,23 @@ fun InputArea(
                             enabled = isStreaming || text.isNotBlank() || hasAttachment,
                             modifier = Modifier.size(38.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = ActionBlue,
+                                containerColor = actionColor,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                                 disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.34f)
                             )
                         ) {
-                            Icon(
-                                imageVector = if (isStreaming) Icons.Default.Close else Icons.AutoMirrored.Filled.Send,
-                                contentDescription = if (isStreaming) "停止" else "发送",
-                                modifier = Modifier.size(20.dp),
-                            )
+                            AnimatedContent(
+                                targetState = isStreaming,
+                                transitionSpec = { motionIconTransform() },
+                                label = "composer_action"
+                            ) { streaming ->
+                                Icon(
+                                    imageVector = if (streaming) Icons.Default.Close else Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = if (streaming) "停止" else "发送",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 },

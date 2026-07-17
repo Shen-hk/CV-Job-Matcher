@@ -5,10 +5,6 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +63,8 @@ import com.example.tielink.domain.model.AgentMessageRole
 import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.ui.history.HistoryViewModel
 import com.example.tielink.ui.theme.AppSpacing
+import com.example.tielink.ui.theme.motionCollapseOut
+import com.example.tielink.ui.theme.motionExpandIn
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -328,7 +326,11 @@ fun AgentChatScreen(
                             onResumeOptimize = onNavigateToResumeOptimize,
                             onTracking = onNavigateToTracking
                         )
-                        if (state.pendingAttachmentName != null || state.isParsingFile) {
+                        AnimatedVisibility(
+                            visible = state.pendingAttachmentName != null || state.isParsingFile,
+                            enter = motionExpandIn(),
+                            exit = motionCollapseOut()
+                        ) {
                             AttachmentBar(
                                 fileName = state.pendingAttachmentName,
                                 isParsing = state.isParsingFile,
@@ -386,7 +388,7 @@ fun AgentChatScreen(
                                     }
                                 }
                             ) { message ->
-                                MessageRow(
+                                AnimatedMessageRow(
                                     message = message,
                                     inlineProcessState = if (message.id == inlineProcessMessageId) {
                                         state.processState
@@ -423,8 +425,8 @@ fun AgentChatScreen(
                     AnimatedVisibility(
                         visible = state.error != null,
                         modifier = Modifier.align(Alignment.TopCenter),
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                        enter = motionExpandIn(),
+                        exit = motionCollapseOut()
                     ) {
                         state.error?.let { error ->
                             Surface(
