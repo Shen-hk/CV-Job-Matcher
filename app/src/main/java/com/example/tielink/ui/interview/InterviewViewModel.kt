@@ -12,6 +12,7 @@ import com.example.tielink.domain.context.CurrentJobContext
 import com.example.tielink.domain.model.InterviewMessage
 import com.example.tielink.domain.model.InterviewPersona
 import com.example.tielink.domain.model.InterviewSession
+import com.example.tielink.domain.model.InterviewSessionTiming
 import com.example.tielink.domain.model.MessageRole
 import com.example.tielink.domain.model.ResumeVersion
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -405,7 +406,7 @@ class InterviewViewModel @Inject constructor(
                 activeSessionId = activeSession?.id,
                 questionCount = activeSession?.questionCount ?: 0,
                 elapsedSeconds = activeSession?.createdAt?.let { startedAt ->
-                    ((System.currentTimeMillis() - startedAt) / 1000L).toInt().coerceAtLeast(0)
+                    InterviewSessionTiming.elapsedSeconds(startedAt, System.currentTimeMillis())
                 } ?: 0,
                 statusText = if (activeSession != null) {
                     "已恢复上一次未结束的视频面试。"
@@ -473,7 +474,7 @@ class InterviewViewModel @Inject constructor(
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
             while (true) {
-                val seconds = ((System.currentTimeMillis() - startedAtMs) / 1000L).toInt().coerceAtLeast(0)
+                val seconds = InterviewSessionTiming.elapsedSeconds(startedAtMs, System.currentTimeMillis())
                 _uiState.update { current ->
                     if (!current.isInCall) current else current.copy(elapsedSeconds = seconds)
                 }

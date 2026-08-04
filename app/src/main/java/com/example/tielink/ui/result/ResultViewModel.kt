@@ -21,6 +21,7 @@ import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.MatchLevel
 import com.example.tielink.domain.model.PolishResult
 import com.example.tielink.domain.model.ResumeData
+import com.example.tielink.domain.model.ResumeDataEditor
 import com.example.tielink.domain.nlp.SemanticMatcher
 import com.example.tielink.util.HtmlPdfExporter
 import com.example.tielink.util.FileParser
@@ -573,27 +574,21 @@ class ResultViewModel @Inject constructor(
     fun updateExperience(index: Int, exp: ResumeData.Experience) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            val list = current.experiences.toMutableList()
-            if (index in list.indices) list[index] = exp
-            state.copy(resumeData = current.copy(experiences = list))
+            state.copy(resumeData = ResumeDataEditor.replaceExperience(current, index, exp))
         }
     }
 
     fun addExperience() {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(
-                experiences = current.experiences + ResumeData.Experience("", "", "", "")
-            ))
+            state.copy(resumeData = ResumeDataEditor.addExperience(current))
         }
     }
 
     fun removeExperience(index: Int) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(
-                experiences = current.experiences.toMutableList().also { if (index in it.indices) it.removeAt(index) }
-            ))
+            state.copy(resumeData = ResumeDataEditor.removeExperience(current, index))
         }
     }
 
@@ -601,27 +596,21 @@ class ResultViewModel @Inject constructor(
     fun updateEducation(index: Int, edu: ResumeData.Education) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            val list = current.education.toMutableList()
-            if (index in list.indices) list[index] = edu
-            state.copy(resumeData = current.copy(education = list))
+            state.copy(resumeData = ResumeDataEditor.replaceEducation(current, index, edu))
         }
     }
 
     fun addEducation() {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(
-                education = current.education + ResumeData.Education("", "", "")
-            ))
+            state.copy(resumeData = ResumeDataEditor.addEducation(current))
         }
     }
 
     fun removeEducation(index: Int) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(
-                education = current.education.toMutableList().also { if (index in it.indices) it.removeAt(index) }
-            ))
+            state.copy(resumeData = ResumeDataEditor.removeEducation(current, index))
         }
     }
 
@@ -629,27 +618,21 @@ class ResultViewModel @Inject constructor(
     fun updateProject(index: Int, proj: ResumeData.Project) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            val list = current.projects.toMutableList()
-            if (index in list.indices) list[index] = proj
-            state.copy(resumeData = current.copy(projects = list))
+            state.copy(resumeData = ResumeDataEditor.replaceProject(current, index, proj))
         }
     }
 
     fun addProject() {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(
-                projects = current.projects + ResumeData.Project("", "", "", emptyList())
-            ))
+            state.copy(resumeData = ResumeDataEditor.addProject(current))
         }
     }
 
     fun removeProject(index: Int) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(
-                projects = current.projects.toMutableList().also { if (index in it.indices) it.removeAt(index) }
-            ))
+            state.copy(resumeData = ResumeDataEditor.removeProject(current, index))
         }
     }
 
@@ -657,7 +640,7 @@ class ResultViewModel @Inject constructor(
     fun updateSkills(skills: List<String>) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(skills = skills))
+            state.copy(resumeData = ResumeDataEditor.replaceSkills(current, skills))
         }
     }
 
@@ -665,15 +648,14 @@ class ResultViewModel @Inject constructor(
         if (skill.isBlank()) return
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            if (current.skills.contains(skill)) return@update state
-            state.copy(resumeData = current.copy(skills = current.skills + skill))
+            state.copy(resumeData = ResumeDataEditor.addSkill(current, skill))
         }
     }
 
     fun removeSkill(skill: String) {
         _uiState.update { state ->
             val current = state.resumeData ?: return@update state
-            state.copy(resumeData = current.copy(skills = current.skills - skill))
+            state.copy(resumeData = ResumeDataEditor.removeSkill(current, skill))
         }
     }
 }

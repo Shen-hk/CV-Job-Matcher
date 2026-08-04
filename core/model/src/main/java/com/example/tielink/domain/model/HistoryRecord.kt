@@ -1,6 +1,5 @@
 package com.example.tielink.domain.model
 
-/** Full history record used outside the Room persistence boundary. */
 data class HistoryRecord(
     val id: Long = 0,
     val createdAt: Long = System.currentTimeMillis(),

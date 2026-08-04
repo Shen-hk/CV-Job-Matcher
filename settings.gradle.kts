@@ -25,4 +25,6 @@ dependencyResolutionManagement {
 rootProject.name = "TieLink"
 include(":app")
 include(":baselineprofile")
- 
+include(":core:model")
+include(":core:domain")
+include(":core:data")

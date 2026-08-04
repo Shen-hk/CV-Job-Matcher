@@ -12,6 +12,7 @@ import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.domain.model.HistoryRecord
 import com.example.tielink.domain.model.AgentChatUiState
+import com.example.tielink.domain.model.AgentDraftSnapshotFactory
 import com.example.tielink.domain.model.AgentContext
 import com.example.tielink.domain.model.AgentMessage
 import com.example.tielink.domain.model.AgentMessageRole
@@ -21,7 +22,6 @@ import com.example.tielink.domain.model.AgentProcessStage
 import com.example.tielink.domain.model.AgentProcessState
 import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.model.PersistedAgentChatDraft
-import com.example.tielink.domain.model.PersistedAgentMessage
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
@@ -1004,34 +1004,7 @@ class AgentViewModel @Inject constructor(
     }
 
     private fun buildPersistedDraft(state: AgentChatUiState): PersistedAgentChatDraft {
-        val persistedMessages = state.messages
-            .filter { it.toolLoadingName == null }
-            .mapNotNull {
-                val cardSnapshot = it.card?.let(UiCardSnapshotCodec::encode)
-                if (it.card != null && cardSnapshot == null) return@mapNotNull null
-                if (
-                    it.content.isBlank() &&
-                    it.thinkingContent.isNullOrBlank() &&
-                    cardSnapshot == null
-                ) {
-                    return@mapNotNull null
-                }
-                PersistedAgentMessage(
-                    role = it.role,
-                    content = it.content,
-                    timestamp = it.timestamp,
-                    thinkingContent = it.thinkingContent,
-                    card = cardSnapshot
-                )
-            }
-
-        return PersistedAgentChatDraft(
-            historyId = currentHistoryId,
-            messages = persistedMessages,
-            inputText = state.inputText,
-            pendingAttachmentName = state.pendingAttachmentName,
-            pendingAttachmentText = state.pendingAttachmentText
-        )
+        return AgentDraftSnapshotFactory.create(state, currentHistoryId)
     }
 
     private suspend fun archiveCurrentSessionNow(

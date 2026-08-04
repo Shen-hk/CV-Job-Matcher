@@ -42,6 +42,7 @@ class AgentToolCoordinator @Inject constructor(
     private val quantifyAssistant: QuantifyAssistant,
     private val trackingRepository: TrackingRepository,
     private val interviewRepository: InterviewRepository,
+    private val opportunityAnalyzer: OpportunityAnalyzer,
     private val moshi: Moshi,
     private val toolRegistry: AgentToolRegistry
 ) {
@@ -660,7 +661,7 @@ class AgentToolCoordinator @Inject constructor(
         val resumeText = resume?.rawText?.ifBlank { resume.cleanedText }.orEmpty()
         val hasResume = resumeText.isNotBlank()
         val ranks = candidates
-            .map { jd -> rankOpportunity(jd, resumeText) }
+            .map { jd -> opportunityAnalyzer.rank(jd, resumeText) }
             .sortedByDescending { it.score }
         val top = ranks.first()
 

@@ -1,9 +1,6 @@
 package com.example.tielink.domain.model
 
-/**
- * Agent 运行时上下文，持久化到 DataStore
- * 跨会话保留当前 JD、简历版本、面试会话等信息
- */
+/** Durable context for an Agent conversation. */
 data class AgentContext(
     val currentJdId: Long? = null,
     val currentJdText: String? = null,
