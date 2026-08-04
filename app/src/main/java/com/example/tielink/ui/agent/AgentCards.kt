@@ -418,9 +418,10 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
             }
 
             // 正文：有 ResumeData 时用 WebView，否则降级为文字
-            if (card.resumeData != null) {
+            val resumeData = card.resumeData
+            if (resumeData != null) {
                 com.example.tielink.ui.components.ResumePreviewWebView(
-                    resumeData = card.resumeData,
+                    resumeData = resumeData,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 220.dp, max = 320.dp)
@@ -643,11 +644,12 @@ fun InterviewTurnCardComposable(card: UiCard.InterviewTurnCard, modifier: Modifi
             Text(card.question, style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer)
-            if (card.feedback != null) {
+            val feedback = card.feedback
+            if (feedback != null) {
                 Spacer(Modifier.height(10.dp))
                 Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                 shape = RoundedCornerShape(AppRadius.sm)) {
-                    Text(card.feedback,
+                    Text(feedback,
                         modifier = Modifier.fillMaxWidth().padding(10.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface)

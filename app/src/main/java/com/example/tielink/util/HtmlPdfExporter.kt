@@ -177,8 +177,9 @@ object HtmlPdfExporter {
         if (data.education.isEmpty()) return ""
         val sb = StringBuilder()
         for (edu in data.education) {
-            if (edu.gpa != null && edu.gpa.isNotBlank()) {
-                sb.appendLine("""    <p class="info-line"><strong>GPA:</strong> ${escapeHtml(edu.gpa)}</p>""")
+            val gpa = edu.gpa
+            if (!gpa.isNullOrBlank()) {
+                sb.appendLine("""    <p class="info-line"><strong>GPA:</strong> ${escapeHtml(gpa)}</p>""")
             }
         }
         return sb.toString().trimEnd()

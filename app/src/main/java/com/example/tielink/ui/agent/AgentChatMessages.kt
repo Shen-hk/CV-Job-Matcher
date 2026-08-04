@@ -492,12 +492,13 @@ fun MessageRow(
     onRequestResumeUpload: () -> Unit = {},
     onDynamicAction: (DynamicCardAction) -> Unit = {}
 ) {
+    val card = message.card
     when {
         message.toolLoadingName != null -> ToolLoadingBubble(message)
-        message.card != null -> {
+        card != null -> {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 UiCardComposable(
-                    card = message.card,
+                    card = card,
                     modifier = Modifier.fillMaxWidth(),
                     onNavigateToResumePreview = onNavigateToResumePreview,
                     onNavigateToResumeLibrary = onNavigateToResumeLibrary,
@@ -522,8 +523,9 @@ fun AgentBubble(
             .fillMaxWidth()
             .padding(vertical = 3.dp)
     ) {
-        if (!message.thinkingContent.isNullOrBlank()) {
-            ThinkingPanel(thinkingContent = message.thinkingContent, isStreaming = message.isStreaming)
+        val thinkingContent = message.thinkingContent
+        if (!thinkingContent.isNullOrBlank()) {
+            ThinkingPanel(thinkingContent = thinkingContent, isStreaming = message.isStreaming)
             Spacer(Modifier.height(6.dp))
         }
 

@@ -34,4 +34,10 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.mlkit.text.recognition.chinese)
     implementation(libs.pdfbox.android)
+    implementation(libs.tensorflow.lite) {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
+    implementation(libs.tensorflow.lite.support) {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-support-api")
+    }
 }
