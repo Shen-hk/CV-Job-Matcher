@@ -1,6 +1,6 @@
 package com.example.tielink.data.repository
 
-import com.example.tielink.data.local.AppPreferences
+import com.example.tielink.data.local.AppContentStore
 import com.example.tielink.domain.model.PersistedAgentChatDraft
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -9,7 +9,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AgentChatDraftRepository @Inject constructor(
-    private val appPreferences: AppPreferences
+    private val appContentStore: AppContentStore
 ) {
     private val moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
@@ -25,16 +25,16 @@ class AgentChatDraftRepository @Inject constructor(
     fun encode(draft: PersistedAgentChatDraft): String = adapter.toJson(draft)
 
     suspend fun load(): PersistedAgentChatDraft {
-        val json = appPreferences.getAgentChatDraftJson()
+        val json = appContentStore.getAgentChatDraft()
         if (json.isBlank()) return PersistedAgentChatDraft()
         return decode(json) ?: PersistedAgentChatDraft()
     }
 
     suspend fun save(draft: PersistedAgentChatDraft) {
-        appPreferences.setAgentChatDraftJson(encode(draft))
+        appContentStore.setAgentChatDraft(encode(draft))
     }
 
     suspend fun clear() {
-        appPreferences.setAgentChatDraftJson("")
+        appContentStore.setAgentChatDraft("")
     }
 }

@@ -1,25 +1,30 @@
 package com.example.tielink.data.repository
 
+import com.example.tielink.data.local.SecretCipher
 import com.example.tielink.data.local.db.dao.ProviderDao
 import com.example.tielink.data.local.db.entity.ProviderEntity
 import com.example.tielink.data.local.db.entity.ProviderModelEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class ProviderRepository @Inject constructor(
-    private val dao: ProviderDao
+    private val dao: ProviderDao,
+    private val secretCipher: SecretCipher
 ) {
     // ── Provider ────────────────────────────────────────────────
 
-    fun getAllFlow(): Flow<List<ProviderEntity>> = dao.getAllFlow()
+    fun getAllFlow(): Flow<List<ProviderEntity>> = dao.getAllFlow().map { providers ->
+        providers.map(::decryptProvider)
+    }
 
-    suspend fun getAll(): List<ProviderEntity> = dao.getAll()
+    suspend fun getAll(): List<ProviderEntity> = dao.getAll().map(::decryptProvider)
 
-    suspend fun getProviderById(id: Long): ProviderEntity? = dao.getById(id)
+    suspend fun getProviderById(id: Long): ProviderEntity? = dao.getById(id)?.let(::decryptProvider)
 
-    suspend fun insertProvider(entity: ProviderEntity): Long = dao.insert(entity)
+    suspend fun insertProvider(entity: ProviderEntity): Long = dao.insert(encryptProvider(entity))
 
     suspend fun deleteProvider(entity: ProviderEntity) = dao.delete(entity)
 
@@ -40,4 +45,13 @@ class ProviderRepository @Inject constructor(
     suspend fun deleteModelsByProviderId(providerId: Long) = dao.deleteModelsByProviderId(providerId)
 
     suspend fun deleteModel(entity: ProviderModelEntity) = dao.deleteModel(entity)
+
+    private fun encryptProvider(entity: ProviderEntity): ProviderEntity = entity.copy(
+        apiKey = secretCipher.encrypt(entity.apiKey)
+    )
+
+    private fun decryptProvider(entity: ProviderEntity): ProviderEntity = entity.copy(
+        // Legacy rows stay usable; saving the provider migrates its key to encrypted storage.
+        apiKey = secretCipher.decrypt(entity.apiKey).orEmpty()
+    )
 }

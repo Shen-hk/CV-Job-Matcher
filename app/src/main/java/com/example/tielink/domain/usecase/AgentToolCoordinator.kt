@@ -1,12 +1,12 @@
 package com.example.tielink.domain.usecase
 
 import android.util.Log
-import com.example.tielink.data.remote.AiProviderManager
-import com.example.tielink.data.remote.LlmFunctionDefinition
-import com.example.tielink.data.remote.LlmRequest
-import com.example.tielink.data.remote.LlmToolCall
-import com.example.tielink.data.remote.LlmToolDefinition
-import com.example.tielink.data.remote.dto.Message
+import com.example.tielink.domain.agent.AgentChatGateway
+import com.example.tielink.domain.agent.AgentChatMessage
+import com.example.tielink.domain.agent.AgentChatRequest
+import com.example.tielink.domain.agent.AgentFunctionDefinition
+import com.example.tielink.domain.agent.AgentToolCall
+import com.example.tielink.domain.agent.AgentToolDefinition
 import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.JdLibraryRepository
@@ -21,6 +21,7 @@ import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.PolishResult
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
+import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.nlp.NlpEngine
 import com.example.tielink.util.AgentWorkspace
@@ -31,7 +32,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AgentToolCoordinator @Inject constructor(
-    private val aiProviderManager: AiProviderManager,
+    private val agentChatGateway: AgentChatGateway,
     private val agentContextRepository: AgentContextRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val jdLibraryRepository: JdLibraryRepository,
@@ -42,41 +43,13 @@ class AgentToolCoordinator @Inject constructor(
     private val trackingRepository: TrackingRepository,
     private val interviewRepository: InterviewRepository,
     private val moshi: Moshi,
-    customTools: Set<@JvmSuppressWildcards AgentTool>
+    private val toolRegistry: AgentToolRegistry
 ) {
     companion object {
         private const val TAG = "AgentToolCoordinator"
     }
 
-    private val builtInToolNames = setOf(
-        "analyze_jd",
-        "calculate_match",
-        "optimize_resume",
-        "show_resume_preview",
-        "get_interview_turn",
-        "get_latest_application",
-        "create_application_from_current_jd",
-        "generate_greeting",
-        "analyze_boss_opportunities",
-        "render_card"
-    )
-
-    private val customToolsByName: Map<String, AgentTool> = customTools
-        .also { tools ->
-            val names = tools.map { it.definition.function.name }
-            require(names.all { it.matches(Regex("[A-Za-z0-9_-]{1,64}")) }) {
-                "AgentTool 名称只能包含字母、数字、下划线或连字符，且长度不超过 64：$names"
-            }
-            require(names.size == names.distinct().size) {
-                "发现重名的自定义 AgentTool：$names"
-            }
-            require(names.none { it in builtInToolNames }) {
-                "自定义 AgentTool 不能覆盖内置工具：${names.filter { it in builtInToolNames }}"
-            }
-        }
-        .associateBy { it.definition.function.name }
-
-    private val toolDefinitions: List<LlmToolDefinition> by lazy {
+    private val toolDefinitions: List<AgentToolDefinition> by lazy {
         listOf(
             functionTool(
                 name = "analyze_jd",
@@ -137,12 +110,10 @@ class AgentToolCoordinator @Inject constructor(
                 required = emptyList()
             ),
             dynamicCardTool()
-        ) + customToolsByName.values
-            .sortedBy { it.definition.function.name }
-            .map { it.definition }
+        ).let(toolRegistry::appendCustomDefinitions)
     }
 
-    fun definitions(allowedToolNames: Set<String>? = null): List<LlmToolDefinition> {
+    fun definitions(allowedToolNames: Set<String>? = null): List<AgentToolDefinition> {
         if (allowedToolNames == null) return toolDefinitions
         if (allowedToolNames.isEmpty()) return emptyList()
         return toolDefinitions.filter { it.function.name in allowedToolNames }
@@ -159,14 +130,14 @@ class AgentToolCoordinator @Inject constructor(
         "generate_greeting" -> "正在生成打招呼话术..."
         "analyze_boss_opportunities" -> "正在分析 BOSS 岗位池..."
         "render_card" -> "正在组织卡片内容..."
-        else -> customToolsByName[toolName]?.progressDescription ?: "正在执行工具..."
+        else -> toolRegistry.definitionFor(toolName)?.progressDescription ?: "正在执行工具..."
     }
 
-    suspend fun execute(call: LlmToolCall, fallbackUserText: String): ToolExecutionResult {
+    suspend fun execute(call: AgentToolCall, fallbackUserText: String): ToolExecutionResult {
         val arguments = runCatching { JSONObject(call.arguments) }.getOrElse {
             return ToolExecutionResult("工具参数不是有效 JSON：${it.message}")
         }
-        customToolsByName[call.name]?.let { tool ->
+        toolRegistry.definitionFor(call.name)?.let { tool ->
             return try {
                 tool.execute(arguments, fallbackUserText)
             } catch (e: Exception) {
@@ -268,8 +239,8 @@ class AgentToolCoordinator @Inject constructor(
         description: String,
         properties: Map<String, Any?>,
         required: List<String>
-    ) = LlmToolDefinition(
-        function = LlmFunctionDefinition(
+    ) = AgentToolDefinition(
+        function = AgentFunctionDefinition(
             name = name,
             description = description,
             parameters = mapOf(
@@ -285,13 +256,13 @@ class AgentToolCoordinator @Inject constructor(
         mapOf("type" to "string", "description" to description)
 
     private data class OpportunityRank(
-        val jd: com.example.tielink.data.local.db.entity.JdLibraryEntity,
+        val jd: SavedJobDescription,
         val score: Int,
         val matchedSkills: List<String>,
         val reason: String
     )
 
-    private fun dynamicCardTool(): LlmToolDefinition = functionTool(
+    private fun dynamicCardTool(): AgentToolDefinition = functionTool(
         name = "render_card",
         description = "把适合视觉化的信息组装成安全的动态卡片。适用于比较、指标、标签、进度、步骤流、时间线、表格、看板、决策分支等结构化信息；普通回答不要调用。",
         properties = mapOf(
@@ -601,15 +572,15 @@ class AgentToolCoordinator @Inject constructor(
 
             val prompt = """你是一位招聘专家。请从以下文本中提取岗位信息，只返回JSON：
 {"company":"公司名（如未提及则为空字符串）","position":"职位名称","salary":"薪资范围（如20k-40k，未提及则为空字符串）","skills":["技能1","技能2","技能3"]}"""
-            val request = LlmRequest(
+            val request = AgentChatRequest(
                 messages = listOf(
-                    Message("system", prompt),
-                    Message("user", "请提取: ${userText.take(2000)}")
+                    AgentChatMessage("system", prompt),
+                    AgentChatMessage("user", "请提取: ${userText.take(2000)}")
                 ),
                 temperature = 0.3,
                 maxTokens = 300
             )
-            val response = aiProviderManager.chatWithFallback(request)
+            val response = agentChatGateway.complete(request)
             val json = response.content
                 .removePrefix("```json").removePrefix("```")
                 .removeSuffix("```").trim()
@@ -796,7 +767,7 @@ class AgentToolCoordinator @Inject constructor(
     }
 
     private fun rankOpportunity(
-        jd: com.example.tielink.data.local.db.entity.JdLibraryEntity,
+        jd: SavedJobDescription,
         resumeText: String
     ): OpportunityRank {
         val skills = splitSkills(jd.skills)
@@ -1009,15 +980,15 @@ class AgentToolCoordinator @Inject constructor(
             }
         }
 
-        val request = LlmRequest(
+        val request = AgentChatRequest(
             messages = listOf(
-                Message("system", systemPrompt),
-                Message("user", userPrompt)
+                AgentChatMessage("system", systemPrompt),
+                AgentChatMessage("user", userPrompt)
             ),
             temperature = 0.8,
             maxTokens = 800
         )
-        val response = aiProviderManager.chatWithFallback(request)
+        val response = agentChatGateway.complete(request)
         val greetings = parseGreetingResponse(response.content)
         if (greetings.isEmpty()) return null
 

@@ -1,12 +1,16 @@
 package com.example.tielink.data.repository
 
 import com.example.tielink.data.local.AppPreferences
+import com.example.tielink.data.remote.DeepSeekApiServiceFactory
+import com.example.tielink.data.remote.dto.DeepSeekRequest
+import com.example.tielink.data.remote.dto.Message
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SettingsRepository @Inject constructor(
-    private val appPreferences: AppPreferences
+    private val appPreferences: AppPreferences,
+    private val apiServiceFactory: DeepSeekApiServiceFactory
 ) {
     suspend fun getApiKey(): String = appPreferences.getApiKey()
 
@@ -24,7 +28,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setOnboardingSeen() = appPreferences.setOnboardingSeen()
 
-    suspend fun getLastResume(): String = appPreferences.getLastResume()
-
-    suspend fun setLastResume(text: String) = appPreferences.setLastResume(text)
+    suspend fun testConnection(): Result<Unit> = runCatching {
+        val response = apiServiceFactory.create().chatCompletion(
+            DeepSeekRequest(messages = listOf(Message(role = "user", content = "Hello")), maxTokens = 10)
+        )
+        check(response.choices.isNotEmpty()) { "Provider returned no choices" }
+    }
 }

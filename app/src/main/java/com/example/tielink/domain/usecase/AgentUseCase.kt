@@ -2,13 +2,13 @@
 
 import android.content.Context
 import android.util.Log
-import com.example.tielink.data.remote.AiProviderManager
-import com.example.tielink.data.remote.LlmRequest
-import com.example.tielink.data.remote.PromptRegistry
-import com.example.tielink.data.remote.StreamEvent
-import com.example.tielink.data.remote.dto.MessageFunctionCall
-import com.example.tielink.data.remote.dto.Message
-import com.example.tielink.data.remote.dto.MessageToolCall
+import com.example.tielink.domain.agent.AgentChatGateway
+import com.example.tielink.domain.agent.AgentChatMessage
+import com.example.tielink.domain.agent.AgentChatRequest
+import com.example.tielink.domain.agent.AgentFunctionCall
+import com.example.tielink.domain.agent.AgentMessageToolCall
+import com.example.tielink.domain.agent.AgentPromptSource
+import com.example.tielink.domain.agent.AgentStreamEvent
 import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
@@ -34,8 +34,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class AgentUseCase @Inject constructor(
-    private val aiProviderManager: AiProviderManager,
-    private val promptRegistry: PromptRegistry,
+    private val agentChatGateway: AgentChatGateway,
+    private val agentPromptSource: AgentPromptSource,
     private val agentContextRepository: AgentContextRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val agentToolCoordinator: AgentToolCoordinator,
@@ -82,7 +82,7 @@ class AgentUseCase @Inject constructor(
         try {
             if (tools.isEmpty()) {
                 emitStreamingTextResponse(
-                    request = LlmRequest(
+                    request = AgentChatRequest(
                         messages = messages,
                         temperature = 0.7,
                         maxTokens = 4096
@@ -104,8 +104,8 @@ class AgentUseCase @Inject constructor(
                     )
                 )
 
-                val response = aiProviderManager.chatWithFallback(
-                    LlmRequest(
+                val response = agentChatGateway.complete(
+                    AgentChatRequest(
                         messages = messages,
                         temperature = if (round == 0) 0.45 else 0.35,
                         maxTokens = 4096,
@@ -132,15 +132,15 @@ class AgentUseCase @Inject constructor(
 
                 val calls = response.toolCalls.take(MAX_TOOL_CALLS_PER_ROUND)
                 val assistantToolCalls = calls.map { call ->
-                    MessageToolCall(
+                    AgentMessageToolCall(
                         id = call.id,
-                        function = MessageFunctionCall(
+                        function = AgentFunctionCall(
                             name = call.name,
                             arguments = call.arguments
                         )
                     )
                 }
-                messages += Message(
+                messages += AgentChatMessage(
                     role = "assistant",
                     content = response.content.ifBlank { null },
                     toolCalls = assistantToolCalls
@@ -148,7 +148,7 @@ class AgentUseCase @Inject constructor(
 
                 for (call in calls) {
                     if (!effectiveTurnPolicy.isAllowed(call.name)) {
-                        messages += Message(
+                        messages += AgentChatMessage(
                             role = "tool",
                             content = "本轮用户请求不适合调用 ${call.name}。请不要弹出卡片或执行无关工具，改用简洁文本直接回答。",
                             toolCallId = call.id,
@@ -159,7 +159,7 @@ class AgentUseCase @Inject constructor(
 
                     val signature = "${call.name}:${call.arguments}"
                     if (!seenCalls.add(signature)) {
-                        messages += Message(
+                        messages += AgentChatMessage(
                             role = "tool",
                             content = "拒绝重复执行完全相同的工具调用，请根据已有结果继续回答。",
                             toolCallId = call.id,
@@ -188,7 +188,7 @@ class AgentUseCase @Inject constructor(
                         agentToolCoordinator.execute(call, userText)
                     }
                     result.cards.forEach { emit(AgentOutput.ToolResult(it)) }
-                    messages += Message(
+                    messages += AgentChatMessage(
                         role = "tool",
                         content = result.content,
                         toolCallId = call.id,
@@ -212,7 +212,7 @@ class AgentUseCase @Inject constructor(
             Log.w(TAG, "原生工具调用不可用，回退到普通流式聊天: ${e.message}")
             try {
                 emitStreamingTextResponse(
-                    LlmRequest(
+                    AgentChatRequest(
                         messages = buildMessages(systemPrompt, conversationHistory, userText),
                         temperature = 0.7,
                         maxTokens = 4096
@@ -233,7 +233,7 @@ class AgentUseCase @Inject constructor(
     }
 
     private suspend fun FlowCollector<AgentOutput>.emitStreamingTextResponse(
-        request: LlmRequest,
+        request: AgentChatRequest,
         userText: String,
         appContext: Context,
         detail: String
@@ -247,21 +247,21 @@ class AgentUseCase @Inject constructor(
                 canCancel = true
             )
         )
-        aiProviderManager.chatStream(request).collect { event ->
+        agentChatGateway.stream(request).collect { event ->
             when (event) {
-                is StreamEvent.Start -> Unit
-                is StreamEvent.Thinking -> emit(AgentOutput.Thinking(event.text))
-                is StreamEvent.Content -> {
+                is AgentStreamEvent.Start -> Unit
+                is AgentStreamEvent.Thinking -> emit(AgentOutput.Thinking(event.text))
+                is AgentStreamEvent.Content -> {
                     textBuilder.append(event.text)
                     emit(AgentOutput.StreamText(event.text))
                 }
-                is StreamEvent.Done -> {
+                is AgentStreamEvent.Done -> {
                     withContext(Dispatchers.IO) {
                         handleMemoryExtraction(userText, textBuilder.toString(), appContext)
                     }
                     emit(AgentOutput.Done)
                 }
-                is StreamEvent.Error -> emit(AgentOutput.Error(event.message))
+                is AgentStreamEvent.Error -> emit(AgentOutput.Error(event.message))
             }
         }
     }
@@ -286,7 +286,7 @@ class AgentUseCase @Inject constructor(
      * 构建系统提示词
      */
     private suspend fun buildSystemPrompt(appContext: Context, turnPolicy: AgentTurnPolicy): String {
-        val config = promptRegistry.get("agent_chat")
+        val config = agentPromptSource.get("agent_chat")
         val basePrompt = config.system
 
         val sb = StringBuilder(basePrompt)
@@ -394,8 +394,8 @@ class AgentUseCase @Inject constructor(
         systemPrompt: String,
         conversationHistory: List<com.example.tielink.domain.model.AgentMessage>,
         userText: String
-    ): List<Message> {
-        val messages = mutableListOf(Message("system", systemPrompt))
+    ): List<AgentChatMessage> {
+        val messages = mutableListOf(AgentChatMessage("system", systemPrompt))
 
         val normalizedUserText = userText.trim()
         val historyWithoutCurrentTurn = conversationHistory
@@ -418,7 +418,7 @@ class AgentUseCase @Inject constructor(
                     msg.card?.let(::summarizeCardForContext).orEmpty()
                 }.take(1200)
                 if (content.isBlank()) return@forEach
-                messages.add(Message(
+                messages.add(AgentChatMessage(
                     role = when (msg.role) {
                         com.example.tielink.domain.model.AgentMessageRole.USER -> "user"
                         com.example.tielink.domain.model.AgentMessageRole.AGENT -> "assistant"
@@ -429,7 +429,7 @@ class AgentUseCase @Inject constructor(
             }
 
         // 添加当前用户消息
-        messages.add(Message("user", userText))
+        messages.add(AgentChatMessage("user", userText))
 
         return messages
     }

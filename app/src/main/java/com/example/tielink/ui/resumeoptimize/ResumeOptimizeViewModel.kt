@@ -5,8 +5,8 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.data.repository.PolishRepository
+import com.example.tielink.data.repository.ResumeRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.SkillGap
@@ -91,7 +91,7 @@ class ResumeOptimizeViewModel @Inject constructor(
     private val quantifyAssistant: QuantifyAssistant,
     private val starFormatter: StarFormatter,
     private val textCleaner: TextCleaner,
-    private val appPreferences: AppPreferences,
+    private val resumeRepository: ResumeRepository,
     private val moshi: Moshi
 ) : ViewModel() {
 
@@ -104,7 +104,7 @@ class ResumeOptimizeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val lastResume = appPreferences.getLastResume()
+            val lastResume = resumeRepository.getLastResume()
             if (lastResume.isNotBlank()) {
                 _uiState.update { it.copy(resumeText = lastResume, cleanedText = lastResume) }
             }

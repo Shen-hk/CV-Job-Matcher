@@ -3,7 +3,7 @@ package com.example.tielink.navigation
 import androidx.compose.runtime.Composable
 import android.net.Uri
 import androidx.navigation.NavHostController
-import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.LocalCurrentJobContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -27,7 +27,6 @@ import com.example.tielink.ui.theme.motionBackExit
 import com.example.tielink.ui.theme.motionForwardEnter
 import com.example.tielink.ui.theme.motionForwardExit
 import com.example.tielink.domain.model.isAgentChat
-import java.net.URLEncoder
 
 object Routes {
     // ── New: Parallel workbench ──
@@ -44,8 +43,8 @@ object Routes {
 
     // ── Legacy: Linear flow (kept for backward compat) ──
     const val JD_INPUT = "jd_input"
-    const val RESUME_INPUT = "resume_input/{jdRawText}/{jdStructuredJson}"
-    const val POLISH = "polish/{resumeText}/{jdRawText}/{jdStructuredJson}/{templatePath}/{sourceType}/{fullPolish}"
+    const val RESUME_INPUT = "resume_input"
+    const val POLISH = "polish"
     const val RESULT = "result/{sessionId}"
     const val HISTORY = "history"
     const val SETTINGS = "settings"
@@ -54,24 +53,19 @@ object Routes {
 
     // ── JD优化 flow ──
     const val JD_OPTIMIZE_JD_INPUT = "jd_optimize_jd_input"
-    const val JD_OPTIMIZE_RESUME_INPUT = "jd_optimize_resume_input/{jdRawText}/{jdStructuredJson}"
+    const val JD_OPTIMIZE_RESUME_INPUT = "jd_optimize_resume_input"
 
     fun jdOptimizeResumeInput(jdRawText: String, jdStructuredJson: String): String {
-        val encodedJd = URLEncoder.encode(jdRawText, "UTF-8")
-        val encodedJson = URLEncoder.encode(jdStructuredJson, "UTF-8")
-        return "jd_optimize_resume_input/$encodedJd/$encodedJson"
+        return JD_OPTIMIZE_RESUME_INPUT
     }
 
     fun resumeInput(jdRawText: String, jdStructuredJson: String): String {
-        val encodedJd = URLEncoder.encode(jdRawText, "UTF-8")
-        val encodedJson = URLEncoder.encode(jdStructuredJson, "UTF-8")
-        return "resume_input/$encodedJd/$encodedJson"
+        return RESUME_INPUT
     }
 
     fun polish(resumeText: String, jdRawText: String, jdStructuredJson: String,
                templatePath: String?, sourceType: String, fullPolish: Boolean): String {
-        val e = { s: String -> URLEncoder.encode(s, "UTF-8") }
-        return "polish/${e(resumeText)}/${e(jdRawText)}/${e(jdStructuredJson)}/${e(templatePath ?: "_none_")}/${e(sourceType)}/${if (fullPolish) "1" else "0"}"
+        return POLISH
     }
 
     fun result(sessionId: Long): String = "result/$sessionId"
@@ -86,6 +80,33 @@ object Routes {
 
 @Composable
 fun NavGraph(navController: NavHostController) {
+    fun navigateToResumeInput(route: String, jdRawText: String, jdStructuredJson: String) {
+        navController.navigate(route)
+        navController.currentBackStackEntry?.savedStateHandle?.apply {
+            set("jdRawText", jdRawText)
+            set("jdStructuredJson", jdStructuredJson)
+        }
+    }
+
+    fun navigateToPolish(
+        resumeText: String,
+        jdRawText: String,
+        jdStructuredJson: String,
+        templatePath: String?,
+        sourceType: String,
+        fullPolish: Boolean
+    ) {
+        navController.navigate(Routes.POLISH)
+        navController.currentBackStackEntry?.savedStateHandle?.apply {
+            set("resumeText", resumeText)
+            set("jdRawText", jdRawText)
+            set("jdStructuredJson", jdStructuredJson)
+            set("templatePath", templatePath ?: "_none_")
+            set("sourceType", sourceType)
+            set("fullPolish", if (fullPolish) "1" else "0")
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Routes.AGENT_CHAT,  // Agent as main entry point
@@ -143,7 +164,7 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate(Routes.JD_INPUT)
                 },
                 onNavigateToPolish = { resumeText, jdRawText, jdJson, tp, st, fp ->
-                    navController.navigate(Routes.polish(resumeText, jdRawText, jdJson, tp, st, fp))
+                    navigateToPolish(resumeText, jdRawText, jdJson, tp, st, fp)
                 }
             )
         }
@@ -190,34 +211,24 @@ fun NavGraph(navController: NavHostController) {
 
         // ── JD优化: JD Input ─────────────────────────────
         composable(Routes.JD_OPTIMIZE_JD_INPUT) {
-            val globalJdVm = LocalGlobalJdViewModel.current
+            val globalJdVm = LocalCurrentJobContext.current
             JdInputScreen(
                 onNavigateToSettings = {
                     navController.navigate(Routes.SETTINGS)
                 },
                 onJdSubmitted = { jdRawText, jdStructuredJson ->
                     globalJdVm.setJd(jdRawText, jdStructuredJson)
-                    navController.navigate(
-                        Routes.jdOptimizeResumeInput(jdRawText, jdStructuredJson)
-                    )
+                    navigateToResumeInput(Routes.JD_OPTIMIZE_RESUME_INPUT, jdRawText, jdStructuredJson)
                 }
             )
         }
 
         // ── JD优化: Resume Input (含历史版本+匹配确认) ────
-        composable(
-            route = Routes.JD_OPTIMIZE_RESUME_INPUT,
-            arguments = listOf(
-                navArgument("jdRawText") { type = NavType.StringType },
-                navArgument("jdStructuredJson") { type = NavType.StringType }
-            )
-        ) {
+        composable(Routes.JD_OPTIMIZE_RESUME_INPUT) {
             ResumeInputScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onResumeSubmitted = { resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish ->
-                    navController.navigate(
-                        Routes.polish(resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish)
-                    )
+                    navigateToPolish(resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish)
                 },
                 flowMode = "jd_optimize"
             )
@@ -225,7 +236,7 @@ fun NavGraph(navController: NavHostController) {
 
         // ── JD Input (legacy, reused as standalone) ────────
         composable(Routes.JD_INPUT) {
-            val globalJdVm = LocalGlobalJdViewModel.current
+            val globalJdVm = LocalCurrentJobContext.current
             JdInputScreen(
                 onNavigateToSettings = {
                     navController.navigate(Routes.SETTINGS)
@@ -234,43 +245,23 @@ fun NavGraph(navController: NavHostController) {
                     // Save JD to global state so all modules can access it
                     globalJdVm.setJd(jdRawText, jdStructuredJson)
                     // 继续旧的完整流程：JD → 简历输入 → AI润色 → HTML预览
-                    navController.navigate(
-                        Routes.resumeInput(jdRawText, jdStructuredJson)
-                    )
+                    navigateToResumeInput(Routes.RESUME_INPUT, jdRawText, jdStructuredJson)
                 }
             )
         }
 
         // ── Resume Input (legacy) ───────────────────────────
-        composable(
-            route = Routes.RESUME_INPUT,
-            arguments = listOf(
-                navArgument("jdRawText") { type = NavType.StringType },
-                navArgument("jdStructuredJson") { type = NavType.StringType }
-            )
-        ) {
+        composable(Routes.RESUME_INPUT) {
             ResumeInputScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onResumeSubmitted = { resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish ->
-                    navController.navigate(
-                        Routes.polish(resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish)
-                    )
+                    navigateToPolish(resumeText, jdRawText, jdJson, templatePath, sourceType, fullPolish)
                 }
             )
         }
 
         // ── Polish (legacy) ─────────────────────────────────
-        composable(
-            route = Routes.POLISH,
-            arguments = listOf(
-                navArgument("resumeText") { type = NavType.StringType },
-                navArgument("jdRawText") { type = NavType.StringType },
-                navArgument("jdStructuredJson") { type = NavType.StringType },
-                navArgument("templatePath") { type = NavType.StringType },
-                navArgument("sourceType") { type = NavType.StringType },
-                navArgument("fullPolish") { type = NavType.StringType }
-            )
-        ) {
+        composable(Routes.POLISH) {
             PolishScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onPolishSuccess = { sessionId ->
@@ -334,7 +325,7 @@ fun NavGraph(navController: NavHostController) {
             JdListScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPolish = { resumeText, jdRawText, jdStructuredJson, tp, st, fp ->
-                    navController.navigate(Routes.polish(resumeText, jdRawText, jdStructuredJson, tp, st, fp))
+                    navigateToPolish(resumeText, jdRawText, jdStructuredJson, tp, st, fp)
                 },
                 onNavigateToTracking = { jdCompany, jdPosition ->
                     navController.navigate(Routes.tracking(jdCompany, jdPosition))
@@ -353,7 +344,7 @@ fun NavGraph(navController: NavHostController) {
             JdListScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPolish = { resumeText, jdRawText, jdStructuredJson, tp, st, fp ->
-                    navController.navigate(Routes.polish(resumeText, jdRawText, jdStructuredJson, tp, st, fp))
+                    navigateToPolish(resumeText, jdRawText, jdStructuredJson, tp, st, fp)
                 },
                 onNavigateToTracking = { jdCompany, jdPosition ->
                     navController.navigate(Routes.tracking(jdCompany, jdPosition))

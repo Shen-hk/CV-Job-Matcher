@@ -13,7 +13,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.tielink.data.local.db.entity.HistoryEntity
+import com.example.tielink.domain.model.HistoryRecord
 import com.example.tielink.data.repository.CoverLetterRepository
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.PolishRepository
@@ -254,7 +254,7 @@ class ResultViewModel @Inject constructor(
                         val suggestionsJson = try { moshi.adapter<List<String>>(listType).toJson(ma.suggestions) } catch (_: Exception) { "[]" }
                         val skillsJson = try { moshi.adapter<List<String>>(listType).toJson(state.jdSkills) } catch (_: Exception) { "[]" }
 
-                        val entity = HistoryEntity(
+                        val entity = HistoryRecord(
                             createdAt = System.currentTimeMillis(),
                             jdRawText = state.jdRawText,
                             jdTitle = state.jdTitle,

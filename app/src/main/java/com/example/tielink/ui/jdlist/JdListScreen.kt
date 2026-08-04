@@ -72,7 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.tielink.data.local.db.entity.JdLibraryEntity
+import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.ui.components.AppStatusPill
 import com.example.tielink.ui.components.AppSurfaceCard
 import com.example.tielink.ui.theme.ActionBlue
@@ -113,7 +113,7 @@ fun JdListScreen(
     }
 
     // JD detail dialog state
-    var detailJd by remember { mutableStateOf<JdLibraryEntity?>(null) }
+    var detailJd by remember { mutableStateOf<SavedJobDescription?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -386,7 +386,7 @@ fun JdListScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun JdRadarHeader(
-    items: List<JdLibraryEntity>,
+    items: List<SavedJobDescription>,
     query: String,
     onQueryChange: (String) -> Unit,
     sourceFilter: String,
@@ -507,7 +507,7 @@ private fun JdRadarMetric(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun JdCard(
-    jd: JdLibraryEntity,
+    jd: SavedJobDescription,
     selectionMode: Boolean,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -692,7 +692,7 @@ private fun JdCard(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun JdDetailDialog(jd: JdLibraryEntity, onDismiss: () -> Unit, onDelete: () -> Unit) {
+private fun JdDetailDialog(jd: SavedJobDescription, onDismiss: () -> Unit, onDelete: () -> Unit) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     val sourceLabel = when (jd.sourceType) {
         "ai_auto" -> "AI 自动保存"

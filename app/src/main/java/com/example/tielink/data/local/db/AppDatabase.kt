@@ -118,6 +118,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Versions 5 and 6 shipped the same schema. This bridge prevents a
+        // direct upgrade from failing because Room cannot find a migration path.
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) = Unit
+        }
+
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
@@ -133,6 +139,11 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
             }
+        }
+
+        // Versions 7 and 8 shipped the same schema; retain the historical bridge.
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) = Unit
         }
 
         val MIGRATION_8_9 = object : Migration(8, 9) {

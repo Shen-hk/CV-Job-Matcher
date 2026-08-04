@@ -10,7 +10,7 @@ import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.local.AppPreferences
-import com.example.tielink.data.local.db.entity.HistoryEntity
+import com.example.tielink.domain.model.HistoryRecord
 import com.example.tielink.domain.model.AgentChatUiState
 import com.example.tielink.domain.model.AgentContext
 import com.example.tielink.domain.model.AgentMessage
@@ -1082,7 +1082,7 @@ class AgentViewModel @Inject constructor(
             resumeJson = draftJson,
             matchNote = preview,
             sourceType = "agent_chat"
-        ) ?: HistoryEntity(
+        ) ?: HistoryRecord(
             createdAt = currentSessionCreatedAt,
             updatedAt = now,
             jdRawText = "",

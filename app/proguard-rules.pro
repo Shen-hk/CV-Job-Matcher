@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# PDFBox checks for the optional JPEG2000 decoder via reflection. The app does
+# not bundle that decoder, so retain PDFBox's normal fallback behaviour.
+-dontwarn com.gemalto.jp2.JP2Decoder

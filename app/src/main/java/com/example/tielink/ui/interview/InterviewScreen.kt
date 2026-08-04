@@ -94,7 +94,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.tielink.data.local.db.entity.JdLibraryEntity
+import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.domain.model.InterviewMessage
 import com.example.tielink.domain.model.InterviewPersona
 import com.example.tielink.domain.model.MessageRole
@@ -992,7 +992,7 @@ private fun InterviewUiState.selectedResumeLabel(): String {
     return selected?.optionLabel() ?: if (hasResumeContext) "最近简历上下文" else "未选择简历"
 }
 
-private fun JdLibraryEntity.optionLabel(): String {
+private fun SavedJobDescription.optionLabel(): String {
     return listOf(companyName, positionName).filter { it.isNotBlank() }.joinToString(" · ")
         .ifBlank { rawText.take(24).ifBlank { "未命名岗位" } }
 }

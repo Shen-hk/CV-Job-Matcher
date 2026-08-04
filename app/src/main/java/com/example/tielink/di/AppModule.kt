@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.example.tielink.data.local.AppPreferences
+import com.example.tielink.data.local.SecretCipher
 import com.example.tielink.data.local.db.AppDatabase
 import com.example.tielink.data.local.db.dao.HistoryDao
 import com.example.tielink.data.local.db.dao.InterviewDao
@@ -52,8 +53,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAppPreferences(dataStore: DataStore<Preferences>): AppPreferences {
-        return AppPreferences(dataStore)
+    fun provideAppPreferences(
+        dataStore: DataStore<Preferences>,
+        secretCipher: SecretCipher
+    ): AppPreferences {
+        return AppPreferences(dataStore, secretCipher)
     }
 
     // ── Moshi ──────────────────────────────────────────────────
@@ -121,7 +125,9 @@ object AppModule {
             .addMigrations(
                 AppDatabase.MIGRATION_3_4,
                 AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
+                AppDatabase.MIGRATION_7_8,
                 AppDatabase.MIGRATION_8_9,
                 AppDatabase.MIGRATION_9_10,
                 AppDatabase.MIGRATION_10_11,

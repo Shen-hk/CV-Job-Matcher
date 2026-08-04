@@ -2,7 +2,7 @@ package com.example.tielink.ui.interview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.tielink.data.local.db.entity.JdLibraryEntity
+import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.data.repository.JdLibraryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.ResumeVersion
@@ -19,7 +19,7 @@ data class DebriefUiState(
     val recordingMimeType: String = "",
     val recordingUri: String = "",
     val transcript: String = "",
-    val jds: List<JdLibraryEntity> = emptyList(),
+    val jds: List<SavedJobDescription> = emptyList(),
     val resumes: List<ResumeVersion> = emptyList(),
     val selectedJdId: Long? = null,
     val selectedResumeId: Long? = null,
@@ -249,7 +249,7 @@ class DebriefViewModel @Inject constructor(
         }
     }
 
-    private fun JdLibraryEntity.optionLabel(): String {
+    private fun SavedJobDescription.optionLabel(): String {
         return listOf(companyName, positionName).filter { it.isNotBlank() }.joinToString(" · ")
             .ifBlank { rawText.take(24).ifBlank { "未命名岗位" } }
     }

@@ -3,10 +3,12 @@ package com.example.tielink.ui.interview
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.local.AppPreferences
-import com.example.tielink.data.local.db.entity.JdLibraryEntity
+import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.JdLibraryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
+import com.example.tielink.data.repository.ResumeRepository
+import com.example.tielink.domain.context.CurrentJobContext
 import com.example.tielink.domain.model.InterviewMessage
 import com.example.tielink.domain.model.InterviewPersona
 import com.example.tielink.domain.model.InterviewSession
@@ -25,7 +27,7 @@ import javax.inject.Inject
 data class InterviewUiState(
     val selectedPersona: InterviewPersona = InterviewPersona.MILD_TECH,
     val resumes: List<ResumeVersion> = emptyList(),
-    val jds: List<JdLibraryEntity> = emptyList(),
+    val jds: List<SavedJobDescription> = emptyList(),
     val selectedResumeId: Long? = null,
     val selectedJdId: Long? = null,
     val companyName: String = "",
@@ -59,6 +61,8 @@ data class InterviewUiState(
 class InterviewViewModel @Inject constructor(
     private val interviewRepository: InterviewRepository,
     private val appPreferences: AppPreferences,
+    private val currentJobContext: CurrentJobContext,
+    private val resumeRepository: ResumeRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val jdLibraryRepository: JdLibraryRepository
 ) : ViewModel() {
@@ -100,9 +104,9 @@ class InterviewViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedJdId = selected?.id,
-                companyName = selected?.companyName ?: appPreferences.snapshot().cachedJdCompanyName,
+                companyName = selected?.companyName ?: currentJobContext.state.value.companyName,
                 positionName = selected?.positionName.orEmpty(),
-                jdSummary = selected?.summaryText().orEmpty().ifBlank { appPreferences.snapshot().cachedJdRawText.lineSequence().firstOrNull().orEmpty() },
+                jdSummary = selected?.summaryText().orEmpty().ifBlank { currentJobContext.state.value.rawText.lineSequence().firstOrNull().orEmpty() },
                 statusText = selected?.let { jd -> "已选择岗位：${jd.companyName.ifBlank { "目标公司" }} · ${jd.positionName.ifBlank { "目标岗位" }}" }
                     ?: "已切回最近岗位上下文。"
             )
@@ -386,9 +390,9 @@ class InterviewViewModel @Inject constructor(
             InterviewPersona.valueOf(appPreferences.getLastInterviewPersona())
         }.getOrDefault(InterviewPersona.MILD_TECH)
         val activeSession = interviewRepository.getActiveSession()
-        val cachedJd = appPreferences.getCachedJdRawText()
-        val cachedCompany = appPreferences.getCachedJdCompanyName()
-        val lastResume = appPreferences.getLastResume()
+        val cachedJd = currentJobContext.state.value.rawText
+        val cachedCompany = currentJobContext.state.value.companyName
+        val lastResume = resumeRepository.getLastResume()
 
         _uiState.update {
             it.copy(
@@ -575,15 +579,15 @@ class InterviewViewModel @Inject constructor(
 
     private suspend fun selectedResumeText(state: InterviewUiState): String {
         val selected = state.selectedResumeId?.let { resumeVersionRepository.getById(it) }
-        return selected?.rawText?.ifBlank { selected.cleanedText } ?: appPreferences.getLastResume()
+        return selected?.rawText?.ifBlank { selected.cleanedText } ?: resumeRepository.getLastResume()
     }
 
     private fun selectedJdText(state: InterviewUiState): String {
         val selected = state.selectedJdId?.let { id -> state.jds.firstOrNull { it.id == id } }
-        return selected?.rawText ?: appPreferences.snapshot().cachedJdRawText
+        return selected?.rawText ?: currentJobContext.state.value.rawText
     }
 
-    private fun JdLibraryEntity.summaryText(): String {
+    private fun SavedJobDescription.summaryText(): String {
         val title = listOf(companyName, positionName).filter { it.isNotBlank() }.joinToString(" · ")
         return title.ifBlank {
             rawText.lineSequence().firstOrNull()?.trim().orEmpty()

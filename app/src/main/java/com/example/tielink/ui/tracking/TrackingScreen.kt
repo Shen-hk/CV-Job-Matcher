@@ -65,7 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.data.repository.TimelineEvent
 import com.example.tielink.data.repository.TrackingItem
-import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.LocalCurrentJobContext
 import com.example.tielink.ui.theme.AppRadius
 import com.example.tielink.ui.theme.AppSpacing
 import com.example.tielink.ui.theme.TieLinkTheme
@@ -84,7 +84,7 @@ fun TrackingScreen(
     viewModel: TrackingViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
-    val globalJdVm = LocalGlobalJdViewModel.current
+    val globalJdVm = LocalCurrentJobContext.current
     val jdState by globalJdVm.state.collectAsState()
     var showSaveConfirm by remember { mutableStateOf(false) }
     var pendingStatusChange by remember { mutableStateOf<TrackingStatusChange?>(null) }

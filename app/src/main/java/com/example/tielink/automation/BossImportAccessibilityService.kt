@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,8 +13,8 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
-import com.example.tielink.data.local.db.entity.JdLibraryEntity
 import com.example.tielink.data.repository.JdLibraryRepository
+import com.example.tielink.domain.model.NewJobDescription
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -270,7 +271,7 @@ class BossImportAccessibilityService : AccessibilityService() {
         phase = Phase.RESULTS
         saveJob = serviceScope.launch {
             jdLibraryRepository.insert(
-                JdLibraryEntity(
+                NewJobDescription(
                     companyName = candidate.company,
                     positionName = candidate.position,
                     salary = candidate.salary,
@@ -371,7 +372,11 @@ class BossImportAccessibilityService : AccessibilityService() {
         input.refresh()
         input.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         var issued = false
-        val imeEnterActionId = AccessibilityAction.ACTION_IME_ENTER.id
+        val imeEnterActionId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            AccessibilityAction.ACTION_IME_ENTER.id
+        } else {
+            -1
+        }
         if (input.actionList.any { it.id == imeEnterActionId || normalizeText(it.label?.toString().orEmpty()).contains("搜索") }) {
             if (input.performAction(imeEnterActionId)) {
                 Log.d(TAG, "Submitted search by ACTION_IME_ENTER")

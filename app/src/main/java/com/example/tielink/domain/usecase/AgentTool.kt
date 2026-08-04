@@ -1,6 +1,6 @@
 package com.example.tielink.domain.usecase
 
-import com.example.tielink.data.remote.LlmToolDefinition
+import com.example.tielink.domain.agent.AgentToolDefinition
 import com.example.tielink.domain.model.UiCard
 import org.json.JSONObject
 
@@ -11,7 +11,7 @@ import org.json.JSONObject
  * 交给模型，并把模型返回的参数传给 execute。
  */
 interface AgentTool {
-    val definition: LlmToolDefinition
+    val definition: AgentToolDefinition
     val progressDescription: String
 
     suspend fun execute(

@@ -58,7 +58,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.tielink.data.local.db.entity.HistoryEntity
+import com.example.tielink.domain.model.HistoryRecord
 import com.example.tielink.domain.model.MatchLevel
 import com.example.tielink.ui.components.ErrorBanner
 import com.example.tielink.ui.components.ScoreRingChart
@@ -301,7 +301,7 @@ fun ResumeInputScreen(
 
 @Composable
 private fun HistoryPickerDialog(
-    items: List<HistoryEntity>,
+    items: List<HistoryRecord>,
     onSelect: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -333,7 +333,7 @@ private fun HistoryPickerDialog(
 }
 
 @Composable
-private fun HistoryItemRow(entity: HistoryEntity, onClick: () -> Unit) {
+private fun HistoryItemRow(entity: HistoryRecord, onClick: () -> Unit) {
     Surface(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
@@ -476,7 +476,7 @@ private fun HistoryItemRowPreview() {
     TieLinkTheme {
         Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             HistoryItemRow(
-                entity = HistoryEntity(
+                entity = HistoryRecord(
                     id = 1,
                     createdAt = System.currentTimeMillis(),
                     jdRawText = "岗位描述...",
@@ -493,7 +493,7 @@ private fun HistoryItemRowPreview() {
                 onClick = {}
             )
             HistoryItemRow(
-                entity = HistoryEntity(
+                entity = HistoryRecord(
                     id = 2,
                     createdAt = System.currentTimeMillis() - 86400000,
                     jdRawText = "...",

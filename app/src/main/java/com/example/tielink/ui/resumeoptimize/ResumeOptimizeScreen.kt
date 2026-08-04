@@ -73,7 +73,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.tielink.domain.model.SkillImportance
-import com.example.tielink.ui.LocalGlobalJdViewModel
+import com.example.tielink.ui.LocalCurrentJobContext
 import com.example.tielink.ui.theme.AppRadius
 import com.example.tielink.ui.theme.TieLinkTheme
 
@@ -87,7 +87,7 @@ fun ResumeOptimizeScreen(
     viewModel: ResumeOptimizeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
-    val globalJdVm = LocalGlobalJdViewModel.current
+    val globalJdVm = LocalCurrentJobContext.current
     val jdState by globalJdVm.state.collectAsState()
     val context = LocalContext.current
     var versionNameDialog by remember { mutableStateOf(false) }

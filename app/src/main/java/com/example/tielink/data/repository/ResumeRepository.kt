@@ -1,6 +1,6 @@
 package com.example.tielink.data.repository
 
-import com.example.tielink.data.local.AppPreferences
+import com.example.tielink.data.local.AppContentStore
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -10,11 +10,11 @@ import javax.inject.Singleton
  */
 @Singleton
 class ResumeRepository @Inject constructor(
-    private val appPreferences: AppPreferences
+    private val appContentStore: AppContentStore
 ) {
-    suspend fun getLastResume(): String = appPreferences.getLastResume()
+    suspend fun getLastResume(): String = appContentStore.getLastResume()
 
-    suspend fun saveResume(text: String) = appPreferences.setLastResume(text)
+    suspend fun saveResume(text: String) = appContentStore.setLastResume(text)
 
     /**
      * Basic text cleanup: normalize whitespace, strip excessive blank lines.

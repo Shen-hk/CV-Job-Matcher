@@ -78,7 +78,8 @@ data class AppSettingsSnapshot(
 
 @Singleton
 class AppPreferences @Inject constructor(
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val secretCipher: SecretCipher
 ) {
     companion object {
         const val DEFAULT_BASE_URL = "https://api.deepseek.com"
@@ -95,13 +96,17 @@ class AppPreferences @Inject constructor(
     @Volatile
     private var snapshot = AppSettingsSnapshot()
 
+    @Volatile
+    private var legacyApiKeyMigrationQueued = false
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
         scope.launch {
             dataStore.data.collect { prefs ->
+                val storedApiKey = prefs[PrefKeys.API_KEY] ?: ""
                 snapshot = AppSettingsSnapshot(
-                    apiKey = prefs[PrefKeys.API_KEY] ?: "",
+                    apiKey = secretCipher.decrypt(storedApiKey).orEmpty(),
                     model = prefs[PrefKeys.LLM_MODEL] ?: DEFAULT_MODEL,
                     baseUrl = prefs[PrefKeys.LLM_BASE_URL] ?: DEFAULT_BASE_URL,
                     lastResume = prefs[PrefKeys.LAST_RESUME_TEXT] ?: "",
@@ -122,6 +127,7 @@ class AppPreferences @Inject constructor(
                     activeProviderId = (prefs[PrefKeys.ACTIVE_PROVIDER_ID] ?: "").toLongOrNull()?.takeIf { it > 0 },
                     activeModelName = prefs[PrefKeys.ACTIVE_MODEL_NAME]?.ifBlank { null }
                 )
+                queueLegacyApiKeyMigration(storedApiKey)
             }
         }
     }
@@ -156,7 +162,24 @@ class AppPreferences @Inject constructor(
     suspend fun setApiKey(key: String) {
         snapshot = snapshot.copy(apiKey = key)
         dataStore.edit { prefs ->
-            prefs[PrefKeys.API_KEY] = key
+            prefs[PrefKeys.API_KEY] = secretCipher.encrypt(key)
+        }
+    }
+
+    private fun queueLegacyApiKeyMigration(storedValue: String) {
+        if (storedValue.isBlank() || secretCipher.isEncrypted(storedValue) || legacyApiKeyMigrationQueued) {
+            return
+        }
+        legacyApiKeyMigrationQueued = true
+        scope.launch {
+            runCatching {
+                dataStore.edit { prefs ->
+                    if (prefs[PrefKeys.API_KEY] == storedValue) {
+                        prefs[PrefKeys.API_KEY] = secretCipher.encrypt(storedValue)
+                    }
+                }
+            }
+            legacyApiKeyMigrationQueued = false
         }
     }
 

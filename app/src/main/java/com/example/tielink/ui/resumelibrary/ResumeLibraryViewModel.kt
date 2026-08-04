@@ -5,24 +5,17 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.local.AppPreferences
-import com.example.tielink.data.local.db.dao.ResumeVersionDao
-import com.example.tielink.data.local.db.entity.HistoryEntity
-import com.example.tielink.data.local.db.entity.ResumeVersionEntity
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.ResumeLibraryItem
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.util.FileParser
 import com.example.tielink.util.OriginalResumeFileStore
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,8 +30,6 @@ data class ResumeLibraryUiState(
 
 @HiltViewModel
 class ResumeLibraryViewModel @Inject constructor(
-    private val historyDao: com.example.tielink.data.local.db.dao.HistoryDao,
-    private val resumeVersionDao: ResumeVersionDao,
     private val historyRepository: HistoryRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val appPreferences: AppPreferences
@@ -46,8 +37,6 @@ class ResumeLibraryViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ResumeLibraryUiState())
     val uiState: StateFlow<ResumeLibraryUiState> = _uiState.asStateFlow()
-
-    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
 
     init {
         viewModelScope.launch {
@@ -208,11 +197,8 @@ class ResumeLibraryViewModel @Inject constructor(
     }
 
     private suspend fun refreshItems() {
-        val historyItems: List<HistoryEntity> = historyDao.getAllFlow().first()
-        val versionItems: List<ResumeVersionEntity> = resumeVersionDao.getAll()
-
-        val listType = Types.newParameterizedType(List::class.java, String::class.java)
-        val stringListAdapter = moshi.adapter<List<String>>(listType)
+        val historyItems = historyRepository.getAll()
+        val versionItems = resumeVersionRepository.getAll()
 
         val merged = buildList {
             historyItems.forEach { h ->
@@ -228,11 +214,7 @@ class ResumeLibraryViewModel @Inject constructor(
                 )
             }
             versionItems.forEach { v ->
-                val tagList = try {
-                    stringListAdapter.fromJson(v.tags) ?: emptyList()
-                } catch (_: Exception) {
-                    emptyList<String>()
-                }
+                val tagList = v.tags
                 add(
                     ResumeLibraryItem(
                         id = v.id,

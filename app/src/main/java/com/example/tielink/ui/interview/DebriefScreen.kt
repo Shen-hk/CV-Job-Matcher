@@ -59,7 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.tielink.data.local.db.entity.JdLibraryEntity
+import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.ui.components.AppMetricBar
 import com.example.tielink.ui.components.AppStatusPill
@@ -406,7 +406,7 @@ private fun DebriefUiState.selectedResumeLabel(): String {
     return selectedResumeId?.let { id -> resumes.firstOrNull { it.id == id }?.optionLabel() } ?: "未关联简历"
 }
 
-private fun JdLibraryEntity.optionLabel(): String {
+private fun SavedJobDescription.optionLabel(): String {
     return listOf(companyName, positionName).filter { it.isNotBlank() }.joinToString(" · ")
         .ifBlank { rawText.take(24).ifBlank { "未命名岗位" } }
 }

@@ -6,7 +6,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.tielink.data.local.db.entity.HistoryEntity
+import com.example.tielink.domain.model.HistoryRecord
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.ResumeRepository
 import com.example.tielink.domain.model.JobDescription
@@ -40,7 +40,7 @@ data class ResumeInputUiState(
     // ── JD优化 mode ──
     val flowMode: String = "legacy",  // "legacy" | "jd_optimize"
     val showHistoryPicker: Boolean = false,
-    val historyItems: List<HistoryEntity> = emptyList(),
+    val historyItems: List<HistoryRecord> = emptyList(),
     val showMatchDialog: Boolean = false,
     val matchScore: Int = 0,
     val matchedKeywords: List<String> = emptyList(),

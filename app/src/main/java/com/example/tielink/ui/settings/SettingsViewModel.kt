@@ -3,9 +3,6 @@
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.local.AppPreferences
-import com.example.tielink.data.remote.DeepSeekApiServiceFactory
-import com.example.tielink.data.remote.dto.DeepSeekRequest
-import com.example.tielink.data.remote.dto.Message
 import com.example.tielink.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +26,6 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val apiServiceFactory: DeepSeekApiServiceFactory,
     private val appPreferences: AppPreferences
 ) : ViewModel() {
 
@@ -82,27 +78,14 @@ class SettingsViewModel @Inject constructor(
     fun testConnection() {
         viewModelScope.launch {
             _uiState.update { it.copy(isTesting = true, testResult = null) }
-            try {
-                val request = DeepSeekRequest(
-                    messages = listOf(
-                        Message(role = "user", content = "Hello")
-                    ),
-                    maxTokens = 10
-                )
-                val response = apiServiceFactory.create().chatCompletion(request)
-                if (response.choices.isNotEmpty()) {
-                    _uiState.update { it.copy(testResult = "", isTesting = false) }
-                } else {
-                    _uiState.update { it.copy(testResult = "杩斿洖缁撴灉涓虹┖", isTesting = false) }
+            settingsRepository.testConnection().fold(
+                onSuccess = { _uiState.update { it.copy(testResult = "", isTesting = false) } },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(testResult = "连接失败: ${error.localizedMessage ?: "未知错误"}", isTesting = false)
+                    }
                 }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        testResult = "杩炴帴澶辫触: ${e.localizedMessage ?: "鏈煡閿欒"}",
-                        isTesting = false
-                    )
-                }
-            }
+            )
         }
     }
 }

@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.tielink.data.local.db.entity.HistoryEntity
+import com.example.tielink.domain.model.HistoryRecord
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.PolishRepository
 import com.example.tielink.domain.model.JobDescription
@@ -199,7 +199,7 @@ class PolishViewModel @Inject constructor(
 
                     Log.d(TAG, "解析结果: body=${polishResult.polishedResume.length} chars, score=${ma.score}, matched=${matched.size}, missing=${missing.size}")
 
-                    val entity = HistoryEntity(
+                    val entity = HistoryRecord(
                         createdAt = System.currentTimeMillis(),
                         jdRawText = jdRawText,
                         jdTitle = jd?.jobTitle ?: "未知岗位",
