@@ -22,6 +22,7 @@ dependencies {
     api(libs.coroutines.core)
     api(libs.room.runtime)
     api(libs.room.ktx)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.datastore.preferences)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.moshi)
