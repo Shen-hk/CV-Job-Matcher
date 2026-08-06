@@ -19,7 +19,7 @@ import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
-import com.example.tielink.util.AgentWorkspace
+import com.example.tielink.feature.agent.util.AgentWorkspace
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector

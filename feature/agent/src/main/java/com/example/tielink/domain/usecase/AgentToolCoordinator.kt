@@ -24,7 +24,7 @@ import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.nlp.NlpEngine
-import com.example.tielink.util.AgentWorkspace
+import com.example.tielink.feature.agent.util.AgentWorkspace
 import com.squareup.moshi.Moshi
 import org.json.JSONObject
 import javax.inject.Inject
