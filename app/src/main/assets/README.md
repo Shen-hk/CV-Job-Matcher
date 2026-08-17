@@ -14,11 +14,15 @@
    - 中文Embedding模型
    - 用于语义匹配算法
    - 大小: ~50MB
-   - 下载地址: 见 [EMBEDDING_MODEL_GUIDE.md](../../EMBEDDING_MODEL_GUIDE.md)
+   - 下载地址: 见 [EMBEDDING_MODEL_GUIDE.md](../../../../docs/EMBEDDING_MODEL_GUIDE.md)
+
+3. **vocab.txt** ❌ (需与模型配套下载)
+   - BERT WordPiece 词表
+   - token ID 必须与模型训练/导出时完全一致
 
 ## ⚠️ 重要提示
 
-**如果缺少Embedding模型文件，应用仍可正常运行！**
+**如果缺少Embedding模型或配套词表，应用仍可正常运行！**
 
 系统会自动降级到TF-IDF算法：
 - 功能不受影响
@@ -29,9 +33,10 @@
 
 ### 方式A：完整功能（推荐）
 
-1. 下载 `text2vec_base_chinese_quantized.tflite`
-2. 放置到此目录
-3. 重新编译应用
+1. 下载 `text2vec_base_chinese_quantized.tflite` 和同版本的 `vocab.txt`
+2. 将两个文件放置到此目录
+3. 运行真机评测确认模型契约与排序效果
+4. 重新编译应用
 
 ### 方式B：基础使用（无需下载）
 
@@ -43,13 +48,13 @@
 
 如需自定义模型：
 
-1. 转换为TFLite格式
-2. 更新 [EmbeddingEngine.kt](../java/com/example/tielink/domain/nlp/EmbeddingEngine.kt) 中的常量:
+1. 转换为TFLite格式，并保留对应的 WordPiece `vocab.txt`
+2. 更新 [EmbeddingEngine.kt](../../../../core/data/src/main/java/com/example/tielink/domain/nlp/EmbeddingEngine.kt) 中的文件名常量:
    ```kotlin
    private const val MODEL_FILE = "your_model.tflite"
-   private const val EMBEDDING_DIM = 768
+   private const val VOCAB_FILE = "your_vocab.txt"
    ```
-3. 放置新模型文件到本目录
+3. 放置模型与词表到本目录。向量维度和最大长度会从 TFLite tensor 自动读取
 
 ## 📊 模型对比
 

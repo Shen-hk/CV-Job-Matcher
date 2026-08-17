@@ -41,4 +41,5 @@ dependencies {
     implementation(libs.tensorflow.lite.support) {
         exclude(group = "org.tensorflow", module = "tensorflow-lite-support-api")
     }
+    testImplementation(libs.junit)
 }
