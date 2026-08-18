@@ -45,7 +45,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -96,6 +95,7 @@ fun AgentChatScreen(
     val inlineProcessMessageId = state.messages.lastOrNull {
         it.role == AgentMessageRole.AGENT && it.card == null && it.toolLoadingName == null
     }?.id
+    val lastMessage = state.messages.lastOrNull()
 
     LaunchedEffect(initialHistoryId) {
         initialHistoryId?.let(viewModel::openHistorySession)
@@ -122,14 +122,18 @@ fun AgentChatScreen(
         }
     }
 
-    LaunchedEffect(state.messages.size, state.isStreaming) {
-        if (state.messages.isNotEmpty()) {
-            if (state.isStreaming) {
-                snapshotFlow { state.messages.size }
-                    .collect { listState.scrollToItem(maxOf(0, it - 1)) }
-            } else {
-                listState.scrollToItem(state.messages.size - 1)
-            }
+    LaunchedEffect(state.latestPositionRequestId) {
+        if (state.latestPositionRequestId > 0L && state.messages.isNotEmpty()) {
+            listState.scrollToItem(0)
+        }
+    }
+
+    LaunchedEffect(lastMessage?.id, state.messages.size) {
+        val isAlreadyAtLatest = !listState.isScrollInProgress &&
+            listState.firstVisibleItemIndex == 0 &&
+            listState.firstVisibleItemScrollOffset == 0
+        if (state.messages.isNotEmpty() && isAlreadyAtLatest) {
+            listState.scrollToItem(0)
         }
     }
 
@@ -372,12 +376,13 @@ fun AgentChatScreen(
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+                            reverseLayout = true,
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             item { Spacer(modifier = Modifier.height(4.dp)) }
 
                             items(
-                                items = state.messages,
+                                items = state.messages.asReversed(),
                                 key = { it.id },
                                 contentType = { msg ->
                                     when {

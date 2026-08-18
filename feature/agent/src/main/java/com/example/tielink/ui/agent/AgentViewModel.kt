@@ -264,6 +264,7 @@ class AgentViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 messages = restoredMessages,
+                latestPositionRequestId = it.latestPositionRequestId + 1,
                 inputText = draft.inputText,
                 pendingAttachmentName = draft.pendingAttachmentName,
                 pendingAttachmentText = draft.pendingAttachmentText,

@@ -50,6 +50,7 @@ data class AgentProcessState(
 
 data class AgentChatUiState(
     val messages: List<AgentMessage> = emptyList(),
+    val latestPositionRequestId: Long = 0L,
     val inputText: String = "",
     val isLoading: Boolean = false,
     val isStreaming: Boolean = false,
