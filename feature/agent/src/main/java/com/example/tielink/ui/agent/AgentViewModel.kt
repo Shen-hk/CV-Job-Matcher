@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.repository.AgentChatDraftRepository
 import com.example.tielink.data.repository.AgentContextRepository
+import com.example.tielink.data.repository.CareerAgentStateRepository
 import com.example.tielink.data.repository.HistoryRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.local.AppPreferences
@@ -26,6 +27,8 @@ import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.model.UiCardSnapshotCodec
+import com.example.tielink.domain.agent.CareerAgentDecision
+import com.example.tielink.domain.agent.CareerAgentSupervisor
 import com.example.tielink.domain.usecase.AgentUseCase
 import com.example.tielink.util.FileParser
 import com.example.tielink.util.OriginalResumeFileStore
@@ -56,6 +59,7 @@ class AgentViewModel @Inject constructor(
     private val agentUseCase: AgentUseCase,
     private val agentChatDraftRepository: AgentChatDraftRepository,
     private val agentContextRepository: AgentContextRepository,
+    private val careerAgentStateRepository: CareerAgentStateRepository,
     private val historyRepository: HistoryRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val appPreferences: AppPreferences,
@@ -82,6 +86,7 @@ class AgentViewModel @Inject constructor(
     private val persistMutex = Mutex()
     private var currentHistoryId: Long? = null
     private var currentSessionCreatedAt: Long = System.currentTimeMillis()
+    private var careerAgentDecision = CareerAgentDecision.CREATE_GOAL
 
     private val activeResume = resumeVersionRepository.getActiveFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -150,6 +155,9 @@ class AgentViewModel @Inject constructor(
             "generate_greeting", "platform_tool" -> "JD + 简历"
             "analyze_boss_opportunities" -> "BOSS 岗位池 + 当前简历"
             "analyze_jd", "jd_tool" -> "JD 文本"
+            "create_career_goal", "get_career_plan", "check_career_goal",
+            "complete_current_career_task", "block_current_career_task",
+            "replan_career_goal", "achieve_career_goal" -> "长期目标运行时"
             "render_card" -> "动态卡片"
             else -> null
         }
@@ -164,6 +172,9 @@ class AgentViewModel @Inject constructor(
             "generate_greeting", "platform_tool" -> listOf("JD", "简历", "话术生成")
             "analyze_boss_opportunities" -> listOf("JD 库", "BOSS 导入", "当前简历", "投递建议")
             "analyze_jd", "jd_tool" -> listOf("JD 文本", "结构化提取")
+            "create_career_goal", "get_career_plan", "check_career_goal",
+            "complete_current_career_task", "block_current_career_task",
+            "replan_career_goal", "achieve_career_goal" -> listOf("目标", "计划", "观察", "Supervisor")
             "render_card" -> listOf("当前问题", "可视化结构")
             else -> emptyList()
         }
@@ -205,6 +216,12 @@ class AgentViewModel @Inject constructor(
                         )
                     )
                 }
+                refreshWelcomePromptsIfEmpty()
+            }
+        }
+        viewModelScope.launch {
+            careerAgentStateRepository.observeState().collect { state ->
+                careerAgentDecision = CareerAgentSupervisor.assess(state).decision
                 refreshWelcomePromptsIfEmpty()
             }
         }
@@ -307,12 +324,19 @@ class AgentViewModel @Inject constructor(
     private fun loadWelcomeMessage() {
         val hasJd = _uiState.value.contextBar.jdTitle != null
         val hasResume = _uiState.value.contextBar.resumeVersionName != null
+        val careerPrompt = when (careerAgentDecision) {
+            CareerAgentDecision.CREATE_GOAL -> "建立长期求职目标"
+            CareerAgentDecision.EXECUTE_NEXT -> "继续执行求职计划"
+            CareerAgentDecision.REPLAN -> "检查计划为什么卡住"
+            CareerAgentDecision.REVIEW_OUTCOME -> "复盘本轮求职计划"
+            CareerAgentDecision.STOP -> "建立新的长期求职目标"
+        }
 
         val prompts = when {
-            hasJd && hasResume -> listOf("分析我的匹配度", "针对这个 JD 优化简历", "准备面试问题", "更新投递进度")
-            hasJd              -> listOf("帮我写一份匹配的简历", "分析岗位核心要求", "准备面试问题", "推荐相关岗位")
-            hasResume          -> listOf("分析我的简历优势", "帮我找匹配岗位", "我该怎么优化简历", "模拟一次面试")
-            else               -> listOf("我想优化简历", "我有一个 JD 想分析", "帮我准备面试", "怎么追踪投递进度")
+            hasJd && hasResume -> listOf(careerPrompt, "分析我的匹配度", "针对这个 JD 优化简历", "准备面试问题")
+            hasJd              -> listOf(careerPrompt, "帮我写一份匹配的简历", "分析岗位核心要求", "准备面试问题")
+            hasResume          -> listOf(careerPrompt, "分析我的简历优势", "帮我找匹配岗位", "模拟一次面试")
+            else               -> listOf(careerPrompt, "我想优化简历", "我有一个 JD 想分析", "帮我准备面试")
         }
 
         _uiState.update { it.copy(suggestedPrompts = prompts) }

@@ -8,12 +8,19 @@ import com.example.tielink.domain.agent.AgentFunctionDefinition
 import com.example.tielink.domain.agent.AgentToolCall
 import com.example.tielink.domain.agent.AgentToolDefinition
 import com.example.tielink.data.repository.AgentContextRepository
+import com.example.tielink.data.repository.CareerAgentStateRepository
 import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.JdLibraryRepository
 import com.example.tielink.data.repository.PolishRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.data.repository.TrackingRepository
 import com.example.tielink.domain.model.AgentContext
+import com.example.tielink.domain.agent.CareerAgentPlanner
+import com.example.tielink.domain.agent.CareerAgentDecision
+import com.example.tielink.domain.agent.CareerAgentHealth
+import com.example.tielink.domain.agent.CareerAgentSupervisor
+import com.example.tielink.domain.model.CareerAgentState
+import com.example.tielink.domain.model.CareerTaskStatus
 import com.example.tielink.domain.model.DynamicCardAction
 import com.example.tielink.domain.model.DynamicCardItem
 import com.example.tielink.domain.model.DynamicCardSection
@@ -21,7 +28,6 @@ import com.example.tielink.domain.model.GreetingVersion
 import com.example.tielink.domain.model.PolishResult
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
-import com.example.tielink.domain.model.SavedJobDescription
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.domain.nlp.NlpEngine
 import com.example.tielink.feature.agent.util.AgentWorkspace
@@ -34,6 +40,7 @@ import javax.inject.Singleton
 class AgentToolCoordinator @Inject constructor(
     private val agentChatGateway: AgentChatGateway,
     private val agentContextRepository: AgentContextRepository,
+    private val careerAgentStateRepository: CareerAgentStateRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val jdLibraryRepository: JdLibraryRepository,
     private val polishRepository: PolishRepository,
@@ -48,6 +55,13 @@ class AgentToolCoordinator @Inject constructor(
 ) {
     companion object {
         private const val TAG = "AgentToolCoordinator"
+        private val CAREER_PROGRESS_TOOLS = setOf(
+            "analyze_boss_opportunities",
+            "calculate_match",
+            "optimize_resume",
+            "create_application_from_current_jd",
+            "get_latest_application"
+        )
     }
 
     private val toolDefinitions: List<AgentToolDefinition> by lazy {
@@ -110,6 +124,61 @@ class AgentToolCoordinator @Inject constructor(
                 properties = emptyMap(),
                 required = emptyList()
             ),
+            functionTool(
+                name = "create_career_goal",
+                description = "创建一个需要持续推进的长期求职目标，并生成首轮可执行计划。用户明确表达目标岗位、期限或拿 Offer 目标时调用。",
+                properties = mapOf(
+                    "title" to stringProperty("目标标题，例如：两个月内拿到 Android 开发 Offer"),
+                    "target_role" to stringProperty("目标岗位或职业方向"),
+                    "success_criteria" to stringProperty("可验证的成功标准"),
+                    "deadline" to stringProperty("用户表达的期限；没有期限时传空字符串")
+                ),
+                required = listOf("title", "target_role", "success_criteria", "deadline")
+            ),
+            functionTool(
+                name = "get_career_plan",
+                description = "读取当前长期求职目标、计划进度和下一步行动，并展示计划卡片。",
+                properties = emptyMap(),
+                required = emptyList()
+            ),
+            functionTool(
+                name = "check_career_goal",
+                description = "由 Agent Supervisor 检查目标健康度、阻塞项和下一步决策。用户询问状态、风险、是否卡住或是否达成时调用。",
+                properties = emptyMap(),
+                required = emptyList()
+            ),
+            functionTool(
+                name = "complete_current_career_task",
+                description = "当用户明确表示当前计划任务已经完成时，记录完成证据并推进到下一步。",
+                properties = mapOf(
+                    "evidence" to stringProperty("用户提供的完成结果或证据摘要")
+                ),
+                required = listOf("evidence")
+            ),
+            functionTool(
+                name = "block_current_career_task",
+                description = "当用户明确表示当前任务无法继续或缺少条件时，记录阻塞原因并尝试切换到其他可执行任务。",
+                properties = mapOf(
+                    "reason" to stringProperty("当前任务无法继续的具体原因")
+                ),
+                required = listOf("reason")
+            ),
+            functionTool(
+                name = "replan_career_goal",
+                description = "根据新方向、延期、失败结果或用户要求重新生成当前求职计划。",
+                properties = mapOf(
+                    "reason" to stringProperty("需要重新规划的原因和新约束")
+                ),
+                required = listOf("reason")
+            ),
+            functionTool(
+                name = "achieve_career_goal",
+                description = "仅当用户明确确认成功标准已经实现，例如已经拿到并接受 Offer 时，将长期目标标记为达成。",
+                properties = mapOf(
+                    "evidence" to stringProperty("目标达成的结果或证据")
+                ),
+                required = listOf("evidence")
+            ),
             dynamicCardTool()
         ).let(toolRegistry::appendCustomDefinitions)
     }
@@ -130,6 +199,13 @@ class AgentToolCoordinator @Inject constructor(
         "create_application_from_current_jd" -> "正在创建投递记录..."
         "generate_greeting" -> "正在生成打招呼话术..."
         "analyze_boss_opportunities" -> "正在分析 BOSS 岗位池..."
+        "create_career_goal" -> "正在建立长期目标和执行计划..."
+        "get_career_plan" -> "正在读取目标进度和下一步..."
+        "check_career_goal" -> "正在检查计划健康度和阻塞项..."
+        "complete_current_career_task" -> "正在记录结果并推进计划..."
+        "block_current_career_task" -> "正在记录阻塞并寻找可执行任务..."
+        "replan_career_goal" -> "正在根据新情况调整计划..."
+        "achieve_career_goal" -> "正在确认目标达成结果..."
         "render_card" -> "正在组织卡片内容..."
         else -> toolRegistry.definitionFor(toolName)?.progressDescription ?: "正在执行工具..."
     }
@@ -146,7 +222,7 @@ class AgentToolCoordinator @Inject constructor(
                 ToolExecutionResult("工具 ${call.name} 执行失败：${e.localizedMessage ?: "未知错误"}")
             }
         }
-        return try {
+        val result = try {
             when (call.name) {
                 "analyze_jd" -> {
                     val text = arguments.optString("text").ifBlank { fallbackUserText }
@@ -209,6 +285,13 @@ class AgentToolCoordinator @Inject constructor(
                 "analyze_boss_opportunities" -> {
                     executeBossOpportunityTool()
                 }
+                "create_career_goal" -> createCareerGoal(arguments)
+                "get_career_plan" -> getCareerPlan()
+                "check_career_goal" -> checkCareerGoal()
+                "complete_current_career_task" -> completeCurrentCareerTask(arguments)
+                "block_current_career_task" -> blockCurrentCareerTask(arguments)
+                "replan_career_goal" -> replanCareerGoal(arguments)
+                "achieve_career_goal" -> achieveCareerGoal(arguments)
                 "render_card" -> {
                     val card = parseDynamicCard(arguments)
                     ToolExecutionResult("信息已经整理成卡片展示。", listOf(card))
@@ -219,6 +302,207 @@ class AgentToolCoordinator @Inject constructor(
             Log.e(TAG, "工具执行失败: ${call.name}", e)
             ToolExecutionResult("工具 ${call.name} 执行失败：${e.localizedMessage ?: "未知错误"}")
         }
+        return observeCareerProgress(call.name, result)
+    }
+
+    private suspend fun createCareerGoal(arguments: JSONObject): ToolExecutionResult {
+        val targetRole = arguments.optString("target_role").trim()
+        if (targetRole.isBlank()) return ToolExecutionResult("请先明确目标岗位或职业方向。")
+        val title = arguments.optString("title").ifBlank { "获得 $targetRole 机会" }
+        val successCriteria = arguments.optString("success_criteria").ifBlank { "获得 $targetRole Offer" }
+        val current = careerAgentStateRepository.getState()
+        val updated = CareerAgentPlanner.createGoal(
+            currentState = current,
+            title = title,
+            targetRole = targetRole,
+            successCriteria = successCriteria,
+            deadlineLabel = arguments.optString("deadline").ifBlank { null }
+        )
+        careerAgentStateRepository.saveState(updated)
+        return ToolExecutionResult(
+            content = "长期求职目标已建立，首轮计划已经生成。请从当前高优先级任务开始。",
+            cards = listOf(buildCareerPlanCard(updated))
+        )
+    }
+
+    private suspend fun getCareerPlan(): ToolExecutionResult {
+        val state = careerAgentStateRepository.getState()
+        if (state.activeGoal == null || state.activePlan == null) {
+            return ToolExecutionResult("当前还没有长期求职目标。请先告诉我目标岗位、期限和成功标准。")
+        }
+        return ToolExecutionResult(
+            content = "已读取当前目标和执行进度。",
+            cards = listOf(buildCareerPlanCard(state))
+        )
+    }
+
+    private suspend fun checkCareerGoal(): ToolExecutionResult {
+        val state = careerAgentStateRepository.getState()
+        if (state.activeGoal == null || state.activePlan == null) {
+            return ToolExecutionResult("当前还没有长期求职目标，无法执行状态检查。")
+        }
+        val assessment = CareerAgentSupervisor.assess(state)
+        return ToolExecutionResult(
+            content = "Agent 检查完成：${assessment.headline}。${assessment.reasons.joinToString("；")}",
+            cards = listOf(buildCareerPlanCard(state))
+        )
+    }
+
+    private suspend fun completeCurrentCareerTask(arguments: JSONObject): ToolExecutionResult {
+        val current = careerAgentStateRepository.getState()
+        if (current.activePlan == null) return ToolExecutionResult("当前没有可以推进的求职计划。")
+        val evidence = arguments.optString("evidence").ifBlank { "用户确认当前任务已完成" }
+        val updated = CareerAgentPlanner.completeCurrentTask(current, evidence)
+        if (updated == current) return ToolExecutionResult("当前计划没有处于进行中的任务，请检查或重新规划。")
+        careerAgentStateRepository.saveState(updated)
+        return ToolExecutionResult(
+            content = "完成结果已记录，计划已经推进到下一项任务。",
+            cards = listOf(buildCareerPlanCard(updated))
+        )
+    }
+
+    private suspend fun blockCurrentCareerTask(arguments: JSONObject): ToolExecutionResult {
+        val current = careerAgentStateRepository.getState()
+        if (current.activePlan == null) return ToolExecutionResult("当前没有可以标记阻塞的求职计划。")
+        val reason = arguments.optString("reason").trim()
+        if (reason.isBlank()) return ToolExecutionResult("请说明当前任务无法继续的原因。")
+        val updated = CareerAgentPlanner.blockCurrentTask(current, reason)
+        if (updated == current) return ToolExecutionResult("当前没有处于进行中的任务，建议先检查计划状态。")
+        careerAgentStateRepository.saveState(updated)
+        val assessment = CareerAgentSupervisor.assess(updated)
+        val nextTask = assessment.nextTask
+        return ToolExecutionResult(
+            content = if (nextTask != null) {
+                "阻塞原因已记录，计划已切换到可并行推进的任务：${nextTask.title}。"
+            } else {
+                "阻塞原因已记录，当前没有其他可执行任务，需要重新规划。"
+            },
+            cards = listOf(buildCareerPlanCard(updated))
+        )
+    }
+
+    private suspend fun replanCareerGoal(arguments: JSONObject): ToolExecutionResult {
+        val current = careerAgentStateRepository.getState()
+        if (current.activeGoal == null) return ToolExecutionResult("当前没有长期求职目标，无法重新规划。")
+        val reason = arguments.optString("reason").ifBlank { "用户要求调整计划" }
+        val updated = CareerAgentPlanner.replan(current, reason)
+        careerAgentStateRepository.saveState(updated)
+        return ToolExecutionResult(
+            content = "原计划已归档，并根据新情况生成了第 ${updated.activePlan?.version} 版计划。",
+            cards = listOf(buildCareerPlanCard(updated))
+        )
+    }
+
+    private suspend fun achieveCareerGoal(arguments: JSONObject): ToolExecutionResult {
+        val current = careerAgentStateRepository.getState()
+        if (current.activeGoal == null) return ToolExecutionResult("当前没有可以标记达成的长期目标。")
+        val evidence = arguments.optString("evidence").trim()
+        if (evidence.isBlank()) return ToolExecutionResult("请提供目标已经达成的结果或证据。")
+        val updated = CareerAgentPlanner.achieveGoal(current, evidence)
+        if (updated == current) return ToolExecutionResult("当前目标已经是达成状态。")
+        careerAgentStateRepository.saveState(updated)
+        return ToolExecutionResult(
+            content = "长期目标已标记为达成，结果已经写入 Agent 观察记录。",
+            cards = listOf(buildCareerPlanCard(updated))
+        )
+    }
+
+    private suspend fun observeCareerProgress(toolName: String, result: ToolExecutionResult): ToolExecutionResult {
+        if (toolName !in CAREER_PROGRESS_TOOLS || result.content.containsFailureSignal()) return result
+        val current = careerAgentStateRepository.getState()
+        if (current.activePlan == null) return result
+        val updated = CareerAgentPlanner.observeToolResult(current, toolName, result.content)
+        if (updated != current) careerAgentStateRepository.saveState(updated)
+        return result
+    }
+
+    private fun String.containsFailureSignal(): Boolean =
+        listOf("缺少", "失败", "无法", "没有可", "还没有", "未知工具").any(::contains)
+
+    private fun buildCareerPlanCard(state: CareerAgentState): UiCard.DynamicCard {
+        val goal = requireNotNull(state.activeGoal)
+        val plan = requireNotNull(state.activePlan)
+        val assessment = CareerAgentSupervisor.assess(state)
+        val completed = plan.tasks.count { it.status == CareerTaskStatus.DONE }
+        val progress = if (plan.tasks.isEmpty()) 0 else completed * 100 / plan.tasks.size
+        val next = state.nextTask()
+        return UiCard.DynamicCard(
+            title = goal.title,
+            subtitle = "${goal.targetRole} · 计划 v${plan.version}",
+            sections = listOf(
+                DynamicCardSection(
+                    type = "metrics",
+                    items = listOf(
+                        DynamicCardItem("计划进度", "$completed/${plan.tasks.size}", progress = progress),
+                        DynamicCardItem("Agent 判断", assessment.health.displayName()),
+                        DynamicCardItem("成功标准", goal.successCriteria),
+                        DynamicCardItem("目标期限", goal.deadlineLabel ?: "未设置")
+                    )
+                ),
+                DynamicCardSection(
+                    type = "text",
+                    title = "Agent 检查点",
+                    text = buildString {
+                        append(assessment.headline)
+                        assessment.reasons.take(3).forEach { append("\n· $it") }
+                    }
+                ),
+                DynamicCardSection(
+                    type = "steps",
+                    title = "执行计划",
+                    items = plan.tasks.map { task ->
+                        DynamicCardItem(
+                            label = task.title,
+                            value = when (task.status) {
+                                CareerTaskStatus.DONE -> "已完成"
+                                CareerTaskStatus.ACTIVE -> "进行中"
+                                CareerTaskStatus.BLOCKED -> "受阻"
+                                CareerTaskStatus.TODO -> "待开始"
+                            },
+                            description = task.blockingReason?.let { "${task.description}\n阻塞：$it" }
+                                ?: task.description,
+                            status = when (task.status) {
+                                CareerTaskStatus.DONE -> "done"
+                                CareerTaskStatus.ACTIVE -> "active"
+                                CareerTaskStatus.BLOCKED -> "warning"
+                                CareerTaskStatus.TODO -> "todo"
+                            }
+                        )
+                    }
+                ),
+                DynamicCardSection(
+                    type = "text",
+                    title = "下一步",
+                    text = next?.let { "${it.title}：${it.description}" }
+                        ?: when (assessment.decision) {
+                            CareerAgentDecision.REVIEW_OUTCOME -> "复盘本轮结果，并确认目标是否已经达成。"
+                            CareerAgentDecision.REPLAN -> "处理阻塞条件，或根据现状生成新版计划。"
+                            CareerAgentDecision.STOP -> "目标已达成，当前 Agent 执行循环已经结束。"
+                            else -> "当前没有可执行的下一任务。"
+                        }
+                )
+            ),
+            actions = buildList {
+                next?.let {
+                        add(DynamicCardAction(label = "执行下一步", prompt = "继续执行当前求职计划的下一步：${it.title}"))
+                }
+                if (assessment.decision == CareerAgentDecision.REVIEW_OUTCOME) {
+                    add(DynamicCardAction(label = "检查目标", prompt = "检查我的长期求职目标是否已经达成"))
+                }
+                if (assessment.decision != CareerAgentDecision.STOP) {
+                    add(DynamicCardAction(label = "调整计划", prompt = "根据当前结果调整我的求职计划"))
+                }
+            }
+        )
+    }
+
+    private fun CareerAgentHealth.displayName(): String = when (this) {
+        CareerAgentHealth.EMPTY -> "未建立"
+        CareerAgentHealth.ON_TRACK -> "正常推进"
+        CareerAgentHealth.NEEDS_ATTENTION -> "需要关注"
+        CareerAgentHealth.BLOCKED -> "已阻塞"
+        CareerAgentHealth.CYCLE_COMPLETE -> "本轮完成"
+        CareerAgentHealth.GOAL_ACHIEVED -> "目标达成"
     }
 
     private fun missingContextResult(message: String, needsResume: Boolean): ToolExecutionResult {
@@ -255,13 +539,6 @@ class AgentToolCoordinator @Inject constructor(
 
     private fun stringProperty(description: String): Map<String, Any?> =
         mapOf("type" to "string", "description" to description)
-
-    private data class OpportunityRank(
-        val jd: SavedJobDescription,
-        val score: Int,
-        val matchedSkills: List<String>,
-        val reason: String
-    )
 
     private fun dynamicCardTool(): AgentToolDefinition = functionTool(
         name = "render_card",
@@ -695,11 +972,11 @@ class AgentToolCoordinator @Inject constructor(
                     columns = listOf("公司", "岗位", "分数", "依据"),
                     items = ranks.take(5).map { rank ->
                         DynamicCardItem(
-                            label = rank.companyLabel(),
-                            value = rank.positionLabel(),
+                            label = rank.companyLabel,
+                            value = rank.positionLabel,
                             cells = listOf(
-                                rank.companyLabel(),
-                                rank.positionLabel(),
+                                rank.companyLabel,
+                                rank.positionLabel,
                                 "${rank.score}",
                                 rank.reason
                             )
@@ -711,7 +988,7 @@ class AgentToolCoordinator @Inject constructor(
                     title = "建议先推进",
                     items = listOf(
                         DynamicCardItem(
-                            label = "${top.companyLabel()} · ${top.positionLabel()}",
+                            label = "${top.companyLabel} · ${top.positionLabel}",
                             value = "${top.score}",
                             description = buildString {
                                 append(top.reason)
@@ -766,62 +1043,6 @@ class AgentToolCoordinator @Inject constructor(
             cards = listOf(card)
         )
     }
-
-    private fun rankOpportunity(
-        jd: SavedJobDescription,
-        resumeText: String
-    ): OpportunityRank {
-        val skills = splitSkills(jd.skills)
-        val hasResume = resumeText.isNotBlank()
-        val matchedSkills = if (hasResume) {
-            skills.filter { resumeText.contains(it, ignoreCase = true) }
-        } else {
-            emptyList()
-        }
-        val score = if (hasResume) {
-            val semantic = (NlpEngine.matchScore(jd.rawText, resumeText) * 100).toInt()
-            val skillScore = if (skills.isEmpty()) {
-                50
-            } else {
-                (matchedSkills.size * 100 / skills.size).coerceIn(0, 100)
-            }
-            (semantic * 0.7 + skillScore * 0.3).toInt().coerceIn(0, 100)
-        } else {
-            val fieldScore = listOf(
-                jd.companyName.isNotBlank(),
-                jd.positionName.isNotBlank(),
-                jd.salary.isNotBlank(),
-                skills.isNotEmpty(),
-                jd.rawText.length >= 200
-            ).count { it } * 16
-            (20 + fieldScore).coerceIn(0, 100)
-        }
-
-        val reason = when {
-            hasResume && matchedSkills.size >= 3 -> "技能重合较多"
-            hasResume && score >= 60 -> "文本匹配较好"
-            hasResume -> "可作为备选，需要补强关键词"
-            jd.salary.isNotBlank() && skills.isNotEmpty() -> "信息完整，可优先判断"
-            jd.sourceType == "boss_auto" -> "来自 BOSS 导入，等待简历匹配"
-            else -> "岗位信息可继续补全"
-        }
-        return OpportunityRank(jd, score, matchedSkills, reason)
-    }
-
-    private fun splitSkills(skills: String): List<String> =
-        skills.split(",", "，", "、", "/", "|")
-            .map { it.trim() }
-            .filter { it.length >= 2 }
-            .distinct()
-
-    private fun OpportunityRank.companyLabel(): String =
-        jd.companyName.ifBlank { "未识别公司" }
-
-    private fun OpportunityRank.positionLabel(): String =
-        jd.positionName.ifBlank {
-            jd.rawText.lineSequence().firstOrNull { it.trim().length in 2..32 }?.trim()
-                ?: "未识别岗位"
-        }
 
     private suspend fun executeMatchTool(): UiCard? {
         val ctx = agentContextRepository.getAgentContext()

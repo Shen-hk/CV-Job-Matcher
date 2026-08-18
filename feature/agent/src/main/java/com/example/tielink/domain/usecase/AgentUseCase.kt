@@ -9,7 +9,9 @@ import com.example.tielink.domain.agent.AgentFunctionCall
 import com.example.tielink.domain.agent.AgentMessageToolCall
 import com.example.tielink.domain.agent.AgentPromptSource
 import com.example.tielink.domain.agent.AgentStreamEvent
+import com.example.tielink.domain.agent.CareerAgentSupervisor
 import com.example.tielink.data.repository.AgentContextRepository
+import com.example.tielink.data.repository.CareerAgentStateRepository
 import com.example.tielink.data.repository.InterviewRepository
 import com.example.tielink.data.repository.ResumeVersionRepository
 import com.example.tielink.domain.model.AgentMessage
@@ -37,6 +39,7 @@ class AgentUseCase @Inject constructor(
     private val agentChatGateway: AgentChatGateway,
     private val agentPromptSource: AgentPromptSource,
     private val agentContextRepository: AgentContextRepository,
+    private val careerAgentStateRepository: CareerAgentStateRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val agentToolCoordinator: AgentToolCoordinator,
     private val interviewRepository: InterviewRepository
@@ -46,6 +49,15 @@ class AgentUseCase @Inject constructor(
         private const val MAX_CONTEXT_MESSAGES = 20
         private const val MAX_TOOL_ROUNDS = 6
         private const val MAX_TOOL_CALLS_PER_ROUND = 4
+        private val CAREER_AGENT_TOOLS = setOf(
+            "create_career_goal",
+            "get_career_plan",
+            "check_career_goal",
+            "complete_current_career_task",
+            "block_current_career_task",
+            "replan_career_goal",
+            "achieve_career_goal"
+        )
         // Local preview switch for manually rendering all supported cards.
         private const val DEBUG_SHOW_ALL_CARDS = false
     }
@@ -305,6 +317,12 @@ class AgentUseCase @Inject constructor(
             - 当用户的问题需要“下一步去哪”“缺少什么资料”“给我一个操作面板”“把方案可视化”时，可以使用 render_card，并给出 1-3 个最合适的 actions。
             - 多方案比较优先用 table；任务状态优先用 kanban；选择建议优先用 decision；时间顺序优先用 timeline；执行计划优先用 steps。
             - 缺少简历、JD、面试会话等前置条件时，说明缺少什么并引导用户补充，不要反复调用同一工具。
+            - 长期求职目标和计划必须使用专用 career goal 工具管理，不要用 render_card 临时伪造计划状态。
+            - 用户要求执行计划下一步时，优先调用上下文中“下一任务”对应的业务工具；业务工具完成后再调用 get_career_plan 展示更新后的进度。
+            - 只有用户明确确认完成时才调用 complete_current_career_task；普通聊天不能擅自把任务标记完成。
+            - 用户询问目标健康度、阻塞风险或是否偏离目标时调用 check_career_goal，让 Supervisor 基于真实状态判断。
+            - 用户明确表示当前任务做不了或缺少条件时调用 block_current_career_task；不要把失败伪装成完成。
+            - 只有用户明确确认成功标准已经实现时才调用 achieve_career_goal；完成一轮计划不等于长期目标已经达成。
 
             【本轮工具边界】
             - 允许工具：${turnPolicy.allowedToolNames.ifEmpty { setOf("无") }.joinToString("、")}
@@ -315,6 +333,37 @@ class AgentUseCase @Inject constructor(
         val agentContext = agentContextRepository.getAgentContext()
         agentContext.currentJdText?.let { sb.append("\n\n【当前岗位】\n${it.take(500)}") }
         agentContext.currentJdCompany?.let { sb.append("\n公司: $it") }
+
+        val careerState = careerAgentStateRepository.getState()
+        val careerGoal = careerState.activeGoal
+        val careerPlan = careerState.activePlan
+        if (careerGoal != null && careerPlan != null) {
+            val assessment = CareerAgentSupervisor.assess(careerState)
+            val completed = careerPlan.tasks.count {
+                it.status == com.example.tielink.domain.model.CareerTaskStatus.DONE
+            }
+            sb.append("\n\n【长期求职目标】")
+            sb.append("\n目标：${careerGoal.title}")
+            sb.append("\n方向：${careerGoal.targetRole}")
+            sb.append("\n成功标准：${careerGoal.successCriteria}")
+            careerGoal.deadlineLabel?.let { sb.append("\n期限：$it") }
+            sb.append("\n计划版本：v${careerPlan.version}，进度：$completed/${careerPlan.tasks.size}")
+            sb.append("\nSupervisor：${assessment.health} / ${assessment.decision}，${assessment.headline}")
+            careerState.nextTask()?.let {
+                sb.append("\n下一任务：${it.title}")
+                sb.append("\n下一任务工具：${it.actionTool ?: "需要用户确认"}")
+            }
+            careerPlan.tasks.filter {
+                it.status == com.example.tielink.domain.model.CareerTaskStatus.BLOCKED
+            }.takeIf { it.isNotEmpty() }?.let { blocked ->
+                sb.append("\n阻塞项：")
+                sb.append(blocked.joinToString("；") { "${it.title}（${it.blockingReason ?: "未说明原因"}）" })
+            }
+            careerState.observations.takeLast(3).takeIf { it.isNotEmpty() }?.let { observations ->
+                sb.append("\n最近观察：")
+                sb.append(observations.joinToString("；") { it.summary.take(100) })
+            }
+        }
 
         val resume = resumeVersionRepository.getActive()
         resume?.let {
@@ -441,6 +490,8 @@ class AgentUseCase @Inject constructor(
         val text = userText.lowercase().trim()
         val activeResume = resumeVersionRepository.getActive()
         val ctx = agentContextRepository.getAgentContext()
+        val careerState = careerAgentStateRepository.getState()
+        val hasCareerGoal = careerState.activeGoal != null && careerState.activePlan != null
         val hasJd = !ctx.currentJdText.isNullOrBlank()
         val hasActiveInterview = runCatching { interviewRepository.getActiveSession() != null }.getOrDefault(false)
 
@@ -470,11 +521,39 @@ class AgentUseCase @Inject constructor(
         )
         val asksGreeting = text.containsAny("打招呼", "话术", "开场白", "私信", "怎么聊") ||
             (text.contains("boss") && text.containsAny("招呼", "话术", "开场", "私信", "沟通"))
+        val hasCareerTarget = text.containsAny("offer", "工作", "岗位", "职位", "转行", "求职", "职业方向")
+        val asksCreateCareerGoal = hasCareerTarget && text.containsAny(
+            "求职目标", "职业目标", "长期目标", "我的目标", "我想在", "我要在",
+            "帮我制定", "帮我规划", "目标是"
+        )
+        val asksExecuteCareerNext = hasCareerGoal && text.containsAny(
+            "执行当前求职计划的下一步", "执行下一步", "开始下一步", "继续推进计划"
+        )
+        val asksCompleteCareerTask = hasCareerGoal && text.containsAny(
+            "当前任务完成了", "这一步完成了", "已经做完", "已经完成", "标记完成"
+        )
+        val asksBlockCareerTask = hasCareerGoal && text.containsAny(
+            "当前任务卡住了", "这一步卡住了", "做不了", "无法继续", "缺少条件", "先跳过这一步"
+        )
+        val asksAchieveCareerGoal = hasCareerGoal && text.containsAny(
+            "我拿到offer了", "我拿到 offer 了", "已经拿到offer", "已经拿到 offer",
+            "目标达成了", "求职目标达成", "已经入职了", "成功入职"
+        )
+        val asksReplanCareer = hasCareerGoal && text.containsAny(
+            "重新规划", "调整计划", "修改计划", "换目标", "改目标", "计划延期", "改变方向"
+        )
+        val asksCareerCheck = hasCareerGoal && text.containsAny(
+            "检查目标", "目标状态", "计划健康", "是否卡住", "为什么没进展",
+            "有没有偏离", "是否达成", "监督计划", "检查计划"
+        )
+        val asksCareerPlan = hasCareerGoal && text.containsAny(
+            "求职计划", "职业计划", "当前计划", "计划进度", "下一步", "今天做什么", "目标进度"
+        )
         val isFollowUpToCard = conversationHistory.takeLast(4).any { it.card != null } &&
             text.containsAny("继续", "展开", "换一个", "再来", "详细", "采用", "撤回")
 
         val allowed = linkedSetOf<String>()
-        if (!asksExplanation || asksJd) {
+        if (!asksExplanation || asksJd || asksCareerCheck) {
             if (asksJd) allowed += "analyze_jd"
             if (asksMatch) allowed += "calculate_match"
             if (asksResumeEdit) allowed += "optimize_resume"
@@ -484,12 +563,26 @@ class AgentUseCase @Inject constructor(
             if (asksCreateApplication) allowed += "create_application_from_current_jd"
             if (asksTracking && !asksCreateApplication) allowed += "get_latest_application"
             if (asksGreeting) allowed += "generate_greeting"
+            when {
+                asksCreateCareerGoal -> allowed += "create_career_goal"
+                asksAchieveCareerGoal -> allowed += "achieve_career_goal"
+                asksBlockCareerTask -> allowed += "block_current_career_task"
+                asksReplanCareer -> allowed += "replan_career_goal"
+                asksCompleteCareerTask -> allowed += "complete_current_career_task"
+                asksExecuteCareerNext -> {
+                    careerState.nextTask()?.actionTool?.let(allowed::add)
+                    allowed += "get_career_plan"
+                }
+                asksCareerCheck -> allowed += "check_career_goal"
+                asksCareerPlan -> allowed += "get_career_plan"
+            }
         }
 
         if (
-            asksVisual ||
-            isFollowUpToCard ||
-            (allowed.isEmpty() && text.containsAny("怎么做", "怎么办", "帮我规划", "建议我", "我该"))
+            allowed.none { it in CAREER_AGENT_TOOLS } &&
+            (asksVisual ||
+                isFollowUpToCard ||
+                (allowed.isEmpty() && text.containsAny("怎么做", "怎么办", "帮我规划", "建议我", "我该")))
         ) {
             allowed += "render_card"
         }
@@ -503,6 +596,7 @@ class AgentUseCase @Inject constructor(
 
         val reason = when {
             allowed.isEmpty() -> "当前更适合文本回答，避免弹出无关卡片。"
+            allowed.any { it in CAREER_AGENT_TOOLS } -> "用户正在建立或推进长期求职目标。"
             asksVisual -> "用户明确要求可视化或操作面板。"
             asksMatch || asksResumeEdit || asksJd || asksInterview || asksBossOpportunity || asksTracking || asksGreeting ->
                 "用户请求命中具体求职任务。"

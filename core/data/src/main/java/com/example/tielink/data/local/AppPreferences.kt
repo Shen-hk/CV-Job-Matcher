@@ -46,6 +46,7 @@ object PrefKeys {
     // Agent context
     val AGENT_CONTEXT_JSON = stringPreferencesKey("agent_context_json")
     val AGENT_CHAT_DRAFT_JSON = stringPreferencesKey("agent_chat_draft_json")
+    val CAREER_AGENT_STATE_JSON = stringPreferencesKey("career_agent_state_json")
     val RESUME_OPTIMIZE_CONTINUE = stringPreferencesKey("resume_optimize_continue")
 
     // Active provider / model selection
@@ -71,6 +72,7 @@ data class AppSettingsSnapshot(
     val lastInterviewPersona: String = AppPreferences.DEFAULT_INTERVIEW_PERSONA,
     val agentContextJson: String = "",
     val agentChatDraftJson: String = "",
+    val careerAgentStateJson: String = "",
     val resumeOptimizeContinue: Boolean = false,
     val activeProviderId: Long? = null,
     val activeModelName: String? = null
@@ -123,6 +125,7 @@ class AppPreferences @Inject constructor(
                     lastInterviewPersona = prefs[PrefKeys.LAST_INTERVIEW_PERSONA] ?: DEFAULT_INTERVIEW_PERSONA,
                     agentContextJson = prefs[PrefKeys.AGENT_CONTEXT_JSON] ?: "",
                     agentChatDraftJson = prefs[PrefKeys.AGENT_CHAT_DRAFT_JSON] ?: "",
+                    careerAgentStateJson = prefs[PrefKeys.CAREER_AGENT_STATE_JSON] ?: "",
                     resumeOptimizeContinue = prefs[PrefKeys.RESUME_OPTIMIZE_CONTINUE] == "true",
                     activeProviderId = (prefs[PrefKeys.ACTIVE_PROVIDER_ID] ?: "").toLongOrNull()?.takeIf { it > 0 },
                     activeModelName = prefs[PrefKeys.ACTIVE_MODEL_NAME]?.ifBlank { null }
@@ -329,6 +332,18 @@ class AppPreferences @Inject constructor(
         snapshot = snapshot.copy(agentChatDraftJson = json)
         dataStore.edit { prefs ->
             prefs[PrefKeys.AGENT_CHAT_DRAFT_JSON] = json
+        }
+    }
+
+    suspend fun getCareerAgentStateJson(): String = snapshot.careerAgentStateJson
+
+    fun getCareerAgentStateJsonFlow(): Flow<String> =
+        dataStore.data.map { it[PrefKeys.CAREER_AGENT_STATE_JSON] ?: "" }
+
+    suspend fun setCareerAgentStateJson(json: String) {
+        snapshot = snapshot.copy(careerAgentStateJson = json)
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CAREER_AGENT_STATE_JSON] = json
         }
     }
 
