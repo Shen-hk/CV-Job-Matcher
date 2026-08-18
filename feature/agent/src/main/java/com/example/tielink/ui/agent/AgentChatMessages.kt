@@ -530,23 +530,25 @@ fun AgentBubble(
         }
 
         if (message.content.isNotBlank() || message.isStreaming || inlineProcessState?.isActive == true) {
-            Surface(
-                shape = RoundedCornerShape(topStart = AppRadius.sm, topEnd = AppRadius.lg, bottomStart = AppRadius.lg, bottomEnd = AppRadius.lg),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Row(modifier = Modifier.padding(AppSpacing.sm)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 680.dp)
+                        .padding(horizontal = 4.dp, vertical = 7.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .width(2.dp)
                             .heightIn(min = 24.dp)
                             .clip(RoundedCornerShape(AppRadius.pill))
-                            .background(ActionBlue.copy(alpha = 0.72f))
+                            .background(ActionBlue.copy(alpha = 0.58f))
                     )
-                    Spacer(Modifier.width(10.dp))
-                    Column {
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         if (inlineProcessState?.isActive == true) {
                             InlineProcessStatus(
                                 processState = inlineProcessState,
@@ -674,7 +676,7 @@ fun UserBubble(message: AgentMessage) {
     ) {
         Surface(
             modifier = Modifier.widthIn(max = 300.dp),
-            shape = RoundedCornerShape(topStart = AppRadius.lg, topEnd = AppRadius.sm, bottomStart = AppRadius.lg, bottomEnd = AppRadius.lg),
+            shape = RoundedCornerShape(AppRadius.md),
             color = Color.Transparent
         ) {
             Box(
@@ -703,38 +705,34 @@ fun ToolLoadingBubble(message: AgentMessage) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
+            .padding(vertical = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 0.dp
+        Row(
+            modifier = Modifier
+                .widthIn(max = 680.dp)
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        strokeWidth = 1.8.dp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    message.content,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    strokeWidth = 1.8.dp,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                message.content,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
