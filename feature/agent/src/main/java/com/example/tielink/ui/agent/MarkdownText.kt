@@ -5,8 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -614,14 +617,20 @@ private fun TableRow(
     color: Color,
     isHeader: Boolean
 ) {
-    Row(modifier = Modifier.background(borderColor)) {
+    Row(
+        modifier = Modifier
+            .height(IntrinsicSize.Min)
+            .background(borderColor)
+    ) {
         cells.forEachIndexed { index, cell ->
             Box(
                 modifier = Modifier
+                    .fillMaxHeight()
                     .width(columnWidths[index])
                     .padding(end = 1.dp, bottom = 1.dp)
                     .background(background)
-                    .padding(horizontal = 10.dp, vertical = 9.dp)
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
                 Text(
                     text = buildInlineAnnotated(cell, color),
