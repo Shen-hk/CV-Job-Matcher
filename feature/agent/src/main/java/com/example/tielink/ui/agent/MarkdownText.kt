@@ -1,5 +1,6 @@
 package com.example.tielink.ui.agent
 
+import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -7,14 +8,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -26,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.example.tielink.ui.theme.TieLinkTheme
+import kotlinx.coroutines.launch
 
 /** Lightweight Compose-native markdown renderer — no external deps. */
 @Composable
@@ -392,18 +404,24 @@ private fun NumberedBlock(block: MdBlock.NumberedItem, color: Color) {
 @Composable
 private fun CodeBlockComposable(block: MdBlock.CodeBlock) {
     val bgColor = MaterialTheme.colorScheme.surfaceContainerHighest
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .background(bgColor, RoundedCornerShape(8.dp))
             .padding(12.dp)
     ) {
+        CopyHeader(
+            label = block.lang.ifBlank { "代码" },
+            copyText = block.code
+        )
         Text(
             text = block.code,
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.horizontalScroll(rememberScrollState())
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .horizontalScroll(rememberScrollState())
         )
     }
 }
@@ -416,33 +434,47 @@ private fun TableBlock(block: MdBlock.Table, color: Color) {
     )
     if (columnCount == 0) return
 
+    val normalizedHeaders = normalizeCells(block.headers, columnCount)
+    val normalizedRows = block.rows.map { normalizeCells(it, columnCount) }
+    val columnWidths = tableColumnWidths(normalizedHeaders, normalizedRows)
     val textColor = if (color == Color.Unspecified) MaterialTheme.colorScheme.onSurface else color
     val headerBg = MaterialTheme.colorScheme.surfaceContainerHigh
     val rowBg = MaterialTheme.colorScheme.surface
     val altRowBg = MaterialTheme.colorScheme.surfaceContainerLow
     val borderColor = MaterialTheme.colorScheme.outlineVariant
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 5.dp)
             .background(borderColor, RoundedCornerShape(10.dp))
             .padding(1.dp)
-            .horizontalScroll(rememberScrollState())
     ) {
+        CopyHeader(
+            label = "表格",
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp))
+                .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 3.dp),
+            copyText = block.toTabSeparatedText()
+        )
         Column(
-            modifier = Modifier.background(rowBg, RoundedCornerShape(9.dp))
+            modifier = Modifier.horizontalScroll(rememberScrollState())
         ) {
             TableRow(
-                cells = normalizeCells(block.headers, columnCount),
+                cells = normalizedHeaders,
+                columnWidths = columnWidths,
                 background = headerBg,
+                borderColor = borderColor,
                 color = textColor,
                 isHeader = true
             )
-            block.rows.forEachIndexed { index, row ->
+            normalizedRows.forEachIndexed { index, row ->
                 TableRow(
-                    cells = normalizeCells(row, columnCount),
+                    cells = row,
+                    columnWidths = columnWidths,
                     background = if (index % 2 == 0) rowBg else altRowBg,
+                    borderColor = borderColor,
                     color = textColor,
                     isHeader = false
                 )
@@ -461,6 +493,10 @@ private fun KeyValueBlock(block: MdBlock.KeyValueGroup, color: Color) {
             .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(10.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
+        CopyHeader(
+            label = "信息",
+            copyText = block.toPlainText()
+        )
         block.pairs.forEach { (key, value) ->
             Row(
                 modifier = Modifier
@@ -495,6 +531,10 @@ private fun ComparisonBlock(block: MdBlock.Comparison, color: Color) {
             .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(10.dp))
             .padding(10.dp)
     ) {
+        CopyHeader(
+            label = "改写对比",
+            copyText = block.after
+        )
         ComparisonSection(
             label = block.beforeLabel,
             text = block.before,
@@ -568,30 +608,104 @@ private fun QuoteBlock(block: MdBlock.Quote, color: Color) {
 @Composable
 private fun TableRow(
     cells: List<String>,
+    columnWidths: List<androidx.compose.ui.unit.Dp>,
     background: Color,
+    borderColor: Color,
     color: Color,
     isHeader: Boolean
 ) {
-    Row(modifier = Modifier.background(background)) {
-        cells.forEach { cell ->
-            Text(
-                text = buildInlineAnnotated(cell, color),
+    Row(modifier = Modifier.background(borderColor)) {
+        cells.forEachIndexed { index, cell ->
+            Box(
                 modifier = Modifier
-                    .widthIn(min = 92.dp, max = 180.dp)
-                    .padding(horizontal = 10.dp, vertical = 9.dp),
-                style = if (isHeader) {
-                    MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-                } else {
-                    MaterialTheme.typography.bodySmall
-                },
-                color = color
-            )
+                    .width(columnWidths[index])
+                    .padding(end = 1.dp, bottom = 1.dp)
+                    .background(background)
+                    .padding(horizontal = 10.dp, vertical = 9.dp)
+            ) {
+                Text(
+                    text = buildInlineAnnotated(cell, color),
+                    style = if (isHeader) {
+                        MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                    } else {
+                        MaterialTheme.typography.bodySmall
+                    },
+                    color = color
+                )
+            }
         }
     }
 }
 
 private fun normalizeCells(cells: List<String>, count: Int): List<String> {
     return List(count) { index -> cells.getOrNull(index).orEmpty() }
+}
+
+private fun tableColumnWidths(headers: List<String>, rows: List<List<String>>): List<androidx.compose.ui.unit.Dp> {
+    return headers.indices.map { column ->
+        val maxWeightedLength = (listOf(headers) + rows)
+            .map { row -> row.getOrNull(column).orEmpty().weightedLength() }
+            .maxOrNull()
+            ?: 4
+        ((maxWeightedLength * 8) + 28).coerceIn(96, 196).dp
+    }
+}
+
+private fun String.weightedLength(): Int {
+    return sumOf { char -> if (char.code > 127) 2 else 1 }
+}
+
+private fun MdBlock.Table.toTabSeparatedText(): String {
+    return buildString {
+        append(headers.joinToString("\t"))
+        rows.forEach { row ->
+            append('\n')
+            append(row.joinToString("\t"))
+        }
+    }
+}
+
+private fun MdBlock.KeyValueGroup.toPlainText(): String {
+    return pairs.joinToString("\n") { (key, value) -> "$key: $value" }
+}
+
+@Composable
+private fun CopyHeader(
+    label: String,
+    modifier: Modifier = Modifier,
+    copyText: String
+) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        IconButton(
+            onClick = {
+                scope.launch {
+                    clipboard.setClipEntry(
+                        ClipEntry(ClipData.newPlainText("plain text", copyText))
+                    )
+                }
+            },
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ContentCopy,
+                contentDescription = "复制",
+                modifier = Modifier.size(15.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
