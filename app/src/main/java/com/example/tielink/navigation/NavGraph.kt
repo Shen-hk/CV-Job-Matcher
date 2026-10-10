@@ -79,7 +79,7 @@ object Routes {
 }
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(navController: NavHostController, benchmarkStream: Boolean = false, benchmarkStreamThrottleMs: Long = 0L) {
     fun navigateToResumeInput(route: String, jdRawText: String, jdStructuredJson: String) {
         navController.navigate(route)
         navController.currentBackStackEntry?.savedStateHandle?.apply {
@@ -152,7 +152,9 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate(Routes.resumeFullPreview(versionId))
                 },
                 initialHistoryId = historyId,
-                initialPrompt = initialPrompt
+                initialPrompt = initialPrompt,
+                benchmarkStream = benchmarkStream,
+                benchmarkStreamThrottleMs = benchmarkStreamThrottleMs
             )
         }
 

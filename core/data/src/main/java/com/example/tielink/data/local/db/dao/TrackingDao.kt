@@ -29,6 +29,9 @@ interface TrackingDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: TrackingEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<TrackingEntity>)
+
     @Update
     suspend fun update(entity: TrackingEntity)
 

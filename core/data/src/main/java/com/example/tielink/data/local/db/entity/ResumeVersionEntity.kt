@@ -2,12 +2,19 @@ package com.example.tielink.data.local.db.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
  * 简历多版本存储 — 同一用户可保存多份简历。
  */
-@Entity(tableName = "resume_versions")
+@Entity(
+    tableName = "resume_versions",
+    indices = [
+        Index(value = ["updated_at"]),
+        Index(value = ["is_active"])
+    ]
+)
 data class ResumeVersionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

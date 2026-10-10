@@ -453,36 +453,6 @@ private fun WorkspaceAction(
 }
 
 @Composable
-fun AnimatedMessageRow(
-    message: AgentMessage,
-    inlineProcessState: AgentProcessState? = null,
-    onCancelInlineProcess: () -> Unit = {},
-    onNavigateToResumePreview: (Long) -> Unit = {},
-    onNavigateToResumeLibrary: () -> Unit = {},
-    onRequestResumeUpload: () -> Unit = {},
-    onDynamicAction: (DynamicCardAction) -> Unit = {}
-) {
-    var visible by remember(message.id) { mutableStateOf(false) }
-    LaunchedEffect(message.id) { visible = true }
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = rememberEnterFromBottom(),
-        exit = rememberExitToBottom()
-    ) {
-        MessageRow(
-            message = message,
-            inlineProcessState = inlineProcessState,
-            onCancelInlineProcess = onCancelInlineProcess,
-            onNavigateToResumePreview = onNavigateToResumePreview,
-            onNavigateToResumeLibrary = onNavigateToResumeLibrary,
-            onRequestResumeUpload = onRequestResumeUpload,
-            onDynamicAction = onDynamicAction
-        )
-    }
-}
-
-@Composable
 fun MessageRow(
     message: AgentMessage,
     inlineProcessState: AgentProcessState? = null,

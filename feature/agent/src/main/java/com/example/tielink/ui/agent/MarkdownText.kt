@@ -1,6 +1,7 @@
 package com.example.tielink.ui.agent
 
 import android.content.ClipData
+import android.util.LruCache
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +51,11 @@ fun MarkdownText(
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified
 ) {
-    val blocks = parseMarkdownBlocks(text)
+    val blocks = remember(text) {
+        markdownBlockCache[text] ?: parseMarkdownBlocks(text).also { parsed ->
+            markdownBlockCache.put(text, parsed)
+        }
+    }
     Column(modifier = modifier) {
         blocks.forEach { block ->
             when (block) {
@@ -84,6 +90,14 @@ private sealed class MdBlock {
     object Divider : MdBlock()
     object BlankLine : MdBlock()
 }
+
+private val markdownBlockCache = LruCache<String, List<MdBlock>>(48)
+private val horizontalRuleRegex = Regex("[-*_]{3,}")
+private val bulletItemRegex = Regex("^(\\s*)[*\\-+]\\s+.*")
+private val numberedItemRegex = Regex("^\\d+\\.\\s+.*")
+private val pseudoTableSpacingRegex = Regex("""\S\s{2,}\S""")
+private val pseudoTableSplitRegex = Regex("""\t+|\s{2,}""")
+private val tableDividerCellRegex = Regex(":?-{3,}:?")
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
 
@@ -170,15 +184,15 @@ private fun parseMarkdownBlocks(raw: String): List<MdBlock> {
                 blocks.add(MdBlock.Heading(level, text))
             }
             // Horizontal rule
-            line.trim().matches(Regex("[-*_]{3,}")) -> blocks.add(MdBlock.Divider)
+            line.trim().matches(horizontalRuleRegex) -> blocks.add(MdBlock.Divider)
             // Bullet list
-            line.matches(Regex("^(\\s*)[*\\-+]\\s+.*")) -> {
+            line.matches(bulletItemRegex) -> {
                 val indent = line.takeWhile { it == ' ' }.length / 2
                 val text = line.trimStart().drop(2)
                 blocks.add(MdBlock.BulletItem(text, indent))
             }
             // Numbered list
-            line.matches(Regex("^\\d+\\.\\s+.*")) -> {
+            line.matches(numberedItemRegex) -> {
                 val num = line.substringBefore('.').trim().toIntOrNull() ?: 1
                 val text = line.substringAfter(". ")
                 blocks.add(MdBlock.NumberedItem(num, text))
@@ -197,9 +211,9 @@ private fun parseMarkdownBlocks(raw: String): List<MdBlock> {
                         isComparisonStart(lines, i + 1) ||
                         isKeyValueGroupStart(lines, i + 1) ||
                         next.trimStart().startsWith(">") ||
-                        next.matches(Regex("^(\\s*)[*\\-+]\\s+.*")) ||
-                        next.matches(Regex("^\\d+\\.\\s+.*")) ||
-                        next.trim().matches(Regex("[-*_]{3,}"))
+                        next.matches(bulletItemRegex) ||
+                        next.matches(numberedItemRegex) ||
+                        next.trim().matches(horizontalRuleRegex)
                     ) break
                     i++
                     sb.append(' ').append(next.trim())
@@ -225,7 +239,7 @@ private fun isTableRow(line: String): Boolean {
 private fun isTableDivider(line: String): Boolean {
     val cells = parseTableCells(line)
     return cells.size >= 2 && cells.all { cell ->
-        cell.matches(Regex(":?-{3,}:?"))
+        cell.matches(tableDividerCellRegex)
     }
 }
 
@@ -249,13 +263,13 @@ private fun isPseudoTableRow(line: String): Boolean {
     val trimmed = line.trim()
     if (trimmed.isBlank() || trimmed.startsWith("|") || trimmed.startsWith(">")) return false
     if (parseKeyValueLine(trimmed) != null) return false
-    return trimmed.contains('\t') || Regex("""\S\s{2,}\S""").containsMatchIn(trimmed)
+    return trimmed.contains('\t') || pseudoTableSpacingRegex.containsMatchIn(trimmed)
 }
 
 private fun parsePseudoTableCells(line: String): List<String> {
     return line
         .trim()
-        .split(Regex("""\t+|\s{2,}"""))
+        .split(pseudoTableSplitRegex)
         .map { it.trim() }
         .filter { it.isNotBlank() }
 }
@@ -308,35 +322,35 @@ private fun buildInlineAnnotated(text: String, color: Color): AnnotatedString {
     val codeBackground = MaterialTheme.colorScheme.surfaceContainerHighest
     val codeForeground = MaterialTheme.colorScheme.onSurfaceVariant
 
-    // Build a list of spans to apply
-    data class Span(val start: Int, val end: Int, val style: SpanStyle, val text: String)
+    return remember(text, codeBackground, codeForeground) {
+        data class Span(val start: Int, val end: Int, val style: SpanStyle, val text: String)
 
-    val spans = mutableListOf<Span>()
-    INLINE_BOLD.findAll(text).forEach { m ->
-        spans.add(Span(m.range.first, m.range.last + 1, SpanStyle(fontWeight = FontWeight.Bold), m.groupValues[1]))
-    }
-    INLINE_ITALIC.findAll(text).forEach { m ->
-        // Skip if already matched by bold (the * is part of **)
-        if (spans.none { it.start == m.range.first }) {
-            spans.add(Span(m.range.first, m.range.last + 1, SpanStyle(fontStyle = FontStyle.Italic), m.groupValues[1]))
+        val spans = mutableListOf<Span>()
+        INLINE_BOLD.findAll(text).forEach { m ->
+            spans.add(Span(m.range.first, m.range.last + 1, SpanStyle(fontWeight = FontWeight.Bold), m.groupValues[1]))
         }
-    }
-    INLINE_CODE.findAll(text).forEach { m ->
-        spans.add(Span(m.range.first, m.range.last + 1,
-            SpanStyle(fontFamily = FontFamily.Monospace, background = codeBackground, color = codeForeground, fontSize = 13.sp),
-            m.groupValues[1]))
-    }
-    spans.sortBy { it.start }
+        INLINE_ITALIC.findAll(text).forEach { m ->
+            if (spans.none { it.start == m.range.first }) {
+                spans.add(Span(m.range.first, m.range.last + 1, SpanStyle(fontStyle = FontStyle.Italic), m.groupValues[1]))
+            }
+        }
+        INLINE_CODE.findAll(text).forEach { m ->
+            spans.add(Span(m.range.first, m.range.last + 1,
+                SpanStyle(fontFamily = FontFamily.Monospace, background = codeBackground, color = codeForeground, fontSize = 13.sp),
+                m.groupValues[1]))
+        }
+        spans.sortBy { it.start }
 
-    return buildAnnotatedString {
-        var cursor = 0
-        for (span in spans) {
-            if (span.start < cursor) continue // overlapping, skip
-            append(text.substring(cursor, span.start))
-            withStyle(span.style) { append(span.text) }
-            cursor = span.end
+        buildAnnotatedString {
+            var cursor = 0
+            for (span in spans) {
+                if (span.start < cursor) continue
+                append(text.substring(cursor, span.start))
+                withStyle(span.style) { append(span.text) }
+                cursor = span.end
+            }
+            if (cursor < text.length) append(text.substring(cursor))
         }
-        if (cursor < text.length) append(text.substring(cursor))
     }
 }
 

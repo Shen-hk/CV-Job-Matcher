@@ -68,6 +68,8 @@ class AgentViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "AgentViewModel"
+        // The device benchmark shows this interval avoids redundant recompositions
+        // while chunks still accumulate losslessly and flush at stream completion.
         private const val STREAMING_THROTTLE_MS = 120L
     }
 
@@ -515,6 +517,99 @@ class AgentViewModel @Inject constructor(
         streamJob = viewModelScope.launch { processAgentReply(finalText) }
     }
 
+    /** Deterministic, local-only load used by Macrobenchmark; it never calls an AI provider. */
+    fun runBenchmarkStream(throttleMs: Long = STREAMING_THROTTLE_MS) {
+        if (_uiState.value.isStreaming) return
+        streamingContentBuf.clear()
+        thinkingBuf.clear()
+        lastStreamUiUpdate = 0L
+        _uiState.update {
+            it.copy(
+                messages = benchmarkConversation() + AgentMessage(
+                    role = AgentMessageRole.AGENT,
+                    content = "",
+                    isStreaming = true
+                ),
+                isLoading = true,
+                isStreaming = true
+            )
+        }
+        streamJob = viewModelScope.launch {
+            repeat(480) { index ->
+                streamingContentBuf.append("第${index + 1}段基准文本，用于模拟高频流式回复。")
+                throttledStreamUpdate(throttleMs)
+                benchmarkCardFor(index + 1)?.let(::insertBenchmarkCard)
+                delay(8L)
+            }
+            forceStreamUpdate()
+            finalizeStreamingMessage()
+        }
+    }
+
+    /** Representative conversation: prose and the cards users see in normal agent replies. */
+    private fun benchmarkConversation(): List<AgentMessage> = listOf(
+        AgentMessage(role = AgentMessageRole.USER, content = "帮我评估这个岗位是否值得投递"),
+        AgentMessage(role = AgentMessageRole.AGENT, content = "我会结合岗位要求、简历经历和当前投递节奏给出建议。"),
+        AgentMessage(
+            role = AgentMessageRole.AGENT,
+            content = "",
+            card = UiCard.MatchCard(
+                overallScore = 82,
+                keywordScore = 88,
+                experienceScore = 80,
+                educationScore = 78,
+                skillScore = 84,
+                missingSkills = listOf("埋点分析", "跨团队协作"),
+                highlights = listOf("核心技能匹配", "项目经历相关")
+            )
+        ),
+        AgentMessage(role = AgentMessageRole.USER, content = "那面试前我应该优先准备什么？"),
+        AgentMessage(
+            role = AgentMessageRole.AGENT,
+            content = "",
+            card = UiCard.EvalCard(
+                overallScore = 76,
+                dimensions = linkedMapOf("项目表达" to 78, "岗位理解" to 74, "技术深度" to 76),
+                keyMoments = listOf("准备 STAR 项目案例", "补充指标与结果", "梳理岗位关键技能")
+            )
+        )
+    )
+
+    private fun benchmarkCardFor(chunkNumber: Int): UiCard? = when (chunkNumber) {
+        120 -> UiCard.TrackingCard("示例科技", "待面试", 1001L)
+        240 -> UiCard.MatchCard(
+            overallScore = 86,
+            keywordScore = 90,
+            experienceScore = 83,
+            educationScore = 80,
+            skillScore = 87,
+            missingSkills = listOf("领域知识"),
+            highlights = listOf("可直接投递", "建议准备项目复盘")
+        )
+        360 -> UiCard.EvalCard(
+            overallScore = 81,
+            dimensions = linkedMapOf("表达" to 84, "项目" to 82, "匹配度" to 78),
+            keyMoments = listOf("突出主导贡献", "量化项目结果")
+        )
+        else -> null
+    }
+
+    /** Ends one streaming paragraph, inserts a card, then starts the next paragraph. */
+    private fun insertBenchmarkCard(card: UiCard) {
+        forceStreamUpdate()
+        _uiState.update { state ->
+            val messages = state.messages.toMutableList()
+            messages.lastOrNull()?.takeIf { it.isStreaming }?.let { last ->
+                messages[messages.lastIndex] = last.copy(isStreaming = false)
+            }
+            messages += AgentMessage(role = AgentMessageRole.AGENT, content = "", card = card)
+            state.copy(messages = messages)
+        }
+        streamingContentBuf.clear()
+        thinkingBuf.clear()
+        lastStreamUiUpdate = 0L
+    }
+
     private suspend fun processAgentReply(userText: String) {
         try {
             agentUseCase.process(
@@ -659,10 +754,10 @@ class AgentViewModel @Inject constructor(
         else -> card
     }
 
-    /** Push buffered streaming content to UI if 120ms has elapsed. */
-    private fun throttledStreamUpdate() {
+    /** Push buffered streaming content to UI if the render cadence has elapsed. */
+    private fun throttledStreamUpdate(minIntervalMs: Long = STREAMING_THROTTLE_MS) {
         val now = System.currentTimeMillis()
-        if (now - lastStreamUiUpdate >= STREAMING_THROTTLE_MS) {
+        if (now - lastStreamUiUpdate >= minIntervalMs) {
             lastStreamUiUpdate = now
             forceStreamUpdate()
         }

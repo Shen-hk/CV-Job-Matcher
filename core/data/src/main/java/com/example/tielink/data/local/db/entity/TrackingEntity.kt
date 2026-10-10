@@ -2,12 +2,19 @@ package com.example.tielink.data.local.db.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
  * 投递记录 — 追踪每次简历投递的状态流转。
  */
-@Entity(tableName = "tracking")
+@Entity(
+    tableName = "tracking",
+    indices = [
+        Index(value = ["updated_at"]),
+        Index(value = ["status", "updated_at"])
+    ]
+)
 data class TrackingEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

@@ -7,6 +7,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.io.File
@@ -133,7 +134,9 @@ object FileParser {
     }
 
     private fun extractPdfTextFromStream(inputStream: InputStream): String {
-        val doc = PDDocument.load(inputStream)
+        // Keep large PDF buffers out of the app heap; PDFBox spills to its cache
+        // directory instead of retaining the full document in RAM.
+        val doc = PDDocument.load(inputStream, MemoryUsageSetting.setupTempFileOnly())
         return try {
             Log.d(TAG, "PDF 页数: ${doc.numberOfPages}")
             val stripper = PDFTextStripper()

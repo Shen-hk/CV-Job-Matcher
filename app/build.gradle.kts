@@ -28,6 +28,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Macrobenchmark / Baseline Profile 需要可安装的 release 包（本地基准用 debug 签名即可）
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

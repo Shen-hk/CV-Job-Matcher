@@ -30,7 +30,7 @@ import com.example.tielink.data.local.db.entity.TrackingEntity
         ProviderEntity::class,
         ProviderModelEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -220,6 +220,31 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "ALTER TABLE resume_versions ADD COLUMN is_polished INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // These names must match Room's generated index names. Drop the names
+                // used by the initial migration attempt too, so interrupted upgrades
+                // converge on the schema Room validates.
+                db.execSQL("DROP INDEX IF EXISTS idx_tracking_updated_at")
+                db.execSQL("DROP INDEX IF EXISTS idx_tracking_status_updated_at")
+                db.execSQL("DROP INDEX IF EXISTS idx_resume_versions_updated_at")
+                db.execSQL("DROP INDEX IF EXISTS idx_resume_versions_is_active")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_tracking_updated_at ON tracking(updated_at)")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tracking_status_updated_at " +
+                        "ON tracking(status, updated_at)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_resume_versions_updated_at " +
+                        "ON resume_versions(updated_at)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_resume_versions_is_active " +
+                        "ON resume_versions(is_active)"
                 )
             }
         }

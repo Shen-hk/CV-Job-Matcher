@@ -5,6 +5,7 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -47,6 +50,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -66,7 +73,7 @@ import com.example.tielink.ui.theme.motionCollapseOut
 import com.example.tielink.ui.theme.motionExpandIn
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AgentChatScreen(
     onNavigateToSettings: () -> Unit,
@@ -82,12 +89,17 @@ fun AgentChatScreen(
     onNavigateToResumePreview: (Long) -> Unit = {},
     initialHistoryId: Long? = null,
     initialPrompt: String? = null,
+    benchmarkStream: Boolean = false,
+    benchmarkStreamThrottleMs: Long = 0L,
     viewModel: AgentViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val historyViewModel: HistoryViewModel = hiltViewModel()
     val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
-    val listState = rememberLazyListState()
+    val listCacheWindow = remember {
+        LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 1f)
+    }
+    val listState = rememberLazyListState(cacheWindow = listCacheWindow)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -95,10 +107,18 @@ fun AgentChatScreen(
     val inlineProcessMessageId = state.messages.lastOrNull {
         it.role == AgentMessageRole.AGENT && it.card == null && it.toolLoadingName == null
     }?.id
-    val lastMessage = state.messages.lastOrNull()
+    val latestUserMessageId = state.messages.lastOrNull { it.role == AgentMessageRole.USER }?.id
+    var observedUserMessageId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(initialHistoryId) {
         initialHistoryId?.let(viewModel::openHistorySession)
+    }
+
+    LaunchedEffect(benchmarkStream) {
+        if (benchmarkStream) {
+            if (benchmarkStreamThrottleMs > 0L) viewModel.runBenchmarkStream(benchmarkStreamThrottleMs)
+            else viewModel.runBenchmarkStream()
+        }
     }
 
     var consumedInitialPrompt by rememberSaveable(initialPrompt) { mutableStateOf(false) }
@@ -128,13 +148,12 @@ fun AgentChatScreen(
         }
     }
 
-    LaunchedEffect(lastMessage?.id, state.messages.size) {
-        val isAlreadyAtLatest = !listState.isScrollInProgress &&
-            listState.firstVisibleItemIndex == 0 &&
-            listState.firstVisibleItemScrollOffset == 0
-        if (state.messages.isNotEmpty() && isAlreadyAtLatest) {
+    LaunchedEffect(latestUserMessageId) {
+        val messageId = latestUserMessageId ?: return@LaunchedEffect
+        if (observedUserMessageId != null && observedUserMessageId != messageId) {
             listState.scrollToItem(0)
         }
+        observedUserMessageId = messageId
     }
 
     var pendingPickerToolName by remember { mutableStateOf("") }
@@ -375,7 +394,13 @@ fun AgentChatScreen(
                     } else {
                         LazyColumn(
                             state = listState,
-                            modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .chatScrollBar(
+                                    state = listState,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                .padding(horizontal = AppSpacing.md),
                             reverseLayout = true,
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -393,7 +418,7 @@ fun AgentChatScreen(
                                     }
                                 }
                             ) { message ->
-                                AnimatedMessageRow(
+                                MessageRow(
                                     message = message,
                                     inlineProcessState = if (message.id == inlineProcessMessageId) {
                                         state.processState
@@ -467,4 +492,52 @@ fun AgentChatScreen(
             }
         }
     }
+}
+
+private fun Modifier.chatScrollBar(
+    state: LazyListState,
+    color: Color
+): Modifier = drawWithContent {
+    drawContent()
+
+    val layoutInfo = state.layoutInfo
+    val visibleItems = layoutInfo.visibleItemsInfo
+    val totalItems = layoutInfo.totalItemsCount
+    if (visibleItems.isEmpty() || totalItems <= visibleItems.size) return@drawWithContent
+
+    val trackInset = 6.dp.toPx()
+    val trackHeight = size.height - trackInset * 2
+    if (trackHeight <= 0f) return@drawWithContent
+
+    val trackWidth = 2.dp.toPx()
+    val thumbWidth = 3.dp.toPx()
+    val rightInset = 2.dp.toPx()
+    val thumbHeight = (trackHeight * visibleItems.size / totalItems.toFloat())
+        .coerceIn(36.dp.toPx(), trackHeight)
+
+    val firstVisibleSize = visibleItems
+        .firstOrNull { it.index == state.firstVisibleItemIndex }
+        ?.size
+        ?.coerceAtLeast(1)
+        ?: 1
+    val itemPosition = state.firstVisibleItemIndex +
+        state.firstVisibleItemScrollOffset.toFloat() / firstVisibleSize
+    val maxPosition = (totalItems - visibleItems.size).coerceAtLeast(1).toFloat()
+    val progressFromBottom = (itemPosition / maxPosition).coerceIn(0f, 1f)
+    val thumbTop = trackInset + (trackHeight - thumbHeight) * (1f - progressFromBottom)
+    val trackLeft = size.width - rightInset - trackWidth
+    val thumbLeft = size.width - rightInset - thumbWidth
+
+    drawRoundRect(
+        color = color.copy(alpha = 0.12f),
+        topLeft = Offset(trackLeft, trackInset),
+        size = Size(trackWidth, trackHeight),
+        cornerRadius = CornerRadius(trackWidth)
+    )
+    drawRoundRect(
+        color = color.copy(alpha = 0.58f),
+        topLeft = Offset(thumbLeft, thumbTop),
+        size = Size(thumbWidth, thumbHeight),
+        cornerRadius = CornerRadius(thumbWidth)
+    )
 }
