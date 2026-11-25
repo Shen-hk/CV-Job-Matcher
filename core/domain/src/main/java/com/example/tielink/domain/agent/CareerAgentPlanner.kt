@@ -9,6 +9,9 @@ import com.example.tielink.domain.model.CareerObservation
 import com.example.tielink.domain.model.CareerTask
 import com.example.tielink.domain.model.CareerTaskKind
 import com.example.tielink.domain.model.CareerTaskStatus
+import com.example.tielink.domain.model.CareerCompletionPolicy
+import com.example.tielink.domain.model.CareerTaskInputs
+import com.example.tielink.domain.model.CareerExecutionStatus
 
 object CareerAgentPlanner {
     private const val MAX_OBSERVATIONS = 50
@@ -22,6 +25,7 @@ object CareerAgentPlanner {
         deadlineLabel: String?,
         now: Long = System.currentTimeMillis()
     ): CareerAgentState {
+        require(currentState.executions.none { it.status == CareerExecutionStatus.COMMITTING }) { "正在保存结果，请稍后建立新目标" }
         val goalId = "goal-$now"
         val goal = CareerGoal(
             id = goalId,
@@ -41,17 +45,9 @@ object CareerAgentPlanner {
             activePlan = buildPlan(goal, version = 1, reason = "根据目标建立首轮求职执行计划", now = now),
             planHistory = archived.takeLast(MAX_PLAN_HISTORY),
             observations = currentState.observations,
+            executions = currentState.executions,
             updatedAt = now
         )
-    }
-
-    fun completeCurrentTask(
-        state: CareerAgentState,
-        evidence: String,
-        now: Long = System.currentTimeMillis()
-    ): CareerAgentState {
-        val task = state.nextTask() ?: return state
-        return completeTask(state, task, source = "user", evidence = evidence, now = now)
     }
 
     fun blockCurrentTask(
@@ -101,34 +97,24 @@ object CareerAgentPlanner {
         return appendObservation(updated, "goal_achieved", evidence, relatedTaskId = null, now = now)
     }
 
-    fun observeToolResult(
-        state: CareerAgentState,
-        toolName: String,
-        summary: String,
-        now: Long = System.currentTimeMillis()
-    ): CareerAgentState {
-        if (
-            state.activeGoal?.status != CareerGoalStatus.ACTIVE ||
-            state.activePlan?.status != CareerPlanStatus.ACTIVE
-        ) {
-            return appendObservation(state, toolName, summary, relatedTaskId = null, now = now)
-        }
-        val task = state.activePlan?.tasks?.firstOrNull {
-            it.status != CareerTaskStatus.DONE && it.actionTool == toolName
-        }
-        return if (task == null) {
-            appendObservation(state, toolName, summary, relatedTaskId = null, now = now)
-        } else {
-            completeTask(state, task, source = toolName, evidence = summary, now = now)
-        }
-    }
-
     fun replan(
         state: CareerAgentState,
         reason: String,
-        now: Long = System.currentTimeMillis()
+        now: Long = System.currentTimeMillis(),
+        targetRole: String? = null,
+        deadlineLabel: String? = null,
+        successCriteria: String? = null,
+        inputs: CareerTaskInputs? = null
     ): CareerAgentState {
         val goal = state.activeGoal ?: return state
+        require(goal.status == CareerGoalStatus.ACTIVE) { "目标已结束，请建立新目标" }
+        require(state.executions.none { it.status == CareerExecutionStatus.COMMITTING }) { "正在保存结果，请稍后调整计划" }
+        val updatedGoal = goal.copy(
+            targetRole = targetRole?.trim()?.takeIf { it.isNotBlank() } ?: goal.targetRole,
+            deadlineLabel = deadlineLabel?.trim()?.takeIf { it.isNotBlank() } ?: goal.deadlineLabel,
+            successCriteria = successCriteria?.trim()?.takeIf { it.isNotBlank() } ?: goal.successCriteria,
+            updatedAt = now
+        )
         val oldPlan = state.activePlan
         val nextVersion = (oldPlan?.version ?: 0) + 1
         val history = if (oldPlan == null) {
@@ -142,47 +128,45 @@ object CareerAgentPlanner {
             summary = reason.trim(),
             createdAt = now
         )
+        val fresh = buildPlan(updatedGoal, nextVersion, "重新规划：${reason.trim()}", now)
+        val adopted = oldPlan?.tasks?.find { it.kind == CareerTaskKind.RESUME_STRATEGY && it.status == CareerTaskStatus.DONE }?.resultEvidence
+        val adoptedStillCurrent = adopted != null && (inputs == null ||
+            (adopted.inputs.jdFingerprint == inputs.jdFingerprint && adopted.artifactId == "resume:${inputs.resumeVersionId}" &&
+                (adopted.artifactFingerprint == null || adopted.artifactFingerprint == inputs.resumeFingerprint)))
+        val retained = fresh.tasks.map { task ->
+            val previous = oldPlan?.tasks?.find { it.kind == task.kind && it.status == CareerTaskStatus.DONE }
+            val proof = previous?.resultEvidence
+            val sameRole = updatedGoal.targetRole == goal.targetRole
+            val compatible = previous != null && proof != null && sameRole && when (task.kind) {
+                CareerTaskKind.MARKET_RESEARCH -> inputs == null || proof.inputs.jdFingerprint == inputs.jdFingerprint
+                // A baseline remains valid history when its confirmed result is the active resume.
+                CareerTaskKind.PROFILE_ASSESSMENT -> inputs == null || proof.inputs == inputs ||
+                    (adoptedStillCurrent && adopted?.inputs == proof.inputs)
+                CareerTaskKind.RESUME_STRATEGY -> adoptedStillCurrent
+                CareerTaskKind.INTERVIEW_PRACTICE -> inputs == null || proof.inputs == inputs
+                CareerTaskKind.APPLICATION, CareerTaskKind.FOLLOW_UP -> inputs == null || proof.inputs.jdFingerprint == inputs.jdFingerprint
+            }
+            if (compatible) task.copy(status = CareerTaskStatus.DONE, completionEvidence = previous?.completionEvidence,
+                resultEvidence = proof, completedAt = previous?.completedAt) else task.copy(status = CareerTaskStatus.TODO)
+        }
+        // Retained artifacts cannot bypass a newly invalidated prerequisite.
+        val valid = retained.toMutableList()
+        valid.indices.forEach { index ->
+            val completed = valid.filter { it.status == CareerTaskStatus.DONE }.mapTo(mutableSetOf()) { it.id }
+            val task = valid[index]
+            if (task.status == CareerTaskStatus.DONE && !completed.containsAll(task.dependsOn))
+                valid[index] = task.copy(status = CareerTaskStatus.TODO, resultEvidence = null, completionEvidence = null, completedAt = null)
+        }
         return state.copy(
-            activeGoal = goal.copy(updatedAt = now),
-            activePlan = buildPlan(goal, nextVersion, "重新规划：${reason.trim()}", now),
+            activeGoal = updatedGoal,
+            activePlan = fresh.copy(tasks = activateNextTask(valid),
+                status = if (valid.all { it.status == CareerTaskStatus.DONE }) CareerPlanStatus.COMPLETED else CareerPlanStatus.ACTIVE),
+            executions = state.executions.map { if (it.status == CareerExecutionStatus.WAITING_CONFIRMATION)
+                it.copy(status = CareerExecutionStatus.REJECTED, summary = "计划已更新，旧确认已失效", updatedAt = now) else it },
             planHistory = history.takeLast(MAX_PLAN_HISTORY),
             observations = (state.observations + observation).takeLast(MAX_OBSERVATIONS),
             updatedAt = now
         )
-    }
-
-    private fun completeTask(
-        state: CareerAgentState,
-        task: CareerTask,
-        source: String,
-        evidence: String,
-        now: Long
-    ): CareerAgentState {
-        val plan = state.activePlan ?: return state
-        val completedTasks = plan.tasks.map {
-            if (it.id == task.id) {
-                it.copy(
-                    status = CareerTaskStatus.DONE,
-                    blockingReason = null,
-                    completionEvidence = evidence.trim().take(500),
-                    completedAt = now
-                )
-            } else {
-                it
-            }
-        }
-        val readyTasks = activateNextTask(completedTasks)
-        val planStatus = if (readyTasks.all { it.status == CareerTaskStatus.DONE }) {
-            CareerPlanStatus.COMPLETED
-        } else {
-            CareerPlanStatus.ACTIVE
-        }
-        val updated = state.copy(
-            activeGoal = state.activeGoal?.copy(updatedAt = now),
-            activePlan = plan.copy(status = planStatus, tasks = readyTasks, updatedAt = now),
-            updatedAt = now
-        )
-        return appendObservation(updated, source, evidence, task.id, now)
     }
 
     private fun appendObservation(
@@ -221,7 +205,7 @@ object CareerAgentPlanner {
                 kind = CareerTaskKind.MARKET_RESEARCH,
                 status = CareerTaskStatus.ACTIVE,
                 priority = 1,
-                actionTool = "analyze_boss_opportunities"
+                actionTool = "analyze_jd"
             ),
             CareerTask(
                 id = baseline,
@@ -239,7 +223,8 @@ object CareerAgentPlanner {
                 kind = CareerTaskKind.RESUME_STRATEGY,
                 priority = 3,
                 dependsOn = listOf(baseline),
-                actionTool = "optimize_resume"
+                actionTool = "optimize_resume",
+                completionPolicy = CareerCompletionPolicy.USER_CONFIRMATION
             ),
             CareerTask(
                 id = interview,
@@ -248,12 +233,13 @@ object CareerAgentPlanner {
                 kind = CareerTaskKind.INTERVIEW_PRACTICE,
                 priority = 4,
                 dependsOn = listOf(baseline),
-                actionTool = "get_interview_turn"
+                actionTool = "get_interview_turn",
+                completionPolicy = CareerCompletionPolicy.USER_CONFIRMATION
             ),
             CareerTask(
                 id = application,
-                title = "执行首轮有效投递",
-                description = "选择优先岗位和对应简历版本，建立可复盘的投递记录。",
+                title = "保存首轮投递记录",
+                description = "选择岗位和简历版本保存记录；实际投递状态由用户提供。",
                 kind = CareerTaskKind.APPLICATION,
                 priority = 5,
                 dependsOn = listOf(resume),
@@ -266,7 +252,8 @@ object CareerAgentPlanner {
                 kind = CareerTaskKind.FOLLOW_UP,
                 priority = 6,
                 dependsOn = listOf(application),
-                actionTool = "get_latest_application"
+                actionTool = "get_latest_application",
+                completionPolicy = CareerCompletionPolicy.USER_CONFIRMATION
             )
         )
         return CareerPlan(

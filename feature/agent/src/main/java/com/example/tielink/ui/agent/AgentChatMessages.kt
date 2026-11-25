@@ -155,7 +155,7 @@ fun WelcomePage(
                                 )
                                 Spacer(Modifier.width(5.dp))
                                 Text(
-                                    "CAREER AGENT",
+                                    "TIELINK AGENT",
                                     color = MaterialTheme.colorScheme.primary,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -165,14 +165,14 @@ fun WelcomePage(
                         }
                         Spacer(Modifier.weight(1f))
                         Text(
-                            "$readyCount / 2 已就绪",
+                            if (readyCount == 0) "无需先准备资料" else "求职资料 $readyCount / 2",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
                     Spacer(Modifier.height(18.dp))
                     Text(
-                        if (readyCount == 0) "今天想推进哪一步？" else "我已经准备好继续推进",
+                        if (readyCount == 0) "把你的灵感，交给我。" else "我已经准备好继续推进",
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 28.sp,
                         lineHeight = 34.sp,
@@ -182,7 +182,7 @@ fun WelcomePage(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         if (readyCount == 0) {
-                            "选择目标岗位或上传简历后，我会把下一步拆成可执行的建议。"
+                            "一句想法或一份资料，都可以直接开始。文档任务交给我后，你可以离开聊天，在通知里查看进展和阶段成果。"
                         } else {
                             "我会结合岗位、简历版本和投递节奏，给出更具体的下一步。"
                         },
@@ -197,7 +197,7 @@ fun WelcomePage(
 
         Spacer(Modifier.height(14.dp))
 
-        Row(
+        if (readyCount > 0) Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -230,12 +230,19 @@ fun WelcomePage(
         ) {
             Column(Modifier.padding(AppSpacing.md)) {
                 Text(
-                    "Agent 建议下一步",
+                    "从一件想做的事开始",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(AppSpacing.xs))
                 WorkbenchCommandRow(
+                    title = "把一个灵感整理成一页方案",
+                    subtitle = "生成文档与 HTML，离开聊天后继续推进",
+                    icon = Icons.Default.AutoAwesome,
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = { onPromptClick("帮我把面试复盘助手这个灵感整理成一页方案") }
+                )
+                if (readyCount > 0) WorkbenchCommandRow(
                     title = if (hasJd) "基于当前 JD 分析匹配度" else "先导入一个目标岗位",
                     subtitle = if (hasJd) "拆出关键词、经验要求和简历差距" else "让 Agent 建立岗位上下文",
                     icon = Icons.Default.Radar,
@@ -249,7 +256,7 @@ fun WelcomePage(
                     color = FocusCyan,
                     onClick = if (hasResume) onOpenResume else onUploadResume
                 )
-                WorkbenchCommandRow(
+                if (readyCount > 0) WorkbenchCommandRow(
                     title = "查看投递节奏",
                     subtitle = "把机会状态、面试节点和下一步动作放到一处",
                     icon = Icons.Default.CheckCircle,

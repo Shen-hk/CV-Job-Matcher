@@ -60,8 +60,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.domain.model.SavedJobDescription
-import com.example.tielink.domain.model.ResumeVersion
-import com.example.tielink.ui.components.AppMetricBar
 import com.example.tielink.ui.components.AppStatusPill
 import com.example.tielink.ui.components.VoiceInputButton
 import com.example.tielink.ui.theme.ActionBlue
@@ -96,7 +94,7 @@ fun DebriefScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("真实面试复盘") },
+                title = { Text("面试文本复盘") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -126,8 +124,7 @@ fun DebriefScreen(
                 UploadAndContextCard(
                     state = state,
                     onUpload = { filePicker.launch(arrayOf("audio/*", "video/*")) },
-                    onSelectJd = viewModel::selectJd,
-                    onSelectResume = viewModel::selectResume
+                    onSelectJd = viewModel::selectJd
                 )
             }
             item {
@@ -135,29 +132,29 @@ fun DebriefScreen(
                     transcript = state.transcript,
                     onTranscriptChange = viewModel::updateTranscript,
                     onVoiceText = viewModel::appendRecognizedText,
-                    onVoiceError = { viewModel.updateTranscript(state.transcript) }
+                    onVoiceError = viewModel::showVoiceError
                 )
             }
             item {
                 Button(
                     onClick = viewModel::analyzeDebrief,
-                    enabled = !state.isAnalyzing,
+                    enabled = !state.isAnalyzing && state.transcript.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Analytics, contentDescription = null)
                     Spacer(Modifier.width(AppSpacing.xs))
-                    Text(if (state.isAnalyzing) "分析中..." else "生成真实面试复盘")
+                    Text(if (state.isAnalyzing) "检查中..." else "生成文本复盘提示")
                 }
             }
             state.report?.let { report ->
                 item { DebriefReportCard(report) }
                 item { QuestionSlicesCard(report.questions) }
-                item { FindingsCard("表达复盘", report.expressionFindings, FocusCyan) }
-                item { FindingsCard("内容风险", report.contentRisks, MissRed) }
-                item { FindingsCard("视频/行为提醒", report.behaviorNotes, WarningOrange) }
-                item { FindingsCard("下一轮训练重点", report.nextPracticeFocus, MatchGreen) }
-                item { FindingsCard("联动简历优化", report.resumeSuggestions, ActionBlue) }
-                item { FindingsCard("联动打招呼语", report.greetingSuggestions, SignalMint) }
+                item { FindingsCard("文本统计", report.expressionFindings, FocusCyan) }
+                item { FindingsCard("待核对的表述", report.contentRisks, MissRed) }
+                item { FindingsCard("尚未分析的维度", report.behaviorNotes, WarningOrange) }
+                item { FindingsCard("通用练习建议", report.nextPracticeFocus, MatchGreen) }
+                item { FindingsCard("简历参考建议", report.resumeSuggestions, ActionBlue) }
+                item { FindingsCard("打招呼语参考建议", report.greetingSuggestions, SignalMint) }
             }
         }
     }
@@ -178,7 +175,7 @@ private fun DebriefStatusCard(state: DebriefUiState) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
                 Icon(Icons.Default.Analytics, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("复盘工作台", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("文本规则提示", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(state.statusText, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
             }
@@ -193,8 +190,7 @@ private fun DebriefStatusCard(state: DebriefUiState) {
 private fun UploadAndContextCard(
     state: DebriefUiState,
     onUpload: () -> Unit,
-    onSelectJd: (Long?) -> Unit,
-    onSelectResume: (Long?) -> Unit
+    onSelectJd: (Long?) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -208,7 +204,7 @@ private fun UploadAndContextCard(
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text("面试材料", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("材料登记（可选）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text(
                         text = state.recordingName.ifBlank { "未选择录音/视频" },
                         style = MaterialTheme.typography.bodySmall,
@@ -220,7 +216,7 @@ private fun UploadAndContextCard(
                 TextButton(onClick = onUpload) {
                     Icon(Icons.Default.UploadFile, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("上传")
+                    Text("选择材料")
                 }
             }
             ContextDropdown(
@@ -232,14 +228,10 @@ private fun UploadAndContextCard(
                 itemLabel = { it.optionLabel() },
                 onSelect = { onSelectJd(it?.id) }
             )
-            ContextDropdown(
-                title = "关联简历",
-                icon = Icons.Default.Description,
-                selectedLabel = state.selectedResumeLabel(),
-                emptyLabel = "不关联简历",
-                items = state.resumes,
-                itemLabel = { it.optionLabel() },
-                onSelect = { onSelectResume(it?.id) }
+            Text(
+                "当前仅记录文件信息，不上传或读取音视频内容。请在下方提供转写文本。",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
             )
         }
     }
@@ -265,7 +257,7 @@ private fun TranscriptCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("转写文本", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text("可粘贴记录，也可边播放录音边用麦克风听写", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Text("粘贴已有转写，或用系统麦克风听写后核对；不会自动转写所选文件", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
                 VoiceInputButton(
                     onTextRecognized = onVoiceText,
@@ -296,16 +288,20 @@ private fun DebriefReportCard(report: DebriefReport) {
         Column(modifier = Modifier.padding(AppSpacing.md), verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
             Text("复盘总览", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text(report.summary, style = MaterialTheme.typography.bodyMedium)
-            AppMetricBar("表达", report.expressionScore, color = FocusCyan)
-            AppMetricBar("内容", report.contentScore, color = MatchGreen)
-            AppMetricBar("行为", report.behaviorScore, color = WarningOrange)
+            if (report.totalSkills > 0) {
+                Text(
+                    "关键词命中：" + report.matchedSkills.joinToString("、").ifBlank { "暂无" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun QuestionSlicesCard(questions: List<DebriefQuestionSlice>) {
-    FindingsShell(title = "问题切片", color = SignalMint) {
+    FindingsShell(title = "候选问答片段（需人工核对）", color = SignalMint) {
         if (questions.isEmpty()) {
             Text("暂未识别出明确问题。", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         } else {
@@ -402,16 +398,7 @@ private fun DebriefUiState.selectedJdLabel(): String {
     return selectedJdId?.let { id -> jds.firstOrNull { it.id == id }?.optionLabel() } ?: "未关联岗位"
 }
 
-private fun DebriefUiState.selectedResumeLabel(): String {
-    return selectedResumeId?.let { id -> resumes.firstOrNull { it.id == id }?.optionLabel() } ?: "未关联简历"
-}
-
 private fun SavedJobDescription.optionLabel(): String {
     return listOf(companyName, positionName).filter { it.isNotBlank() }.joinToString(" · ")
         .ifBlank { rawText.take(24).ifBlank { "未命名岗位" } }
-}
-
-private fun ResumeVersion.optionLabel(): String {
-    val tagText = tags.take(2).joinToString(" / ")
-    return if (tagText.isBlank()) name else "$name · $tagText"
 }

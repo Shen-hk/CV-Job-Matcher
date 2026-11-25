@@ -1,5 +1,7 @@
 # TieLink Agent 产品定义 1.0
 
+> **历史产品定义**：本文描述原求职 Agent 的产品心智，不再作为 TieLink 整体产品定位。新方向见 [Agent 编排产品 PRD](AGENT_ORCHESTRATION_PRD.md)；下文的求职场景及确认原则可作为场景设计参考。
+
 > 目标：把 TieLink 定义成一个“求职操作台型 Agent”，主入口是聊天界面，围绕求职闭环持续推进，而不是普通泛聊天。
 
 ---

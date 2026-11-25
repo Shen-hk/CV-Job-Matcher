@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tielink.ui.theme.TieLinkTheme
+import com.example.tielink.domain.nlp.EmbeddingEngine
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -262,10 +263,14 @@ private fun OllamaConfigSection(
 private fun LocalConfigSection() {
     ConfigCard(
         title = "本地模式",
-        description = "当前模式只使用本地 Embedding，不依赖远程大模型。"
+        description = "本地模式不调用网络大模型，不支持对话、AI 改写或面试生成。"
     ) {
         Text(
-            text = "适合先做离线体验或排查配置问题。若要进行对话生成，请切回 DeepSeek 或 Ollama。",
+            text = if (EmbeddingEngine.isReady()) {
+                "本地语义模型已加载，基础文本匹配可离线使用。若要生成内容，请切换到 DeepSeek 或 Ollama。"
+            } else {
+                "当前未加载本地语义模型，基础匹配使用关键词和 TF-IDF 文本相似度。若要生成内容，请切换到 DeepSeek 或 Ollama。"
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

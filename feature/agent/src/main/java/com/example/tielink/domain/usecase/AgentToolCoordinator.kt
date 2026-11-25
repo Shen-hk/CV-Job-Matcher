@@ -29,6 +29,10 @@ import com.example.tielink.domain.model.PolishResult
 import com.example.tielink.domain.model.ResumeData
 import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
+import com.example.tielink.domain.model.ToolOutcomeStatus
+import com.example.tielink.domain.model.ResumeCandidate
+import com.example.tielink.domain.agent.CareerInputIdentity
+import kotlinx.coroutines.CancellationException
 import com.example.tielink.domain.nlp.NlpEngine
 import com.example.tielink.feature.agent.util.AgentWorkspace
 import com.squareup.moshi.Moshi
@@ -46,7 +50,6 @@ class AgentToolCoordinator @Inject constructor(
     private val polishRepository: PolishRepository,
     private val matchScoreDetailUseCase: MatchScoreDetailUseCase,
     private val skillGapAnalyzer: SkillGapAnalyzer,
-    private val quantifyAssistant: QuantifyAssistant,
     private val trackingRepository: TrackingRepository,
     private val interviewRepository: InterviewRepository,
     private val opportunityAnalyzer: OpportunityAnalyzer,
@@ -55,13 +58,6 @@ class AgentToolCoordinator @Inject constructor(
 ) {
     companion object {
         private const val TAG = "AgentToolCoordinator"
-        private val CAREER_PROGRESS_TOOLS = setOf(
-            "analyze_boss_opportunities",
-            "calculate_match",
-            "optimize_resume",
-            "create_application_from_current_jd",
-            "get_latest_application"
-        )
     }
 
     private val toolDefinitions: List<AgentToolDefinition> by lazy {
@@ -82,7 +78,7 @@ class AgentToolCoordinator @Inject constructor(
             ),
             functionTool(
                 name = "optimize_resume",
-                description = "根据用户指令分析当前简历的可优化内容，并展示修改建议和简历预览卡片。需要已有简历。",
+                description = "根据用户指令生成定向简历候选稿和预览，等待用户采用后才保存新版本。需要已有简历。",
                 properties = mapOf(
                     "instruction" to stringProperty("用户希望如何优化简历")
                 ),
@@ -149,7 +145,7 @@ class AgentToolCoordinator @Inject constructor(
             ),
             functionTool(
                 name = "complete_current_career_task",
-                description = "当用户明确表示当前计划任务已经完成时，记录完成证据并推进到下一步。",
+                description = "当用户明确表示面试训练或投递复盘完成时，校验业务产物并生成待确认卡片。用户点击确认后才推进任务。",
                 properties = mapOf(
                     "evidence" to stringProperty("用户提供的完成结果或证据摘要")
                 ),
@@ -167,13 +163,16 @@ class AgentToolCoordinator @Inject constructor(
                 name = "replan_career_goal",
                 description = "根据新方向、延期、失败结果或用户要求重新生成当前求职计划。",
                 properties = mapOf(
-                    "reason" to stringProperty("需要重新规划的原因和新约束")
+                    "reason" to stringProperty("需要重新规划的原因和新约束"),
+                    "target_role" to stringProperty("新的目标岗位；未改变时不要传入"),
+                    "deadline" to stringProperty("新的期限；未改变时不要传入"),
+                    "success_criteria" to stringProperty("新的成功标准；未改变时不要传入")
                 ),
                 required = listOf("reason")
             ),
             functionTool(
                 name = "achieve_career_goal",
-                description = "仅当用户明确确认成功标准已经实现，例如已经拿到并接受 Offer 时，将长期目标标记为达成。",
+                description = "用户表示成功标准已经实现，例如已拿到并接受 Offer 时，生成目标达成确认卡片；用户点击确认后才结束目标。",
                 properties = mapOf(
                     "evidence" to stringProperty("目标达成的结果或证据")
                 ),
@@ -210,24 +209,26 @@ class AgentToolCoordinator @Inject constructor(
         else -> toolRegistry.definitionFor(toolName)?.progressDescription ?: "正在执行工具..."
     }
 
-    suspend fun execute(call: AgentToolCall, fallbackUserText: String): ToolExecutionResult {
+    suspend fun execute(call: AgentToolCall, fallbackUserText: String, operationId: String): ToolExecutionResult {
         val arguments = runCatching { JSONObject(call.arguments) }.getOrElse {
-            return ToolExecutionResult("工具参数不是有效 JSON：${it.message}")
+            return ToolExecutionResult("工具参数不是有效 JSON：${it.message}", status = ToolOutcomeStatus.FAILED)
         }
         toolRegistry.definitionFor(call.name)?.let { tool ->
             return try {
                 tool.execute(arguments, fallbackUserText)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.e(TAG, "自定义工具执行失败: ${call.name}", e)
-                ToolExecutionResult("工具 ${call.name} 执行失败：${e.localizedMessage ?: "未知错误"}")
+                ToolExecutionResult("工具 ${call.name} 执行失败：${e.localizedMessage ?: "未知错误"}", status = ToolOutcomeStatus.FAILED)
             }
         }
         val result = try {
             when (call.name) {
                 "analyze_jd" -> {
                     val text = arguments.optString("text").ifBlank { fallbackUserText }
-                    tryAutoSaveJd(text)
-                    ToolExecutionResult("岗位描述已分析；可结合当前简历继续做匹配或优化。")
+                    if (tryAutoSaveJd(text)) {
+                        ToolExecutionResult("岗位描述已分析并保存。", artifactId = "jd:${agentContextRepository.getAgentContext().currentJdId}")
+                    } else ToolExecutionResult("岗位描述未能解析或保存，请补充完整 JD 后重试。", status = ToolOutcomeStatus.FAILED)
                 }
                 "calculate_match" -> {
                     val card = executeMatchTool()
@@ -237,9 +238,12 @@ class AgentToolCoordinator @Inject constructor(
                             needsResume = resumeVersionRepository.getActive() == null
                         )
                     } else {
+                        val match = card as? UiCard.MatchCard
                         ToolExecutionResult(
-                            content = "匹配分析已完成，结果已经用卡片展示。",
-                            cards = listOfNotNull(card, buildResumePreviewCard())
+                            content = match?.let { "匹配分析已完成：总分 ${it.overallScore}；缺失技能：${it.missingSkills.take(8).joinToString("、").ifBlank { "未检出" }}。" }
+                                ?: "匹配分析已完成，结果已经用卡片展示。",
+                            cards = listOfNotNull(card, buildResumePreviewCard()),
+                            artifactId = "match:$operationId"
                         )
                     }
                 }
@@ -248,18 +252,9 @@ class AgentToolCoordinator @Inject constructor(
                         missingContextResult("缺少当前简历，暂时无法优化。", needsResume = true)
                     } else {
                         val instruction = arguments.optString("instruction").ifBlank { fallbackUserText }
-                        val polishedCard = optimizeResumeAndSave(instruction)
-                        val cards = listOfNotNull(polishedCard ?: executeResumeTool(instruction))
-                        ToolExecutionResult(
-                            content = if (cards.isEmpty()) {
-                                "当前简历中没有找到可安全自动修改的内容，请向用户询问具体段落。"
-                            } else if (polishedCard != null) {
-                                "简历已完成 AI 润色，并保存到简历库。现在可以直接查看 HTML 预览。"
-                            } else {
-                                "简历优化分析已完成，建议和预览已经用卡片展示。"
-                            },
-                            cards = cards
-                        )
+                        val candidate = generateResumeCandidate(instruction)
+                        if (candidate == null) ToolExecutionResult("简历候选稿生成失败，未保存新版本，可重试。", status = ToolOutcomeStatus.FAILED)
+                        else ToolExecutionResult("定向简历候选稿已生成，请检查预览后采用并保存。", candidate = candidate)
                     }
                 }
                 "show_resume_preview" -> {
@@ -272,37 +267,38 @@ class AgentToolCoordinator @Inject constructor(
                 }
                 "get_interview_turn" -> executeInterviewTool()?.let {
                     ToolExecutionResult("当前面试题已经展示。", listOf(it))
-                } ?: ToolExecutionResult("当前没有进行中的模拟面试会话。")
+                } ?: ToolExecutionResult("当前没有进行中的模拟面试会话，请先完成一次面试训练。", status = ToolOutcomeStatus.BLOCKED)
                 "get_latest_application" -> executeTrackingTool()?.let {
                     ToolExecutionResult("最近一条投递记录已经展示。", listOf(it))
-                } ?: ToolExecutionResult("当前还没有投递记录。")
+                } ?: ToolExecutionResult("当前还没有投递记录。", status = ToolOutcomeStatus.BLOCKED)
                 "create_application_from_current_jd" -> {
-                    createApplicationFromCurrentJd()
+                    createApplicationFromCurrentJd(operationId, fallbackUserText)
                 }
                 "generate_greeting" -> executePlatformTool()?.let {
                     ToolExecutionResult("打招呼话术已经生成并展示。", listOf(it))
-                } ?: ToolExecutionResult("缺少当前 JD，或话术生成失败。")
+                } ?: ToolExecutionResult("缺少当前 JD，或话术生成失败。", status = ToolOutcomeStatus.FAILED)
                 "analyze_boss_opportunities" -> {
                     executeBossOpportunityTool()
                 }
                 "create_career_goal" -> createCareerGoal(arguments)
                 "get_career_plan" -> getCareerPlan()
                 "check_career_goal" -> checkCareerGoal()
-                "complete_current_career_task" -> completeCurrentCareerTask(arguments)
+                "complete_current_career_task" -> ToolExecutionResult("请通过任务结果卡片确认完成。", status = ToolOutcomeStatus.BLOCKED)
                 "block_current_career_task" -> blockCurrentCareerTask(arguments)
                 "replan_career_goal" -> replanCareerGoal(arguments)
-                "achieve_career_goal" -> achieveCareerGoal(arguments)
+                "achieve_career_goal" -> ToolExecutionResult("请通过目标确认卡片确认达成。", status = ToolOutcomeStatus.BLOCKED)
                 "render_card" -> {
                     val card = parseDynamicCard(arguments)
                     ToolExecutionResult("信息已经整理成卡片展示。", listOf(card))
                 }
-                else -> ToolExecutionResult("未知工具：${call.name}")
+                else -> ToolExecutionResult("未知工具：${call.name}", status = ToolOutcomeStatus.FAILED)
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e(TAG, "工具执行失败: ${call.name}", e)
-            ToolExecutionResult("工具 ${call.name} 执行失败：${e.localizedMessage ?: "未知错误"}")
+            ToolExecutionResult("工具 ${call.name} 执行失败：${e.localizedMessage ?: "未知错误"}", status = ToolOutcomeStatus.FAILED)
         }
-        return observeCareerProgress(call.name, result)
+        return result
     }
 
     private suspend fun createCareerGoal(arguments: JSONObject): ToolExecutionResult {
@@ -310,15 +306,13 @@ class AgentToolCoordinator @Inject constructor(
         if (targetRole.isBlank()) return ToolExecutionResult("请先明确目标岗位或职业方向。")
         val title = arguments.optString("title").ifBlank { "获得 $targetRole 机会" }
         val successCriteria = arguments.optString("success_criteria").ifBlank { "获得 $targetRole Offer" }
-        val current = careerAgentStateRepository.getState()
-        val updated = CareerAgentPlanner.createGoal(
+        val updated = careerAgentStateRepository.updateState { current -> CareerAgentPlanner.createGoal(
             currentState = current,
             title = title,
             targetRole = targetRole,
             successCriteria = successCriteria,
             deadlineLabel = arguments.optString("deadline").ifBlank { null }
-        )
-        careerAgentStateRepository.saveState(updated)
+        ) }
         return ToolExecutionResult(
             content = "长期求职目标已建立，首轮计划已经生成。请从当前高优先级任务开始。",
             cards = listOf(buildCareerPlanCard(updated))
@@ -348,27 +342,16 @@ class AgentToolCoordinator @Inject constructor(
         )
     }
 
-    private suspend fun completeCurrentCareerTask(arguments: JSONObject): ToolExecutionResult {
-        val current = careerAgentStateRepository.getState()
-        if (current.activePlan == null) return ToolExecutionResult("当前没有可以推进的求职计划。")
-        val evidence = arguments.optString("evidence").ifBlank { "用户确认当前任务已完成" }
-        val updated = CareerAgentPlanner.completeCurrentTask(current, evidence)
-        if (updated == current) return ToolExecutionResult("当前计划没有处于进行中的任务，请检查或重新规划。")
-        careerAgentStateRepository.saveState(updated)
-        return ToolExecutionResult(
-            content = "完成结果已记录，计划已经推进到下一项任务。",
-            cards = listOf(buildCareerPlanCard(updated))
-        )
-    }
-
     private suspend fun blockCurrentCareerTask(arguments: JSONObject): ToolExecutionResult {
         val current = careerAgentStateRepository.getState()
         if (current.activePlan == null) return ToolExecutionResult("当前没有可以标记阻塞的求职计划。")
         val reason = arguments.optString("reason").trim()
         if (reason.isBlank()) return ToolExecutionResult("请说明当前任务无法继续的原因。")
-        val updated = CareerAgentPlanner.blockCurrentTask(current, reason)
+        val updated = careerAgentStateRepository.updateState { state ->
+            require(state.revision == current.revision) { "任务已变化，请刷新计划" }
+            CareerAgentPlanner.blockCurrentTask(state, reason)
+        }
         if (updated == current) return ToolExecutionResult("当前没有处于进行中的任务，建议先检查计划状态。")
-        careerAgentStateRepository.saveState(updated)
         val assessment = CareerAgentSupervisor.assess(updated)
         val nextTask = assessment.nextTask
         return ToolExecutionResult(
@@ -385,41 +368,23 @@ class AgentToolCoordinator @Inject constructor(
         val current = careerAgentStateRepository.getState()
         if (current.activeGoal == null) return ToolExecutionResult("当前没有长期求职目标，无法重新规划。")
         val reason = arguments.optString("reason").ifBlank { "用户要求调整计划" }
-        val updated = CareerAgentPlanner.replan(current, reason)
-        careerAgentStateRepository.saveState(updated)
+        val context = agentContextRepository.getAgentContext()
+        val resume = resumeVersionRepository.getActive()
+        val inputs = CareerInputIdentity.snapshot(context.currentJdId, context.currentJdText, resume?.id,
+            resume?.let { if (it.isPolished) it.cleanedText.ifBlank { it.rawText } else it.rawText.ifBlank { it.cleanedText } })
+        val updated = careerAgentStateRepository.updateState { state ->
+            CareerAgentPlanner.replan(state, reason,
+                targetRole = arguments.optString("target_role").ifBlank { null },
+                deadlineLabel = arguments.optString("deadline").ifBlank { null },
+                successCriteria = arguments.optString("success_criteria").ifBlank { null }, inputs = inputs)
+        }
         return ToolExecutionResult(
             content = "原计划已归档，并根据新情况生成了第 ${updated.activePlan?.version} 版计划。",
             cards = listOf(buildCareerPlanCard(updated))
         )
     }
 
-    private suspend fun achieveCareerGoal(arguments: JSONObject): ToolExecutionResult {
-        val current = careerAgentStateRepository.getState()
-        if (current.activeGoal == null) return ToolExecutionResult("当前没有可以标记达成的长期目标。")
-        val evidence = arguments.optString("evidence").trim()
-        if (evidence.isBlank()) return ToolExecutionResult("请提供目标已经达成的结果或证据。")
-        val updated = CareerAgentPlanner.achieveGoal(current, evidence)
-        if (updated == current) return ToolExecutionResult("当前目标已经是达成状态。")
-        careerAgentStateRepository.saveState(updated)
-        return ToolExecutionResult(
-            content = "长期目标已标记为达成，结果已经写入 Agent 观察记录。",
-            cards = listOf(buildCareerPlanCard(updated))
-        )
-    }
-
-    private suspend fun observeCareerProgress(toolName: String, result: ToolExecutionResult): ToolExecutionResult {
-        if (toolName !in CAREER_PROGRESS_TOOLS || result.content.containsFailureSignal()) return result
-        val current = careerAgentStateRepository.getState()
-        if (current.activePlan == null) return result
-        val updated = CareerAgentPlanner.observeToolResult(current, toolName, result.content)
-        if (updated != current) careerAgentStateRepository.saveState(updated)
-        return result
-    }
-
-    private fun String.containsFailureSignal(): Boolean =
-        listOf("缺少", "失败", "无法", "没有可", "还没有", "未知工具").any(::contains)
-
-    private fun buildCareerPlanCard(state: CareerAgentState): UiCard.DynamicCard {
+    fun buildCareerPlanCard(state: CareerAgentState): UiCard.DynamicCard {
         val goal = requireNotNull(state.activeGoal)
         val plan = requireNotNull(state.activePlan)
         val assessment = CareerAgentSupervisor.assess(state)
@@ -455,9 +420,12 @@ class AgentToolCoordinator @Inject constructor(
                             label = task.title,
                             value = when (task.status) {
                                 CareerTaskStatus.DONE -> "已完成"
-                                CareerTaskStatus.ACTIVE -> "进行中"
+                                CareerTaskStatus.ACTIVE -> "待执行"
                                 CareerTaskStatus.BLOCKED -> "受阻"
                                 CareerTaskStatus.TODO -> "待开始"
+                                CareerTaskStatus.RUNNING -> "执行中"
+                                CareerTaskStatus.WAITING_CONFIRMATION -> "待确认"
+                                CareerTaskStatus.FAILED -> "失败，可重试"
                             },
                             description = task.blockingReason?.let { "${task.description}\n阻塞：$it" }
                                 ?: task.description,
@@ -466,6 +434,8 @@ class AgentToolCoordinator @Inject constructor(
                                 CareerTaskStatus.ACTIVE -> "active"
                                 CareerTaskStatus.BLOCKED -> "warning"
                                 CareerTaskStatus.TODO -> "todo"
+                                CareerTaskStatus.RUNNING, CareerTaskStatus.WAITING_CONFIRMATION -> "active"
+                                CareerTaskStatus.FAILED -> "warning"
                             }
                         )
                     }
@@ -483,8 +453,13 @@ class AgentToolCoordinator @Inject constructor(
                 )
             ),
             actions = buildList {
+                plan.tasks.filter { it.status == CareerTaskStatus.FAILED || it.status == CareerTaskStatus.BLOCKED }.take(2).forEach { task ->
+                    add(DynamicCardAction("重试：${task.title}", type = DynamicCardAction.TYPE_EXECUTE_TASK,
+                        taskId = task.id, planVersion = plan.version))
+                }
                 next?.let {
-                        add(DynamicCardAction(label = "执行下一步", prompt = "继续执行当前求职计划的下一步：${it.title}"))
+                        add(DynamicCardAction(label = "执行下一步", type = DynamicCardAction.TYPE_EXECUTE_TASK,
+                            taskId = it.id, planVersion = plan.version))
                 }
                 if (assessment.decision == CareerAgentDecision.REVIEW_OUTCOME) {
                     add(DynamicCardAction(label = "检查目标", prompt = "检查我的长期求职目标是否已经达成"))
@@ -516,7 +491,7 @@ class AgentToolCoordinator @Inject constructor(
         } else {
             emptyList()
         }
-        return ToolExecutionResult(message, cards)
+        return ToolExecutionResult(message, cards, status = ToolOutcomeStatus.BLOCKED)
     }
 
     private fun functionTool(
@@ -770,7 +745,7 @@ class AgentToolCoordinator @Inject constructor(
         )
     }
 
-    private suspend fun optimizeResumeAndSave(instruction: String): UiCard.ResumePreviewCard? {
+    private suspend fun generateResumeCandidate(instruction: String): ResumeCandidate? {
         val activeResume = resumeVersionRepository.getActive() ?: return null
         val sourceText = if (activeResume.isPolished) {
             activeResume.cleanedText.ifBlank { activeResume.rawText }
@@ -783,9 +758,10 @@ class AgentToolCoordinator @Inject constructor(
         val jdOrGoal = context.currentJdText
             ?.takeIf { it.isNotBlank() }
             ?: buildGenericOptimizationGoal(instruction)
+        val optimizationTarget = "$jdOrGoal\n\n用户补充要求：$instruction"
 
         val rawOutput = polishRepository.polishResume(
-            jdText = jdOrGoal,
+            jdText = optimizationTarget,
             resumeText = sourceText,
             fullPolish = true
         ).getOrElse { error ->
@@ -802,7 +778,7 @@ class AgentToolCoordinator @Inject constructor(
             ?.let(ResumeData::fromJsonString)
             ?: ResumeData.fromPolishedText(polishedText)
 
-        val versionId = resumeVersionRepository.insertAndActivate(
+        return ResumeCandidate(
             ResumeVersion(
                 name = buildPolishedVersionName(activeResume.name),
                 rawText = activeResume.rawText.ifBlank { sourceText },
@@ -813,14 +789,8 @@ class AgentToolCoordinator @Inject constructor(
                 originalFilePath = activeResume.originalFilePath,
                 originalMimeType = activeResume.originalMimeType,
                 isPolished = true
-            )
-        )
-
-        return UiCard.ResumePreviewCard(
-            versionName = buildPolishedVersionName(activeResume.name),
-            versionId = versionId,
-            previewText = polishedText.take(600),
-            resumeData = resumeData
+            ),
+            resumeJson = moshi.adapter(ResumeData::class.java).toJson(resumeData)
         )
     }
 
@@ -886,6 +856,7 @@ class AgentToolCoordinator @Inject constructor(
                 false
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.w(TAG, "自动保存 JD 失败: ${e.message}")
             false
         }
@@ -929,7 +900,7 @@ class AgentToolCoordinator @Inject constructor(
                     )
                 )
             )
-            return ToolExecutionResult("当前没有可分析的岗位。", listOf(card))
+            return ToolExecutionResult("当前没有可分析的岗位。", listOf(card), status = ToolOutcomeStatus.BLOCKED)
         }
 
         val bossJds = allJds.filter { it.sourceType == "boss_auto" }
@@ -1048,13 +1019,11 @@ class AgentToolCoordinator @Inject constructor(
         val ctx = agentContextRepository.getAgentContext()
         val jdText = ctx.currentJdText ?: return null
         val resume = resumeVersionRepository.getActive() ?: return null
-        val resumeText = resume.rawText.ifBlank { resume.cleanedText }
+        val resumeText = if (resume.isPolished) resume.cleanedText.ifBlank { resume.rawText } else resume.rawText.ifBlank { resume.cleanedText }
         if (resumeText.isBlank()) return null
 
-        val jdKeywords = NlpEngine.extractKeywords(jdText, topN = 25, referenceText = resumeText)
-        val resumeLower = resumeText.lowercase()
-        val missing = jdKeywords.filter { !resumeLower.contains(it.lowercase()) }
-        val matched = jdKeywords - missing.toSet()
+        val jdKeywords = NlpEngine.extractKeywords(jdText, topN = 25)
+        val (matched, missing) = NlpEngine.matchKeywords(jdKeywords, resumeText)
 
         val detail = matchScoreDetailUseCase.compute(
             jdText = jdText,
@@ -1081,23 +1050,6 @@ class AgentToolCoordinator @Inject constructor(
         )
     }
 
-    private suspend fun executeResumeTool(userText: String): UiCard? {
-        val resume = resumeVersionRepository.getActive() ?: return null
-        val resumeText = resume.rawText.ifBlank { resume.cleanedText }
-        if (resumeText.isBlank()) return null
-
-        val suggestions = quantifyAssistant.analyzeAndSuggest(resumeText)
-        val best = suggestions.maxByOrNull { it.confidence } ?: return null
-
-        return UiCard.ResumeDiffCard(
-            section = "经历描述",
-            before = best.original,
-            after = best.quantified,
-            onAccept = {},
-            onRollback = {}
-        )
-    }
-
     private suspend fun executeInterviewTool(): UiCard? {
         val session = interviewRepository.getActiveSession() ?: return null
         val messages = interviewRepository.getMessages(session.id)
@@ -1112,12 +1064,12 @@ class AgentToolCoordinator @Inject constructor(
         )
     }
 
-    private suspend fun createApplicationFromCurrentJd(): ToolExecutionResult {
+    private suspend fun createApplicationFromCurrentJd(operationId: String, userText: String): ToolExecutionResult {
         val ctx = agentContextRepository.getAgentContext()
         val jd = ctx.currentJdId?.let { jdLibraryRepository.getById(it) }
         val jdText = jd?.rawText ?: ctx.currentJdText
         if (jdText.isNullOrBlank()) {
-            return ToolExecutionResult("缺少当前 JD，暂时无法创建投递记录。")
+            return ToolExecutionResult("缺少当前 JD，暂时无法创建投递记录。", status = ToolOutcomeStatus.BLOCKED)
         }
 
         val company = jd?.companyName?.ifBlank { ctx.currentJdCompany.orEmpty() }
@@ -1126,31 +1078,33 @@ class AgentToolCoordinator @Inject constructor(
             ?: extractPositionHint(jdText)
         val normalizedCompany = company.ifBlank { "目标公司" }
         val normalizedPosition = position.ifBlank { "目标岗位" }
+        val resume = resumeVersionRepository.getActive()
         val existing = trackingRepository.getAll().firstOrNull {
-            it.companyName == normalizedCompany && it.positionName == normalizedPosition
+            it.companyName == normalizedCompany && it.positionName == normalizedPosition && it.jdRawText == jdText &&
+                it.resumeVersionId == resume?.id
         }
-        val item = existing ?: run {
-            val resume = resumeVersionRepository.getActive()
-            val id = trackingRepository.insert(
+        val item = run {
+            val id = trackingRepository.insertOnce(operationId,
                 com.example.tielink.data.repository.TrackingItem(
                     companyName = normalizedCompany,
                     positionName = normalizedPosition,
-                    status = "已投",
+                    status = if (Regex("(?<!没)(?<!未)(已经投递|已投递|投了)").containsMatchIn(userText)) "已投" else "待投",
                     resumeVersionId = resume?.id,
                     jdRawText = jdText,
-                    notes = "由 BOSS 机会分析助手创建"
+                    notes = "由求职计划保存；实际投递状态以用户记录为准"
                 )
             )
             trackingRepository.getById(id)
         }
 
-        val saved = item ?: return ToolExecutionResult("投递记录创建失败，请稍后重试。")
+        val saved = item ?: return ToolExecutionResult("投递记录创建失败，请稍后重试。", status = ToolOutcomeStatus.FAILED)
         return ToolExecutionResult(
             content = if (existing == null) {
                 "已把当前岗位加入投递记录。"
             } else {
                 "该岗位已在投递记录中，已展示现有记录。"
             },
+            artifactId = "tracking:${saved.id}",
             cards = listOf(
                 UiCard.TrackingCard(
                     company = saved.companyName,
@@ -1163,7 +1117,9 @@ class AgentToolCoordinator @Inject constructor(
 
     private suspend fun executeTrackingTool(): UiCard? {
         val items = trackingRepository.getAll()
-        val latest = items.maxByOrNull { it.updatedAt } ?: return null
+        val jdText = agentContextRepository.getAgentContext().currentJdText
+        val latest = items.filter { jdText.isNullOrBlank() || it.jdRawText.trim() == jdText.trim() }
+            .maxByOrNull { it.updatedAt } ?: return null
         return UiCard.TrackingCard(
             company = latest.companyName,
             status = latest.status,

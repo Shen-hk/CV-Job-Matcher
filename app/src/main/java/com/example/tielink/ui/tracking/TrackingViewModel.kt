@@ -26,8 +26,9 @@ data class TrackingUiState(
     val newStatus: String = "已投"
 )
 
-val STATUS_OPTIONS = listOf("已投", "简历过筛", "待面试", "已面试", "已offer", "已拒")
+val STATUS_OPTIONS = listOf("待投", "已投", "简历过筛", "待面试", "已面试", "已offer", "已拒")
 val STATUS_COLORS = mapOf(
+    "待投" to 0xFF8A929B,
     "已投" to 0xFF627080,
     "简历过筛" to 0xFF52657A,
     "待面试" to 0xFFB8874B,

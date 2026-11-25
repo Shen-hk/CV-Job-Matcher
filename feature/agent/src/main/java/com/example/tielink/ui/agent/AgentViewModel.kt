@@ -6,6 +6,14 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tielink.data.repository.AgentChatDraftRepository
+import com.example.tielink.data.repository.AgentBackgroundTaskRepository
+import com.example.tielink.data.repository.AgentTeamRepository
+import com.example.tielink.background.AgentBackgroundDispatcher
+import com.example.tielink.domain.agent.BackgroundDocumentPolicy
+import com.example.tielink.domain.agent.AgentTeamPolicy
+import com.example.tielink.domain.model.AgentBackgroundOpenRequest
+import com.example.tielink.domain.model.DynamicCardSection
+import com.example.tielink.domain.model.AgentBackgroundStatus
 import com.example.tielink.data.repository.AgentContextRepository
 import com.example.tielink.data.repository.CareerAgentStateRepository
 import com.example.tielink.data.repository.HistoryRepository
@@ -47,6 +55,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,6 +75,9 @@ class AgentViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val appPreferences: AppPreferences,
+    private val backgroundTaskRepository: AgentBackgroundTaskRepository,
+    private val backgroundDispatcher: AgentBackgroundDispatcher,
+    private val teamRepository: AgentTeamRepository,
     @param:ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -75,6 +90,14 @@ class AgentViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(AgentChatUiState())
     val uiState: StateFlow<AgentChatUiState> = _uiState.asStateFlow()
+    private val _openBackgroundTask = MutableStateFlow<AgentBackgroundOpenRequest?>(null)
+    val openBackgroundTask: StateFlow<AgentBackgroundOpenRequest?> = _openBackgroundTask.asStateFlow()
+    private val _backgroundTaskAccepted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val backgroundTaskAccepted: SharedFlow<Unit> = _backgroundTaskAccepted.asSharedFlow()
+    private var enqueuingBackground = false
+    private val _selectedTeamId = MutableStateFlow<String?>(null)
+    val selectedTeamId: StateFlow<String?> = _selectedTeamId.asStateFlow()
+    fun selectTeam(id: String?) { _selectedTeamId.value = id }
 
     // 通知 UI 触发文件选择器；String = toolName（非空时来自上传卡片，空串时来自输入框附件按钮）
     private val _openFilePicker = MutableSharedFlow<String>(extraBufferCapacity = 1)
@@ -193,6 +216,35 @@ class AgentViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            combine(backgroundTaskRepository.tasks, _uiState.map { state ->
+                (state.isLoading || state.isStreaming) to state.messages.mapNotNull { it.card as? UiCard.DynamicCard }
+                    .filter { card -> card.actions.any { it.type == DynamicCardAction.TYPE_OPEN_BACKGROUND_TASK } }
+            }.distinctUntilChanged()) { tasks, (chatBusy, cards) ->
+                val linked = cards.flatMap { it.actions }.mapNotNull { it.taskId }.toSet()
+                val delivered = cards.filter { it.title == "文档成果已准备好" }.flatMap { it.actions }.mapNotNull { it.taskId }.toSet()
+                BackgroundDocumentPolicy.readyForConversation(tasks, linked, delivered, chatBusy)
+            }.catch { error ->
+                _uiState.update { it.copy(error = error.message ?: "后台成果暂时无法读取") }
+            }.collect { ready ->
+                if (ready.isNotEmpty()) {
+                    _uiState.update { state ->
+                        if (state.isLoading || state.isStreaming) return@update state
+                        val currentCards = state.messages.mapNotNull { it.card as? UiCard.DynamicCard }
+                        val linkedNow = currentCards.flatMap { it.actions }.filter { it.type == DynamicCardAction.TYPE_OPEN_BACKGROUND_TASK }
+                            .mapNotNull { it.taskId }.toSet()
+                        val existing = currentCards.filter { it.title == "文档成果已准备好" }.flatMap { it.actions }.mapNotNull { it.taskId }.toSet()
+                        state.copy(messages = state.messages + BackgroundDocumentPolicy.readyForConversation(ready, linkedNow, existing, false).map { task ->
+                        AgentMessage(role = AgentMessageRole.AGENT, content = "", card = UiCard.DynamicCard(
+                            title = "文档成果已准备好", subtitle = AgentTeamPolicy.outputLabel(task.includeHtml) + "已可靠保存",
+                            sections = listOf(DynamicCardSection(type = "text", text = task.document.take(240))),
+                            actions = listOf(DynamicCardAction(label = "查看成果", type = DynamicCardAction.TYPE_OPEN_BACKGROUND_TASK, taskId = task.id))
+                        ))
+                    }) }
+                    schedulePersistDraft(immediate = true)
+                }
+            }
+        }
+        viewModelScope.launch {
             val draft = agentChatDraftRepository.load()
             currentHistoryId = draft.historyId
             if (hasDraftContent(draft)) {
@@ -200,6 +252,17 @@ class AgentViewModel @Inject constructor(
             }
             if (!hasDraftContent(_uiState.value)) {
                 loadWelcomeMessage()
+            }
+            runCatching { agentUseCase.restorePendingTaskCards() }.getOrNull()?.let { cards ->
+                val existingIds = _uiState.value.messages.mapNotNull { it.card as? UiCard.DynamicCard }
+                    .flatMap { it.actions }.mapNotNull { it.executionId }.toSet()
+                val pendingIds = cards.filterIsInstance<UiCard.DynamicCard>().flatMap { it.actions }.mapNotNull { it.executionId }.toSet()
+                if (cards.isNotEmpty() && (pendingIds.isEmpty() || pendingIds.any { it !in existingIds })) {
+                    _uiState.update { state -> state.copy(messages = state.messages + cards.map {
+                        AgentMessage(role = AgentMessageRole.AGENT, content = "", card = it)
+                    }) }
+                    schedulePersistDraft()
+                }
             }
         }
         viewModelScope.launch {
@@ -339,7 +402,7 @@ class AgentViewModel @Inject constructor(
             hasJd && hasResume -> listOf(careerPrompt, "分析我的匹配度", "针对这个 JD 优化简历", "准备面试问题")
             hasJd              -> listOf(careerPrompt, "帮我写一份匹配的简历", "分析岗位核心要求", "准备面试问题")
             hasResume          -> listOf(careerPrompt, "分析我的简历优势", "帮我找匹配岗位", "模拟一次面试")
-            else               -> listOf(careerPrompt, "我想优化简历", "我有一个 JD 想分析", "帮我准备面试")
+            else               -> listOf("帮我把面试复盘助手这个灵感整理成一页方案", "我想优化简历", "我有一个 JD 想分析", "帮我准备面试")
         }
 
         _uiState.update { it.copy(suggestedPrompts = prompts) }
@@ -353,6 +416,20 @@ class AgentViewModel @Inject constructor(
 
     fun runDynamicCardAction(action: DynamicCardAction) {
         when (action.type.lowercase()) {
+            DynamicCardAction.TYPE_OPEN_BACKGROUND_TASK -> {
+                action.taskId?.let { _openBackgroundTask.value = AgentBackgroundOpenRequest(it) }
+            }
+            DynamicCardAction.TYPE_CONFIRM_EXECUTION,
+            DynamicCardAction.TYPE_REJECT_EXECUTION,
+            DynamicCardAction.TYPE_EXECUTE_TASK -> {
+                if (_uiState.value.isLoading) return
+                streamingContentBuf.clear()
+                thinkingBuf.clear()
+                lastStreamUiUpdate = 0L
+                _uiState.update { it.copy(isLoading = true, error = null,
+                    messages = it.messages + AgentMessage(role = AgentMessageRole.USER, content = action.label)) }
+                streamJob = viewModelScope.launch { processAgentReply(action.label, agentUseCase.runTaskAction(action)) }
+            }
             DynamicCardAction.TYPE_PROMPT -> {
                 if (_uiState.value.isLoading || action.prompt.isBlank()) return
                 sendPrompt(action.prompt)
@@ -410,7 +487,7 @@ class AgentViewModel @Inject constructor(
     }
 
     fun startNewSession(prefillPrompt: String = "") {
-        if (_uiState.value.isLoading) return
+        if (_uiState.value.isLoading || enqueuingBackground) return
         viewModelScope.launch {
             persistDraftJob?.cancel()
             archiveCurrentSessionNow()
@@ -422,7 +499,7 @@ class AgentViewModel @Inject constructor(
     }
 
     fun openHistorySession(historyId: Long) {
-        if (_uiState.value.isLoading) return
+        if (_uiState.value.isLoading || enqueuingBackground) return
         viewModelScope.launch {
             persistDraftJob?.cancel()
             archiveCurrentSessionNow()
@@ -469,7 +546,7 @@ class AgentViewModel @Inject constructor(
         val state = _uiState.value
         val inputText = state.inputText.trim()
         val hasAttachment = state.pendingAttachmentText != null
-        if ((inputText.isBlank() && !hasAttachment) || state.isLoading) return
+        if ((inputText.isBlank() && !hasAttachment) || state.isLoading || enqueuingBackground) return
 
         val finalText = buildString {
             if (hasAttachment) {
@@ -480,6 +557,23 @@ class AgentViewModel @Inject constructor(
                 append(inputText)
             }
         }.trim()
+
+        val sourceTaskId = state.messages.asReversed().asSequence()
+            .mapNotNull { it.card as? UiCard.DynamicCard }
+            .filter { it.title == "文档任务已保存" }
+            .flatMap { it.actions.asSequence() }
+            .firstOrNull { it.type == DynamicCardAction.TYPE_OPEN_BACKGROUND_TASK }?.taskId
+        val revisingDocument = sourceTaskId != null && BackgroundDocumentPolicy.isRevisionRequest(inputText)
+        val backgroundRoute = BackgroundDocumentPolicy.route(inputText)
+        if (backgroundRoute == BackgroundDocumentPolicy.Route.UNSUPPORTED_OUTPUT ||
+            (revisingDocument && Regex("PDF|DOCX", RegexOption.IGNORE_CASE).containsMatchIn(inputText))) {
+            _uiState.update { it.copy(error = "目前后台入口支持文档草稿和 HTML。简历、PDF 与外部操作请使用现有工具；需要先生成文档时，请明确告诉我。") }
+            return
+        }
+        if (backgroundRoute == BackgroundDocumentPolicy.Route.DOCUMENT || revisingDocument) {
+            submitBackgroundDocument(finalText, if (revisingDocument) sourceTaskId else null, AgentTeamPolicy.requestedHtml(inputText))
+            return
+        }
 
         _uiState.update {
             it.copy(
@@ -515,6 +609,60 @@ class AgentViewModel @Inject constructor(
         lastStreamUiUpdate = 0L
 
         streamJob = viewModelScope.launch { processAgentReply(finalText) }
+    }
+
+    private fun submitBackgroundDocument(text: String, sourceTaskId: String?, htmlPreference: Boolean?) {
+        if (text.length > BackgroundDocumentPolicy.MAX_PROMPT_LENGTH) {
+            setError("本轮资料与要求超过 12000 字符，请精简后再发送。")
+            return
+        }
+        enqueuingBackground = true
+        val selectedTeamId = _selectedTeamId.value
+        _uiState.update { it.copy(inputText = "", pendingAttachmentName = null, pendingAttachmentText = null,
+            error = null, suggestedPrompts = emptyList(), messages = it.messages +
+                AgentMessage(role = AgentMessageRole.USER, content = text)) }
+        // The short local accept/dispatch sequence must finish even if the user closes the screen.
+        viewModelScope.launch {
+            var accepted = false
+            try {
+                withContext(NonCancellable) {
+                    val archived = archiveCurrentSessionNow()
+                    val source = sourceTaskId?.let { backgroundTaskRepository.get(it) }
+                    if (sourceTaskId != null) requireNotNull(source) { "原任务不可用，请从任务入口重新选择草稿。" }
+                    // A revision inherits the accepted snapshot, even if its reusable profile was deleted.
+                    val team = if (source != null) source.team else selectedTeamId?.let { id ->
+                        requireNotNull(teamRepository.get(id)) { "所选团队已删除，请重新选择团队或使用默认。" }.snapshot()
+                    }
+                    val includeHtml = htmlPreference ?: source?.includeHtml ?: (team?.includeHtml != false)
+                    val replacing = source?.takeUnless { it.hasDocument }
+                    val mergedText = if (replacing == null) text else "${replacing.prompt}\n\n补充要求：$text"
+                    val receipt = backgroundDispatcher.enqueue(mergedText, archived.historyId,
+                        sourceTaskId = if (source?.hasDocument == true) sourceTaskId else replacing?.sourceTaskId,
+                        supersedesTaskId = replacing?.id, team = team, includeHtml = includeHtml)
+                    accepted = true
+                    val card = UiCard.DynamicCard(
+                        title = "文档任务已保存",
+                        sections = listOf(DynamicCardSection(type = "text", text = if (receipt.started)
+                            (if (replacing != null) "已按补充要求调整任务，旧执行不会覆盖新的要求。" else "") +
+                                (team?.let { "本次使用「${it.name}」的工作要求。" } ?: "") +
+                                "我会生成${AgentTeamPolicy.outputLabel(receipt.task.includeHtml)}。你可以离开聊天，在通知或任务入口查看进度与阶段成果。"
+                            else "任务已可靠保存，但系统暂未允许启动。请在任务入口点击继续；已有要求不会丢失。")),
+                        actions = listOf(DynamicCardAction(label = "查看进度与成果",
+                            type = DynamicCardAction.TYPE_OPEN_BACKGROUND_TASK, taskId = receipt.task.id))
+                    )
+                    _uiState.update { it.copy(messages = it.messages + AgentMessage(role = AgentMessageRole.AGENT, content = "", card = card)) }
+                    persistDraftNow()
+                    _backgroundTaskAccepted.tryEmit(Unit)
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _uiState.update { if (accepted) it.copy(error = "任务已保存，但会话记录同步未完成。请从任务入口查看进展，无需重新发送。")
+                    else it.copy(inputText = text, error = error.message ?: "任务未能保存，请重试。") }
+            } finally {
+                enqueuingBackground = false
+            }
+        }
     }
 
     /** Deterministic, local-only load used by Macrobenchmark; it never calls an AI provider. */
@@ -610,13 +758,13 @@ class AgentViewModel @Inject constructor(
         lastStreamUiUpdate = 0L
     }
 
-    private suspend fun processAgentReply(userText: String) {
+    private suspend fun processAgentReply(userText: String, taskFlow: kotlinx.coroutines.flow.Flow<AgentOutput>? = null) {
         try {
-            agentUseCase.process(
+            (taskFlow ?: agentUseCase.process(
                 userText = userText,
                 conversationHistory = _uiState.value.messages,
                 appContext = appContext
-            ).collect { output ->
+            )).collect { output ->
                 when (output) {
                     is AgentOutput.ProcessPhase -> {
                         setProcessState(
@@ -722,6 +870,7 @@ class AgentViewModel @Inject constructor(
                 }
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e(TAG, "Agent 处理异常", e)
             _uiState.update {
                 it.copy(
@@ -736,6 +885,12 @@ class AgentViewModel @Inject constructor(
 
     private suspend fun enrichRestoredCard(card: UiCard): UiCard {
         if (card !is UiCard.ResumePreviewCard || card.resumeData != null) return card
+        if (card.versionId == 0L) {
+            val candidate = careerAgentStateRepository.getState().executions.mapNotNull { it.candidate }
+                .lastOrNull { it.version.cleanedText == card.previewText }
+            return candidate?.let { card.copy(resumeData = it.resumeJson.takeIf(String::isNotBlank)?.let(ResumeData::fromJsonString)
+                ?: ResumeData.fromPolishedText(it.version.cleanedText)) } ?: card
+        }
         val version = resumeVersionRepository.getById(card.versionId) ?: return card
         if (!version.isPolished) return card
         val fullText = version.cleanedText.ifBlank { version.rawText }

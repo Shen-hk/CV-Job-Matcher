@@ -4,6 +4,14 @@
 > **用途**: 供后续 AI 快速了解项目结构，避免重复读取大量文件  
 > **更新方式**: 项目结构发生重大变更时重新生成
 
+> **设计优先 · 2026-11-25**：当前继续工作以整套 APP 的 Figma 页面、流程与状态覆盖为主。原文件新增 **12 · APP 完整体验与场景 · 11.25**，包含团队、工具、资料、任务、通知、成果、全局设置和求职工作台整合；逐页索引见 [APP 设计覆盖](APP_DESIGN_COVERAGE.md)。这些是设计状态，不能据此认定 Android 功能已经实现。
+
+> **2026-11-25 更新**：Room 升至 v17，显式迁移 15→16 新增后台文档任务表，16→17 新增可复用团队配置与任务快照。已加入文档草稿与 HTML 的后台服务、队列、通知和任务成果入口，以及团队的创建、编辑、选用与工具选择；代码与验证边界见 [后台文档实现进展](AGENT_BACKGROUND_IMPLEMENTATION.md)。多角色通用编排和后台 PDF 尚未接入，后台与锁屏行为仍需设备验收。
+
+> **2026-11-14 更新**：当前工程按 `app`、`core:model/domain/data/ui`、`feature:agent`、`baselineprofile` 拆分，Room 为 v15，最低 SDK 为 24。下文目录清单保留早期版本作参考；当前求职任务运行时、完成标准、确认与恢复流程见 [求职任务编排](CAREER_TASK_ORCHESTRATION.md)，模块清单以 `settings.gradle.kts` 为准。
+>
+> **产品目标方向**：以主 Agent 的聊天为主体，承接灵感委托，按需调用用户可客制化的团队与工具，支持离开聊天后的后台推进、通知进度与结果交付；求职作为首个场景。目标见 [产品 PRD](AGENT_ORCHESTRATION_PRD.md)、[交互规格](AGENT_INTERACTION_SPEC.md) 和 [后台委托与结果交付规格](AGENT_BACKGROUND_EXECUTION_SPEC.md)。这是待实现的设计，不代表当前工程已经具备通用团队编排或可靠后台执行能力。
+
 ---
 
 ## 一、项目概览
@@ -16,11 +24,11 @@
 | UI框架 | Jetpack Compose (无XML布局) |
 | 架构 | Clean Architecture + MVVM |
 | DI | Hilt (KSP, 非KAPT) |
-| 数据库 | Room (v6, `tielink.db`) |
+| 数据库 | Room (v17, `tielink.db`)，14→15 增加操作凭据表，15→16 增加后台任务表，16→17 增加团队配置与任务快照 |
 | 网络 | Retrofit + OkHttp (30s/60s/30s超时) |
 | 序列化 | Moshi (reflective, KotlinJsonAdapterFactory) |
 | 构建 | Gradle Kotlin DSL + Version Catalog (`libs.versions.toml`) |
-| 最低SDK | 26 (估计) |
+| 最低SDK | 24 |
 
 ---
 

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#6554d9">
+  <title>TieLink · 把灵感交给 Agent</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="prototype-bar">
+    <a class="prototype-brand" href="#" data-action="home"><span class="prototype-dot"></span>TieLink <span>交互原型</span></a>
+    <div class="prototype-controls">
+      <label class="scenario-label">体验场景 <select id="scenario" aria-label="体验场景"><option value="normal">正常完成</option><option value="input">需要补充资料</option><option value="failure">PDF 导出失败</option></select></label>
+      <button class="prototype-button" data-action="advance" title="推进一个模拟执行步骤">推进一步</button>
+      <button class="prototype-button" id="background-button" data-action="background">切到后台</button>
+      <button class="prototype-button" data-action="notifications" aria-label="查看任务通知"><span data-icon="bell"></span><span class="notification-button-label">通知</span><span id="notification-count" class="tiny-count" hidden>0</span></button>
+      <button class="prototype-button icon-only" data-action="help" aria-label="体验说明"><span data-icon="help"></span></button>
+    </div>
+    <span class="prototype-disclaimer">模拟执行 · 不调用模型</span>
+  </div>
+
+  <div id="application" class="application">
+    <aside id="sidebar" class="sidebar" aria-label="主导航">
+      <div class="brand"><span class="brand-mark" data-icon="sparkles"></span><span>TieLink<span class="brand-caption">YOUR IDEAS, IN MOTION</span></span><button class="icon-button mobile-only" data-action="close-sidebar" aria-label="关闭导航"><span data-icon="close"></span></button></div>
+      <button class="new-chat" data-action="new-chat"><span data-icon="plus"></span>开启新对话<span class="keyboard-key">N</span></button>
+      <nav class="nav-list">
+        <button class="nav-item active" data-action="home"><span data-icon="message"></span>与 Agent 对话</button>
+        <button class="nav-item" data-action="tasks"><span data-icon="layers"></span>我的任务<span id="task-count" class="nav-count"></span></button>
+        <button class="nav-item" data-action="teams"><span data-icon="users"></span>我的团队<span class="nav-tail">可定制</span></button>
+        <button class="nav-item" data-action="tools"><span data-icon="grid"></span>工具与资料</button>
+      </nav>
+      <div class="sidebar-label">最近对话<button class="icon-button small" data-action="new-chat" aria-label="新建对话"><span data-icon="plus"></span></button></div>
+      <div id="conversation-list" class="conversation-list"></div>
+      <div class="sidebar-bottom"><div class="workspace-note"><span data-icon="shield"></span><div>你的资料，你来决定<small>团队仅使用本次任务所需内容</small></div></div><button class="profile" data-action="settings"><span class="profile-avatar">我</span><span>我的工作空间<small>个人空间</small></span><span data-icon="settings"></span></button></div>
+    </aside>
+    <div id="sidebar-backdrop" class="sidebar-backdrop" data-action="close-sidebar" hidden></div>
+
+    <main class="chat-main">
+      <header class="chat-header"><div class="header-identity"><button class="icon-button mobile-only" data-action="sidebar" aria-label="打开导航"><span data-icon="menu"></span></button><span class="agent-mini" data-icon="sparkles"></span><div><h1>TieLink Agent</h1><span>和你一起，把想法变成结果</span></div></div><div class="header-actions"><button class="quiet-button" data-action="tasks"><span data-icon="activity"></span><span id="header-task-label">任务</span></button><button class="icon-button" data-action="teams" aria-label="选择团队"><span data-icon="users"></span></button></div></header>
+      <div id="context-banner" class="context-banner" hidden></div>
+      <div id="chat-scroll" class="chat-scroll"><div id="messages" class="messages"></div></div>
+      <div class="composer-wrap"><div id="attachment-list" class="attachment-list"></div><form id="composer-form" class="composer"><textarea id="composer-input" rows="2" aria-label="对 Agent 说出你的想法" placeholder="说说你的灵感，或者把想做的事交给我…"></textarea><div class="composer-actions"><div class="composer-left"><button type="button" class="icon-button" data-action="attach" aria-label="添加资料"><span data-icon="paperclip"></span></button><button type="button" class="team-picker" data-action="pick-team"><span data-icon="sparkles"></span><span id="selected-team-label">自动选择能力</span><span data-icon="chevron"></span></button></div><button id="send-button" class="send-button" type="submit" aria-label="发送消息" disabled><span data-icon="send"></span></button></div></form><div class="composer-hint">把任务交给我，你可以继续做自己的事。<span class="desktop-only">Enter 换行 · Ctrl / ⌘ + Enter 发送</span></div></div>
+    </main>
+
+    <aside id="work-panel" class="work-panel" aria-label="当前任务与阶段成果"></aside>
+  </div>
+
+  <section id="background-screen" class="background-screen" hidden aria-label="模拟手机后台与通知栏">
+    <div class="background-intro"><div class="eyebrow">LEAVE THE CHAT. KEEP THE MOMENTUM.</div><h2>你去忙，<br>我接着做。</h2><p>任务会继续推进。下拉通知，<br>就能看到当前进度与已经做出的成果。</p><button class="primary-button" data-action="return-app"><span data-icon="message"></span>回到 TieLink</button><button class="text-button" data-action="network" id="network-toggle"><span data-icon="wifi"></span>体验断网与恢复</button><small>此处模拟手机桌面与系统通知，<br>不会创建真实 Android 后台服务。</small></div>
+    <div class="device"><div class="device-status"><strong>23:30</strong><div><span data-icon="signal"></span><span data-icon="wifi"></span><span data-icon="battery"></span></div></div><div class="device-wallpaper"><div class="wallpaper-orbit orbit-one"></div><div class="wallpaper-orbit orbit-two"></div><div class="home-clock">23:30<span>11 月 24 日　星期二</span></div><button class="notification-pull" data-action="shade"><span data-icon="bell"></span>下拉查看 TieLink 进度<span data-icon="chevron"></span></button><div id="home-notification"></div><div class="home-apps"><button data-action="return-app"><span class="home-app-icon" data-icon="sparkles"></span>TieLink</button><div><span class="home-app-icon neutral" data-icon="calendar"></span>日历</div><div><span class="home-app-icon neutral" data-icon="image"></span>相册</div><div><span class="home-app-icon neutral" data-icon="message"></span>消息</div></div></div><div class="gesture-bar"></div>
+      <div id="notification-shade" class="notification-shade" hidden><div class="shade-date">11 月 24 日，星期二<button class="icon-button" data-action="close-shade" aria-label="收起通知栏"><span data-icon="close"></span></button></div><div class="quick-settings"><button id="wifi-quick" data-action="network" aria-label="切换模拟网络"><span data-icon="wifi"></span></button><div><span data-icon="bluetooth"></span></div><div><span data-icon="moon"></span></div><div><span data-icon="flash"></span></div></div><div class="shade-heading">通知<span>系统界面示意</span></div><div id="shade-notifications"></div><button class="shade-return" data-action="return-app">返回 TieLink</button></div>
+    </div>
+  </section>
+
+  <div id="modal-layer" class="modal-layer" hidden><div class="modal-backdrop" data-action="close-modal"></div><section id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1"></section></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <input id="file-input" type="file" accept=".txt,.md,.pdf,.docx,.html" multiple hidden>
+  <script src="app.js"></script>
+</body>
+</html>

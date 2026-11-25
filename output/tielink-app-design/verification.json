@@ -1,0 +1,186 @@
+{
+  "date": "2026-11-25",
+  "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363750-10104",
+  "prototype": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1261&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1261&scaling=min-zoom&content-scaling=fixed",
+  "screenCount": 97,
+  "newScreens": 73,
+  "reusedScreens": 24,
+  "componentInstances": 924,
+  "editableTextLayers": 1544,
+  "sceneInteractions": 470,
+  "missingDestinations": [],
+  "incorrectScreenSizes": [],
+  "missingFonts": [],
+  "textOverflow": [],
+  "browserChecks": [
+    {
+      "flow": "team",
+      "steps": [
+        {
+          "screen": "T01",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1358&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "T04",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2401&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "T05",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2450&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "T07",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2568&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "T08",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2629&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "T07",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2568&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "T05",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2450&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "T09",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2666&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        },
+        {
+          "screen": "H01",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1261&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+        }
+      ]
+    },
+    {
+      "flow": "task",
+      "steps": [
+        {
+          "screen": "B03",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        },
+        {
+          "screen": "D02",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8008&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        },
+        {
+          "screen": "B03",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        },
+        {
+          "screen": "B06",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-3518&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        },
+        {
+          "screen": "B03",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        },
+        {
+          "screen": "B09",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-3670&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        },
+        {
+          "screen": "B10",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-3713&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        },
+        {
+          "screen": "B03",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+        }
+      ]
+    },
+    {
+      "flow": "resources",
+      "steps": [
+        {
+          "screen": "L01",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1586&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        },
+        {
+          "screen": "U01",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1441&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        },
+        {
+          "screen": "U03",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2860&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        },
+        {
+          "screen": "D05",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8051&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J18",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9203&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        },
+        {
+          "screen": "D05",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8051&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J18",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9203&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        },
+        {
+          "screen": "D12",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8195&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+        }
+      ]
+    },
+    {
+      "flow": "career",
+      "steps": [
+        {
+          "screen": "J10",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-6244&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J11",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8636&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J19",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9264&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J11",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8636&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J19",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9264&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J12",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8737&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+        },
+        {
+          "screen": "J10",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-6244&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+        }
+      ]
+    },
+    {
+      "flow": "onboarding",
+      "steps": [
+        {
+          "screen": "A01",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-7592&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+        },
+        {
+          "screen": "A04",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-7683&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+        },
+        {
+          "screen": "A02",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-1901&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+        },
+        {
+          "screen": "H01",
+          "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1261&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+        }
+      ]
+    }
+  ]
+}

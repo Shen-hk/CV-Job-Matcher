@@ -1,5 +1,7 @@
 # TieLink 技术方案文档
 
+> **历史技术方案**：本文主要记录原求职助手的设计，部分架构与路由已过时。当前工程以代码与构建配置为准，求职任务实现见 [求职任务编排](CAREER_TASK_ORCHESTRATION.md)；待实现的 Agent 团队编排目标架构见 [Agent 编排产品 PRD](AGENT_ORCHESTRATION_PRD.md)。
+
 ## 项目概述
 
 **TieLink** 是一款基于 Jetpack Compose 的 Android 求职助手应用。核心能力：AI 驱动的简历优化、多角色模拟面试、投递追踪、语义匹配分析、HTML/PDF 导出、求职信生成、Agent 记忆系统。支持中文内容处理，双 AI 后端（DeepSeek API + 本地 Ollama）。
@@ -98,7 +100,7 @@ AgentWorkspace (file-based memory)
 | `jd_optimize_jd_input` | JdInputScreen | JD输入（flowMode=jd_optimize） |
 | `jd_optimize_resume_input/{...}` | ResumeInputScreen | 简历选择 + 匹配确认（含历史版本选择器） |
 
-**起始路由**: `HOME`
+**当前起始路由**: `AGENT_CHAT`（以下为历史路由记录，具体以 `NavGraph.kt` 为准）
 
 **全局状态**: `GlobalJdStateHolder`（Hilt @Singleton）注入到 MainActivity，通过 `CompositionLocalProvider` 暴露给所有屏幕。
 

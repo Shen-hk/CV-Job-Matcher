@@ -1,6 +1,8 @@
 package com.example.tielink.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import com.example.tielink.domain.model.AgentBackgroundOpenRequest
 import android.net.Uri
 import androidx.navigation.NavHostController
 import com.example.tielink.ui.LocalCurrentJobContext
@@ -79,7 +81,11 @@ object Routes {
 }
 
 @Composable
-fun NavGraph(navController: NavHostController, benchmarkStream: Boolean = false, benchmarkStreamThrottleMs: Long = 0L) {
+fun NavGraph(navController: NavHostController, benchmarkStream: Boolean = false, benchmarkStreamThrottleMs: Long = 0L,
+    backgroundOpenRequest: AgentBackgroundOpenRequest? = null) {
+    LaunchedEffect(backgroundOpenRequest) {
+        if (backgroundOpenRequest != null) navController.navigate(Routes.AGENT_CHAT) { launchSingleTop = true }
+    }
     fun navigateToResumeInput(route: String, jdRawText: String, jdStructuredJson: String) {
         navController.navigate(route)
         navController.currentBackStackEntry?.savedStateHandle?.apply {
@@ -154,7 +160,8 @@ fun NavGraph(navController: NavHostController, benchmarkStream: Boolean = false,
                 initialHistoryId = historyId,
                 initialPrompt = initialPrompt,
                 benchmarkStream = benchmarkStream,
-                benchmarkStreamThrottleMs = benchmarkStreamThrottleMs
+                benchmarkStreamThrottleMs = benchmarkStreamThrottleMs,
+                backgroundOpenRequest = backgroundOpenRequest
             )
         }
 

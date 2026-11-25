@@ -63,6 +63,17 @@ object CareerAgentSupervisor {
         }
 
         val blockedTasks = plan.tasks.filter { it.status == CareerTaskStatus.BLOCKED }
+        val running = plan.tasks.firstOrNull { it.status == CareerTaskStatus.RUNNING }
+        val waiting = plan.tasks.firstOrNull { it.status == CareerTaskStatus.WAITING_CONFIRMATION }
+        if (running != null || waiting != null) {
+            return CareerAgentAssessment(
+                health = CareerAgentHealth.ON_TRACK,
+                decision = CareerAgentDecision.REVIEW_OUTCOME,
+                headline = if (running != null) "任务正在执行" else "结果已生成，等待确认",
+                reasons = listOf((running ?: waiting)!!.title)
+            )
+        }
+        val failed = plan.tasks.filter { it.status == CareerTaskStatus.FAILED }
         val nextTask = state.nextTask()
         if (nextTask != null) {
             val hasRisk = blockedTasks.isNotEmpty()
@@ -77,12 +88,12 @@ object CareerAgentSupervisor {
                 nextTask = nextTask
             )
         }
-        if (blockedTasks.isNotEmpty()) {
+        if (blockedTasks.isNotEmpty() || failed.isNotEmpty()) {
             return CareerAgentAssessment(
                 health = CareerAgentHealth.BLOCKED,
                 decision = CareerAgentDecision.REPLAN,
                 headline = "当前没有可继续执行的任务",
-                reasons = blockedTasks.map { "${it.title}：${it.blockingReason ?: "等待处理"}" }
+                reasons = (blockedTasks + failed).map { "${it.title}：${it.blockingReason ?: "等待重试"}" }
             )
         }
         return CareerAgentAssessment(

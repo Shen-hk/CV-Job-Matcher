@@ -1,6 +1,9 @@
 package com.example.tielink.data.repository
 
 import android.content.Context
+import androidx.room.withTransaction
+import com.example.tielink.data.local.db.AppDatabase
+import com.example.tielink.data.local.db.entity.AgentOperationReceipt
 import com.example.tielink.data.local.db.dao.ResumeVersionDao
 import com.example.tielink.data.local.db.entity.ResumeVersionEntity
 import com.example.tielink.domain.model.ResumeVersion
@@ -19,7 +22,8 @@ import javax.inject.Singleton
 class ResumeVersionRepository @Inject constructor(
     private val dao: ResumeVersionDao,
     private val moshi: Moshi,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: Context,
+    private val database: AppDatabase
 ) {
     private val stringListType = Types.newParameterizedType(List::class.java, String::class.java)
 
@@ -45,13 +49,40 @@ class ResumeVersionRepository @Inject constructor(
     }
 
     suspend fun insertAndActivate(version: ResumeVersion): Long {
-        dao.deactivateAll()
-        return dao.insert(version.copy(isActive = true).toEntity())
+        return database.withTransaction {
+            dao.deactivateAll()
+            dao.insert(version.copy(isActive = true).toEntity())
+        }
+    }
+
+    suspend fun insertAndActivateOnce(operationId: String, version: ResumeVersion, expectedInputs: com.example.tielink.domain.model.CareerTaskInputs): Long = database.withTransaction {
+        val receipts = database.agentOperationReceiptDao()
+        val existing = receipts.get(operationId)
+        if (existing != null) {
+            require(existing.kind == "resume" && dao.getById(existing.resultId) != null) { "已保存的简历已删除，请重新生成" }
+            existing.resultId
+        } else {
+            val source = dao.getActive()
+            require(source?.id == expectedInputs.resumeVersionId) { "当前简历版本已变化，请重新生成" }
+            val sourceText = source?.let { if (it.isPolished) it.cleanedText.ifBlank { it.rawText } else it.rawText.ifBlank { it.cleanedText } }.orEmpty()
+            require(com.example.tielink.domain.agent.CareerInputIdentity.fingerprint(sourceText) == expectedInputs.resumeFingerprint) { "原简历内容已变化，请重新生成" }
+            dao.deactivateAll()
+            val id = dao.insert(version.copy(id = 0, isActive = true).toEntity())
+            receipts.insert(AgentOperationReceipt(operationId, "resume", id))
+            id
+        }
+    }
+
+    suspend fun committedVersionId(operationId: String): Long? {
+        val receipt = database.agentOperationReceiptDao().get(operationId)?.takeIf { it.kind == "resume" } ?: return null
+        return receipt.resultId.takeIf { dao.getById(it) != null }
     }
 
     suspend fun setActive(id: Long) {
-        dao.deactivateAll()
-        dao.setActive(id)
+        database.withTransaction {
+            dao.deactivateAll()
+            dao.setActive(id)
+        }
     }
 
     suspend fun delete(version: ResumeVersion) {

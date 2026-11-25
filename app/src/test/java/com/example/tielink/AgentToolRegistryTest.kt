@@ -29,6 +29,11 @@ class AgentToolRegistryTest {
         AgentToolRegistry(setOf(FakeTool("render_card")))
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun customToolsCannotReplaceTheGoalConfirmationFlow() {
+        AgentToolRegistry(setOf(FakeTool("achieve_career_goal")))
+    }
+
     private class FakeTool(name: String) : AgentTool {
         override val definition = AgentToolDefinition(
             function = AgentFunctionDefinition(name, "test", emptyMap())

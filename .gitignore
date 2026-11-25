@@ -42,3 +42,13 @@ google-services.json
 # IDE
 .vscode/
 .kotlin/
+
+# Local agent state, temporary workspaces and verification logs
+/tmp/
+/logs/
+/.workbuddy/
+/.vibe-resume-temp/
+
+# Local Android packages and personal resume exports
+*.apk
+/output/pdf/

@@ -23,6 +23,7 @@ import com.example.tielink.domain.model.ResumeVersion
 import com.example.tielink.domain.model.UiCard
 import com.example.tielink.feature.agent.util.AgentWorkspace
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
@@ -42,7 +43,8 @@ class AgentUseCase @Inject constructor(
     private val careerAgentStateRepository: CareerAgentStateRepository,
     private val resumeVersionRepository: ResumeVersionRepository,
     private val agentToolCoordinator: AgentToolCoordinator,
-    private val interviewRepository: InterviewRepository
+    private val interviewRepository: InterviewRepository,
+    private val careerTaskExecutor: CareerTaskExecutor
 ) {
     companion object {
         private const val TAG = "AgentUseCase"
@@ -82,9 +84,7 @@ class AgentUseCase @Inject constructor(
             return@flow
         }
         val turnPolicy = withContext(Dispatchers.IO) { buildTurnPolicy(userText, conversationHistory) }
-        val effectiveTurnPolicy = withContext(Dispatchers.IO) {
-            preloadCurrentJdIfNeeded(userText, turnPolicy)
-        }
+        var effectiveTurnPolicy = turnPolicy
         val systemPrompt = withContext(Dispatchers.IO) { buildSystemPrompt(appContext, effectiveTurnPolicy) }
         val messages = buildMessages(systemPrompt, conversationHistory, userText).toMutableList()
         val tools = agentToolCoordinator.definitions(effectiveTurnPolicy.allowedToolNames)
@@ -107,6 +107,8 @@ class AgentUseCase @Inject constructor(
             }
 
             for (round in 0 until MAX_TOOL_ROUNDS) {
+                effectiveTurnPolicy = withContext(Dispatchers.IO) { buildTurnPolicy(userText, conversationHistory) }
+                val roundTools = agentToolCoordinator.definitions(effectiveTurnPolicy.allowedToolNames)
                 emit(
                     AgentOutput.ProcessPhase(
                         stage = com.example.tielink.domain.model.AgentProcessStage.THINKING,
@@ -121,8 +123,8 @@ class AgentUseCase @Inject constructor(
                         messages = messages,
                         temperature = if (round == 0) 0.45 else 0.35,
                         maxTokens = 4096,
-                        tools = tools,
-                        toolChoice = if (tools.isEmpty()) "none" else "auto"
+                        tools = roundTools,
+                        toolChoice = if (roundTools.isEmpty()) "none" else "auto"
                     )
                 )
 
@@ -169,7 +171,7 @@ class AgentUseCase @Inject constructor(
                         continue
                     }
 
-                    val signature = "${call.name}:${call.arguments}"
+                    val signature = runCatching { CareerTaskExecutor.signature(call) }.getOrElse { "${call.name}:${call.arguments}" }
                     if (!seenCalls.add(signature)) {
                         messages += AgentChatMessage(
                             role = "tool",
@@ -197,12 +199,18 @@ class AgentUseCase @Inject constructor(
                     )
 
                     val result = withContext(Dispatchers.IO) {
-                        agentToolCoordinator.execute(call, userText)
+                        try {
+                            careerTaskExecutor.execute(call, userText)
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (error: Exception) {
+                            ToolExecutionResult(error.message ?: "工具执行失败", status = com.example.tielink.domain.model.ToolOutcomeStatus.FAILED)
+                        }
                     }
                     result.cards.forEach { emit(AgentOutput.ToolResult(it)) }
                     messages += AgentChatMessage(
                         role = "tool",
-                        content = result.content,
+                        content = "执行状态：${result.status}\n${result.content}",
                         toolCallId = call.id,
                         name = call.name
                     )
@@ -221,11 +229,12 @@ class AgentUseCase @Inject constructor(
             }
             emit(AgentOutput.Done)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.w(TAG, "原生工具调用不可用，回退到普通流式聊天: ${e.message}")
             try {
                 emitStreamingTextResponse(
                     AgentChatRequest(
-                        messages = buildMessages(systemPrompt, conversationHistory, userText),
+                        messages = messages,
                         temperature = 0.7,
                         maxTokens = 4096
                     ),
@@ -234,6 +243,7 @@ class AgentUseCase @Inject constructor(
                     detail = "当前模型不支持工具协议，已切换为普通回答"
                 )
             } catch (fallbackError: Exception) {
+                if (fallbackError is CancellationException) throw fallbackError
                 Log.e(TAG, "LLM 调用异常", fallbackError)
                 emit(
                     AgentOutput.Error(
@@ -278,21 +288,32 @@ class AgentUseCase @Inject constructor(
         }
     }
 
-    private suspend fun preloadCurrentJdIfNeeded(
-        userText: String,
-        turnPolicy: AgentTurnPolicy
-    ): AgentTurnPolicy {
-        if ("analyze_jd" !in turnPolicy.allowedToolNames) return turnPolicy
-        if (!agentToolCoordinator.shouldAutoSaveJd(userText)) return turnPolicy
-
-        val saved = agentToolCoordinator.tryAutoSaveJd(userText)
-        if (!saved) return turnPolicy
-
-        return turnPolicy.copy(
-            allowedToolNames = turnPolicy.allowedToolNames - "analyze_jd",
-            reason = "${turnPolicy.reason} 已预先保存当前 JD。"
-        )
+    fun runTaskAction(action: com.example.tielink.domain.model.DynamicCardAction): Flow<AgentOutput> = flow {
+        emit(AgentOutput.ToolStart("career_task", "正在处理任务结果"))
+        try {
+            val result = withContext(Dispatchers.IO) {
+                when (action.type) {
+                    com.example.tielink.domain.model.DynamicCardAction.TYPE_EXECUTE_TASK ->
+                        careerTaskExecutor.executeTask(requireNotNull(action.taskId), requireNotNull(action.planVersion))
+                    com.example.tielink.domain.model.DynamicCardAction.TYPE_CONFIRM_EXECUTION ->
+                        careerTaskExecutor.confirm(requireNotNull(action.executionId))
+                    com.example.tielink.domain.model.DynamicCardAction.TYPE_REJECT_EXECUTION ->
+                        careerTaskExecutor.reject(requireNotNull(action.executionId))
+                    else -> error("无效的任务动作")
+                }
+            }
+            result.cards.forEach { emit(AgentOutput.ToolResult(it)) }
+            if (result.cards.isEmpty()) emit(AgentOutput.StreamText(result.content))
+            if (result.status != com.example.tielink.domain.model.ToolOutcomeStatus.SUCCESS) emit(AgentOutput.Error(result.content))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            emit(AgentOutput.Error(error.message ?: "任务处理失败"))
+        }
+        emit(AgentOutput.Done)
     }
+
+    suspend fun restorePendingTaskCards(): List<UiCard> = withContext(Dispatchers.IO) { careerTaskExecutor.restorePending() }
 
     /**
      * 构建系统提示词
@@ -319,10 +340,13 @@ class AgentUseCase @Inject constructor(
             - 缺少简历、JD、面试会话等前置条件时，说明缺少什么并引导用户补充，不要反复调用同一工具。
             - 长期求职目标和计划必须使用专用 career goal 工具管理，不要用 render_card 临时伪造计划状态。
             - 用户要求执行计划下一步时，优先调用上下文中“下一任务”对应的业务工具；业务工具完成后再调用 get_career_plan 展示更新后的进度。
-            - 只有用户明确确认完成时才调用 complete_current_career_task；普通聊天不能擅自把任务标记完成。
+            - complete_current_career_task 和 achieve_career_goal 只会生成待确认卡片，必须由用户点击确认；不得声称已完成。
+            - optimize_resume 只生成候选稿，用户采用后才会保存并推进任务。
+            - 读取面试题或投递记录只提供信息，不代表训练或复盘完成。
             - 用户询问目标健康度、阻塞风险或是否偏离目标时调用 check_career_goal，让 Supervisor 基于真实状态判断。
             - 用户明确表示当前任务做不了或缺少条件时调用 block_current_career_task；不要把失败伪装成完成。
             - 只有用户明确确认成功标准已经实现时才调用 achieve_career_goal；完成一轮计划不等于长期目标已经达成。
+            - 用户改变岗位方向、期限或成功标准时，replan_career_goal 必须填写相应的 target_role、deadline、success_criteria 字段，不能只写 reason。
 
             【本轮工具边界】
             - 允许工具：${turnPolicy.allowedToolNames.ifEmpty { setOf("无") }.joinToString("、")}
@@ -392,7 +416,8 @@ class AgentUseCase @Inject constructor(
     }
 
     private fun buildResumeSnapshot(resume: ResumeVersion): String? {
-        val resumeText = resume.rawText.ifBlank { resume.cleanedText }.trim()
+        val resumeText = (if (resume.isPolished) resume.cleanedText.ifBlank { resume.rawText }
+            else resume.rawText.ifBlank { resume.cleanedText }).trim()
         if (resumeText.isBlank()) return null
 
         val parsed = ResumeData.fromPolishedText(resumeText)

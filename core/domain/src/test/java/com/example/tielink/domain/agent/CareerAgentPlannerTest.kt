@@ -10,6 +10,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CareerAgentPlannerTest {
+    private fun observe(state: CareerAgentState, toolName: String, summary: String, now: Long): CareerAgentState {
+        val task = requireNotNull(state.nextTask())
+        require(task.actionTool == toolName)
+        val inputs = com.example.tielink.domain.model.CareerTaskInputs(1, "jd", 2, "resume")
+        val execution = com.example.tielink.domain.model.CareerExecution("run-$now", toolName, "{}", inputs,
+            taskId = task.id, planVersion = state.activePlan?.version, goalId = state.activeGoal?.id,
+            createdAt = now, updatedAt = now)
+        var started = CareerTaskReducer.start(state, execution)
+        if (task.completionPolicy == com.example.tielink.domain.model.CareerCompletionPolicy.USER_CONFIRMATION) {
+            started = CareerTaskReducer.finish(started, execution.copy(status = com.example.tielink.domain.model.CareerExecutionStatus.WAITING_CONFIRMATION))
+            started = CareerTaskReducer.finish(started, execution.copy(status = com.example.tielink.domain.model.CareerExecutionStatus.COMMITTING))
+        }
+        return CareerTaskReducer.finish(started, execution.copy(
+            summary = summary,
+            status = com.example.tielink.domain.model.CareerExecutionStatus.SUCCEEDED,
+            evidence = com.example.tielink.domain.model.CareerTaskEvidence(summary, "artifact-$now", inputs)))
+    }
+
     @Test
     fun createGoalBuildsAnActivePlanWithOneNextAction() {
         val state = CareerAgentPlanner.createGoal(
@@ -24,7 +42,7 @@ class CareerAgentPlannerTest {
         assertEquals("Android 开发工程师", state.activeGoal?.targetRole)
         assertEquals(6, state.activePlan?.tasks?.size)
         assertEquals(1, state.activePlan?.tasks?.count { it.status == CareerTaskStatus.ACTIVE })
-        assertEquals("analyze_boss_opportunities", state.nextTask()?.actionTool)
+        assertEquals("analyze_jd", state.nextTask()?.actionTool)
     }
 
     @Test
@@ -33,9 +51,9 @@ class CareerAgentPlannerTest {
             CareerAgentState(), "求职", "Android", "获得 Offer", null, now = 100L
         )
 
-        val updated = CareerAgentPlanner.observeToolResult(
+        val updated = observe(
             initial,
-            toolName = "analyze_boss_opportunities",
+            toolName = "analyze_jd",
             summary = "已分析岗位池",
             now = 200L
         )
@@ -63,19 +81,19 @@ class CareerAgentPlannerTest {
         var state = CareerAgentPlanner.createGoal(
             CareerAgentState(), "求职", "Android", "获得 Offer", null, now = 100L
         )
-        state = CareerAgentPlanner.observeToolResult(state, "analyze_boss_opportunities", "岗位样本已分析", 200L)
-        state = CareerAgentPlanner.observeToolResult(state, "calculate_match", "匹配基线已建立", 300L)
-        state = CareerAgentPlanner.observeToolResult(state, "optimize_resume", "定向简历已生成", 400L)
+        state = observe(state, "analyze_jd", "岗位样本已分析", 200L)
+        state = observe(state, "calculate_match", "匹配基线已建立", 300L)
+        state = observe(state, "optimize_resume", "定向简历已生成", 400L)
 
         assertEquals("get_interview_turn", state.nextTask()?.actionTool)
-        state = CareerAgentPlanner.completeCurrentTask(state, "已完成模拟面试并记录薄弱项", 500L)
-        state = CareerAgentPlanner.observeToolResult(
+        state = observe(state, "get_interview_turn", "已完成模拟面试并记录薄弱项", 500L)
+        state = observe(
             state,
             "create_application_from_current_jd",
             "首轮投递已记录",
             600L
         )
-        state = CareerAgentPlanner.observeToolResult(state, "get_latest_application", "投递结果已复盘", 700L)
+        state = observe(state, "get_latest_application", "投递结果已复盘", 700L)
 
         assertEquals(CareerPlanStatus.COMPLETED, state.activePlan?.status)
         assertEquals(null, state.nextTask())
@@ -90,8 +108,8 @@ class CareerAgentPlannerTest {
         var state = CareerAgentPlanner.createGoal(
             CareerAgentState(), "求职", "Android", "获得 Offer", null, now = 100L
         )
-        state = CareerAgentPlanner.observeToolResult(state, "analyze_boss_opportunities", "岗位已分析", 200L)
-        state = CareerAgentPlanner.observeToolResult(state, "calculate_match", "基线已完成", 300L)
+        state = observe(state, "analyze_jd", "岗位已分析", 200L)
+        state = observe(state, "calculate_match", "基线已完成", 300L)
 
         assertEquals("optimize_resume", state.nextTask()?.actionTool)
         state = CareerAgentPlanner.blockCurrentTask(state, "还缺少一段项目经历", 400L)

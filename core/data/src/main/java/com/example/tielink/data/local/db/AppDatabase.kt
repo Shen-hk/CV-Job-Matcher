@@ -4,6 +4,12 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.tielink.data.local.db.entity.AgentOperationReceipt
+import com.example.tielink.data.local.db.entity.AgentBackgroundTaskEntity
+import com.example.tielink.data.local.db.entity.AgentTeamEntity
+import com.example.tielink.data.local.db.dao.AgentTeamDao
+import com.example.tielink.data.local.db.dao.AgentBackgroundTaskDao
+import com.example.tielink.data.local.db.dao.AgentOperationReceiptDao
 import com.example.tielink.data.local.db.dao.HistoryDao
 import com.example.tielink.data.local.db.dao.InterviewDao
 import com.example.tielink.data.local.db.dao.JdLibraryDao
@@ -28,20 +34,58 @@ import com.example.tielink.data.local.db.entity.TrackingEntity
         InterviewMessageEntity::class,
         JdLibraryEntity::class,
         ProviderEntity::class,
-        ProviderModelEntity::class
+        ProviderModelEntity::class,
+        AgentOperationReceipt::class,
+        AgentBackgroundTaskEntity::class,
+        AgentTeamEntity::class
     ],
-    version = 14,
+    version = 17,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun agentTeamDao(): AgentTeamDao
+    abstract fun agentBackgroundTaskDao(): AgentBackgroundTaskDao
     abstract fun historyDao(): HistoryDao
     abstract fun resumeVersionDao(): ResumeVersionDao
     abstract fun trackingDao(): TrackingDao
+    abstract fun agentOperationReceiptDao(): AgentOperationReceiptDao
     abstract fun interviewDao(): InterviewDao
     abstract fun jdLibraryDao(): JdLibraryDao
     abstract fun providerDao(): ProviderDao
 
     companion object {
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS agent_teams (
+                    id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, brief TEXT NOT NULL,
+                    instructions TEXT NOT NULL, includeHtml INTEGER NOT NULL,
+                    createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL
+                )""".trimIndent())
+                db.execSQL("ALTER TABLE agent_background_tasks ADD COLUMN teamId TEXT")
+                db.execSQL("ALTER TABLE agent_background_tasks ADD COLUMN teamName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE agent_background_tasks ADD COLUMN teamBrief TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE agent_background_tasks ADD COLUMN teamInstructions TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE agent_background_tasks ADD COLUMN includeHtml INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS agent_background_tasks (
+                    id TEXT NOT NULL PRIMARY KEY, requestId TEXT NOT NULL, originHistoryId INTEGER,
+                    title TEXT NOT NULL, prompt TEXT NOT NULL, status TEXT NOT NULL, stage TEXT NOT NULL,
+                    partialText TEXT NOT NULL, document TEXT NOT NULL, html TEXT NOT NULL, error TEXT NOT NULL,
+                    epoch INTEGER NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, readAt INTEGER NOT NULL,
+                    sourceTaskId TEXT, supersedesTaskId TEXT
+                )""".trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_agent_background_tasks_requestId ON agent_background_tasks(requestId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_agent_background_tasks_status_createdAt ON agent_background_tasks(status, createdAt)")
+            }
+        }
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS agent_operation_receipts (operationId TEXT NOT NULL PRIMARY KEY, kind TEXT NOT NULL, resultId INTEGER NOT NULL, createdAt INTEGER NOT NULL)")
+            }
+        }
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE history ADD COLUMN resume_json TEXT NOT NULL DEFAULT ''")

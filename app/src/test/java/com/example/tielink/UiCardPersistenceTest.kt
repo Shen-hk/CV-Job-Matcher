@@ -20,6 +20,17 @@ import org.junit.Test
 
 class UiCardPersistenceTest {
     @Test
+    fun restoresTaskConfirmationIdentityWithoutTurningItIntoAPrompt() {
+        val card = UiCard.DynamicCard("采用候选稿", sections = emptyList(), actions = listOf(
+            DynamicCardAction("采用并保存", type = DynamicCardAction.TYPE_CONFIRM_EXECUTION,
+                executionId = "execution-1", taskId = "task-2", planVersion = 3)
+        ))
+        val restored = UiCardSnapshotCodec.decode(requireNotNull(UiCardSnapshotCodec.encode(card))) as UiCard.DynamicCard
+        assertEquals(card.actions, restored.actions)
+        assertTrue(DynamicCardAction.TYPE_CONFIRM_EXECUTION !in DynamicCardAction.SUPPORTED_TYPES)
+    }
+
+    @Test
     fun roundTripsEveryCardType() {
         val cards = listOf(
             UiCard.MatchCard(80, 81, 82, 83, 84, listOf("Kotlin"), listOf("Android")),

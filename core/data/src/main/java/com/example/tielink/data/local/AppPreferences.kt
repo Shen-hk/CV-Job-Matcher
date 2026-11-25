@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -251,7 +252,8 @@ class AppPreferences @Inject constructor(
         }
     }
 
-    suspend fun getAiProvider(): String = snapshot.aiProvider
+    // Read persisted selection before network calls; the async snapshot may still hold startup defaults.
+    suspend fun getAiProvider(): String = dataStore.data.first()[PrefKeys.AI_PROVIDER] ?: DEFAULT_AI_PROVIDER
 
     suspend fun setAiProvider(provider: String) {
         snapshot = snapshot.copy(aiProvider = provider)
@@ -314,7 +316,7 @@ class AppPreferences @Inject constructor(
         }
     }
 
-    suspend fun getAgentContextJson(): String = snapshot.agentContextJson
+    suspend fun getAgentContextJson(): String = dataStore.data.first()[PrefKeys.AGENT_CONTEXT_JSON] ?: ""
 
     fun getAgentContextJsonFlow(): Flow<String> =
         dataStore.data.map { it[PrefKeys.AGENT_CONTEXT_JSON] ?: "" }
@@ -326,6 +328,13 @@ class AppPreferences @Inject constructor(
         }
     }
 
+    suspend fun updateAgentContextJson(transform: (String) -> String) {
+        val updated = dataStore.edit { prefs ->
+            prefs[PrefKeys.AGENT_CONTEXT_JSON] = transform(prefs[PrefKeys.AGENT_CONTEXT_JSON] ?: "")
+        }[PrefKeys.AGENT_CONTEXT_JSON] ?: ""
+        snapshot = snapshot.copy(agentContextJson = updated)
+    }
+
     suspend fun getAgentChatDraftJson(): String = snapshot.agentChatDraftJson
 
     suspend fun setAgentChatDraftJson(json: String) {
@@ -335,7 +344,7 @@ class AppPreferences @Inject constructor(
         }
     }
 
-    suspend fun getCareerAgentStateJson(): String = snapshot.careerAgentStateJson
+    suspend fun getCareerAgentStateJson(): String = dataStore.data.first()[PrefKeys.CAREER_AGENT_STATE_JSON] ?: ""
 
     fun getCareerAgentStateJsonFlow(): Flow<String> =
         dataStore.data.map { it[PrefKeys.CAREER_AGENT_STATE_JSON] ?: "" }
@@ -345,6 +354,14 @@ class AppPreferences @Inject constructor(
         dataStore.edit { prefs ->
             prefs[PrefKeys.CAREER_AGENT_STATE_JSON] = json
         }
+    }
+
+    suspend fun updateCareerAgentStateJson(transform: (String) -> String): String {
+        val updated = dataStore.edit { prefs ->
+            prefs[PrefKeys.CAREER_AGENT_STATE_JSON] = transform(prefs[PrefKeys.CAREER_AGENT_STATE_JSON] ?: "")
+        }[PrefKeys.CAREER_AGENT_STATE_JSON] ?: ""
+        snapshot = snapshot.copy(careerAgentStateJson = updated)
+        return updated
     }
 
     fun getResumeOptimizeContinueFlow(): Flow<Boolean> {

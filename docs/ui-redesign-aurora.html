@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TieLink · Aurora 全新 UI 概念稿</title>
+<style>
+/* ═══════════════════════════════════════════════
+   Aurora Design Language — Design Tokens
+   ═══════════════════════════════════════════════ */
+:root{
+  /* Brand */
+  --brand-1:#5B5CE2;        /* Indigo */
+  --brand-2:#8B5CF6;        /* Violet */
+  --brand-3:#22D3EE;        /* Cyan  */
+  --grad-brand:linear-gradient(135deg,#5B5CE2 0%,#8B5CF6 55%,#22D3EE 130%);
+  --grad-soft:linear-gradient(135deg,#EEF0FF 0%,#F6EFFF 60%,#E8FBFF 100%);
+
+  /* Surface */
+  --bg:#F4F5FA;
+  --surface:#FFFFFF;
+  --surface-2:#F8F9FE;
+  --line:#E7E9F2;
+
+  /* Ink */
+  --ink-1:#17181D;
+  --ink-2:#565B6B;
+  --ink-3:#9BA0B0;
+  --on-brand:#FFFFFF;
+
+  /* Semantic */
+  --success:#10B981; --success-bg:#E6F9F1;
+  --warning:#F59E0B; --warning-bg:#FEF4E2;
+  --danger:#EF4444;  --danger-bg:#FDECEC;
+  --info:#3B82F6;    --info-bg:#E9F1FE;
+
+  /* Radius */
+  --r-xl:28px; --r-lg:20px; --r-md:14px; --r-sm:10px; --r-pill:999px;
+
+  /* Shadow */
+  --sh-card:0 1px 2px rgba(23,24,29,.04),0 8px 24px rgba(91,92,226,.08);
+  --sh-float:0 12px 40px rgba(91,92,226,.18);
+
+  /* Motion */
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --d-fast:150ms; --d-base:280ms; --d-slow:420ms;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:-apple-system,"SF Pro SC","PingFang SC","Microsoft YaHei UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1440px;margin:0 auto;padding:0 32px;}
+
+/* ═══ Hero ═══ */
+.hero{
+  position:relative; overflow:hidden;
+  background:linear-gradient(160deg,#101226 0%,#1B1E3C 55%,#0E2438 100%);
+  color:#fff; padding:88px 0 96px;
+}
+.hero .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.5;animation:drift 14s var(--ease-out) infinite alternate;}
+.blob-a{width:480px;height:480px;background:#5B5CE2;top:-160px;left:-80px;}
+.blob-b{width:420px;height:420px;background:#8B5CF6;bottom:-180px;left:44%;animation-delay:-5s;}
+.blob-c{width:380px;height:380px;background:#22D3EE;top:-120px;right:-100px;animation-delay:-9s;}
+@keyframes drift{
+  from{transform:translate(0,0) scale(1);}
+  to{transform:translate(50px,36px) scale(1.12);}
+}
+.hero .wrap{position:relative;z-index:2;}
+.hero .tag{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 16px;border-radius:var(--r-pill);
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);
+  font-size:13px;letter-spacing:.5px;color:#C9CDFF;
+  animation:fadeUp var(--d-slow) var(--ease-out) both;
+}
+.hero .tag .dot{width:7px;height:7px;border-radius:50%;background:#22D3EE;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,211,238,.5);}50%{box-shadow:0 0 0 7px rgba(34,211,238,0);}}
+.hero h1{
+  margin-top:22px;font-size:56px;font-weight:800;line-height:1.15;letter-spacing:-1px;
+  animation:fadeUp var(--d-slow) var(--ease-out) .08s both;
+}
+.hero h1 .grad{
+  background:linear-gradient(100deg,#8FA0FF 0%,#C4A0FF 45%,#67E8F9 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero p.sub{
+  margin-top:16px;font-size:17px;color:#A9AFCC;max-width:640px;line-height:1.8;
+  animation:fadeUp var(--d-slow) var(--ease-out) .16s both;
+}
+.hero .stats{display:flex;gap:44px;margin-top:44px;animation:fadeUp var(--d-slow) var(--ease-out) .24s both;}
+.hero .stat .n{font-size:30px;font-weight:800;}
+.hero .stat .n em{font-style:normal;font-size:15px;font-weight:600;color:#8FA0FF;}
+.hero .stat .l{font-size:13px;color:#8A90B5;margin-top:4px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:none;}}
+
+/* ═══ Section ═══ */
+section{padding:72px 0 24px;}
+.sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px;}
+.sec-head .idx{font-size:13px;font-weight:700;color:var(--brand-1);letter-spacing:2px;}
+.sec-head h2{font-size:30px;font-weight:800;letter-spacing:-.5px;}
+.sec-desc{color:var(--ink-2);font-size:15px;line-height:1.8;max-width:720px;margin-bottom:36px;}
+
+/* ═══ Token cards ═══ */
+.tok-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
+.tok-card{background:var(--surface);border-radius:var(--r-lg);padding:24px;box-shadow:var(--sh-card);border:1px solid var(--line);}
+.tok-card h3{font-size:15px;font-weight:700;margin-bottom:16px;color:var(--ink-1);}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.sw{border-radius:12px;padding:10px 8px 12px;color:#fff;font-size:11px;line-height:1.5;}
+.sw b{display:block;font-size:12px;font-weight:700;}
+.sw span{opacity:.85;font-family:ui-monospace,Consolas,monospace;font-size:10px;}
+.type-row{display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line);}
+.type-row:last-child{border-bottom:none;}
+.type-row .demo{font-weight:600;}
+.type-row .meta{font-size:11px;color:var(--ink-3);font-family:ui-monospace,monospace;}
+.motion-item{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px dashed var(--line);}
+.motion-item:last-child{border-bottom:none;}
+.motion-item .ball{width:34px;height:34px;border-radius:10px;background:var(--grad-brand);flex:none;}
+.motion-item .info b{font-size:13px;}
+.motion-item .info span{display:block;font-size:11px;color:var(--ink-3);font-family:ui-monospace,monospace;margin-top:2px;}
+.m-1 .ball{animation:demoFast 2s var(--ease-out) infinite;}
+.m-2 .ball{animation:demoSpring 2.4s var(--ease-spring) infinite;}
+.m-3 .ball{animation:demoShimmer 2.8s ease-in-out infinite;}
+@keyframes demoFast{0%,18%{transform:translateX(0);}45%,63%{transform:translateX(56px);}92%,100%{transform:translateX(0);}}
+@keyframes demoSpring{0%,16%{transform:scale(1);}30%{transform:scale(1.22);}42%{transform:scale(.94);}52%{transform:scale(1.08);}58%,100%{transform:scale(1);}}
+@keyframes demoShimmer{0%{opacity:.25;}50%{opacity:1;}100%{opacity:.25;}}
+
+/* ═══ Phone ═══ */
+.phone-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:44px 32px;justify-items:center;}
+.phone-slot{display:flex;flex-direction:column;align-items:center;gap:16px;animation:fadeUp .7s var(--ease-out) both;}
+.phone{
+  width:300px;height:640px;border-radius:44px;background:#101226;
+  padding:10px;box-shadow:0 24px 60px rgba(16,18,38,.28),0 4px 14px rgba(16,18,38,.18);
+  transition:transform var(--d-base) var(--ease-out),box-shadow var(--d-base) var(--ease-out);
+  position:relative;flex:none;
+}
+.phone-slot:hover .phone{transform:translateY(-10px) scale(1.02);box-shadow:0 36px 80px rgba(91,92,226,.30),0 8px 20px rgba(16,18,38,.16);}
+.screen{
+  width:100%;height:100%;border-radius:35px;background:var(--bg);
+  overflow:hidden;position:relative;display:flex;flex-direction:column;
+}
+.notch{
+  position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  width:104px;height:24px;border-radius:999px;background:#101226;z-index:20;
+}
+.statusbar{
+  height:44px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 24px 5px;font-size:11px;font-weight:700;color:var(--ink-1);
+}
+.statusbar.on-brand{color:#fff;}
+.scr-body{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+.ph-label{font-size:14px;font-weight:700;color:var(--ink-1);}
+.ph-sub{font-size:12px;color:var(--ink-3);text-align:center;max-width:280px;line-height:1.6;}
+
+/* ---- shared in-screen components ---- */
+.appbar{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:8px 18px 12px;
+}
+.appbar .ttl{font-size:19px;font-weight:800;letter-spacing:-.3px;}
+.icobtn{width:32px;height:32px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--ink-2);font-size:13px;box-shadow:0 1px 3px rgba(23,24,29,.05);}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:600;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);}
+.chip.brand{background:#EEF0FF;border-color:#DCDFFF;color:var(--brand-1);}
+.chip.ok{background:var(--success-bg);border-color:#C6EEDD;color:#0B8F68;}
+.chip.warn{background:var(--warning-bg);border-color:#FAE3BC;color:#C97F06;}
+.chip.dgr{background:var(--danger-bg);border-color:#F7CCCC;color:#D33B3B;}
+.card{background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--line);box-shadow:var(--sh-card);}
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  height:48px;border-radius:16px;font-size:15px;font-weight:700;color:#fff;
+  background:var(--grad-brand);box-shadow:0 8px 22px rgba(91,92,226,.30);
+}
+.btn.ghost{background:var(--surface);color:var(--brand-1);border:1.5px solid #DCDFFF;box-shadow:none;}
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:none;}
+
+/* ---- bottom nav ---- */
+.bnav{
+  flex:none;margin:0 14px 14px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);
+  border-radius:22px;border:1px solid var(--line);
+  display:flex;justify-content:space-around;padding:9px 6px 8px;
+  box-shadow:0 10px 28px rgba(23,24,29,.10);
+}
+.bnav .it{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;color:var(--ink-3);width:52px;}
+.bnav .it .ic{width:30px;height:30px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--d-fast);}
+.bnav .it.on{color:var(--brand-1);font-weight:700;}
+.bnav .it.on .ic{background:var(--grad-brand);color:#fff;box-shadow:0 5px 14px rgba(91,92,226,.35);}
+
+/* ═══ Screen-specific ═══ */
+
+/* Agent chat */
+.chat-bg{position:absolute;inset:0;background:linear-gradient(180deg,#EEF0FF 0%,var(--bg) 34%);}
+.bot-bub{max-width:224px;background:var(--surface);border-radius:20px 20px 20px 6px;padding:11px 13px;font-size:12.5px;line-height:1.65;color:var(--ink-1);box-shadow:var(--sh-card);animation:msgIn .5s var(--ease-out) both;}
+.me-bub{max-width:210px;background:var(--grad-brand);color:#fff;border-radius:20px 20px 6px 20px;padding:11px 13px;font-size:12.5px;line-height:1.65;box-shadow:0 6px 18px rgba(91,92,226,.28);animation:msgIn .5s var(--ease-out) .25s both;align-self:flex-end;}
+@keyframes msgIn{from{opacity:0;transform:translateY(14px) scale(.97);}to{opacity:1;transform:none;}}
+.typing{display:inline-flex;gap:4px;padding:12px 14px;background:var(--surface);border-radius:20px 20px 20px 6px;box-shadow:var(--sh-card);animation:msgIn .5s var(--ease-out) 1s both;}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--brand-1);animation:tp 1.2s infinite;}
+.typing i:nth-child(2){animation-delay:.15s;} .typing i:nth-child(3){animation-delay:.3s;}
+@keyframes tp{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-5px);opacity:1;}}
+.composer{flex:none;margin:0 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:11px 12px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh-card);}
+.composer .ph-txt{flex:1;font-size:12.5px;color:var(--ink-3);}
+.composer .send{width:34px;height:34px;border-radius:12px;background:var(--grad-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 5px 12px rgba(91,92,226,.35);}
+.q-chips{display:flex;gap:7px;padding:0 16px 10px;overflow:hidden;}
+.q-chips .chip{animation:msgIn .5s var(--ease-out) both;white-space:nowrap;}
+.q-chips .chip:nth-child(1){animation-delay:.7s;}.q-chips .chip:nth-child(2){animation-delay:.85s;}.q-chips .chip:nth-child(3){animation-delay:1s;}
+
+/* Score ring */
+.ring{position:relative;width:120px;height:120px;margin:0 auto;}
+.ring svg{transform:rotate(-90deg);}
+.ring .bgc{fill:none;stroke:#E9EBF6;stroke-width:11;}
+.ring .fgc{fill:none;stroke:url(#ringGrad);stroke-width:11;stroke-linecap:round;stroke-dasharray:327;stroke-dashoffset:327;animation:ring 2s var(--ease-out) .3s forwards;}
+@keyframes ring{to{stroke-dashoffset:72;}}
+.ring .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ring .num b{font-size:30px;font-weight:800;letter-spacing:-1px;}
+.ring .num span{font-size:10px;color:var(--ink-3);}
+
+/* Skeleton shimmer */
+.skel{border-radius:8px;background:linear-gradient(100deg,#EDF0F8 40%,#F8FAFF 50%,#EDF0F8 60%);background-size:200% 100%;animation:shim 1.6s linear infinite;}
+@keyframes shim{to{background-position:-200% 0;}}
+
+/* Progress bar */
+.pbar{height:7px;border-radius:99px;background:#E9EBF6;overflow:hidden;}
+.pbar i{display:block;height:100%;border-radius:99px;background:var(--grad-brand);animation:grow 2.6s var(--ease-out) .4s infinite alternate;}
+@keyframes grow{from{width:22%;}to{width:78%;}}
+
+/* Tracking timeline */
+.tl{position:relative;padding-left:20px;}
+.tl::before{content:"";position:absolute;left:5.5px;top:6px;bottom:6px;width:2px;background:#E4E7F2;border-radius:2px;}
+.tl .ev{position:relative;padding:0 0 14px;}
+.tl .ev .dt{position:absolute;left:-20px;top:3px;width:13px;height:13px;border-radius:50%;background:#fff;border:2.5px solid var(--brand-1);}
+.tl .ev.done .dt{background:var(--brand-1);box-shadow:0 0 0 4px rgba(91,92,226,.14);}
+.tl .ev.fail .dt{border-color:var(--danger);background:var(--danger-bg);}
+
+/* Interview orb */
+.orb{width:86px;height:86px;border-radius:50%;margin:0 auto;position:relative;
+  background:radial-gradient(circle at 32% 30%,#9BA6FF,#5B5CE2 55%,#3A3BB8);box-shadow:0 14px 40px rgba(91,92,226,.45);}
+.orb::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:2px solid rgba(139,92,246,.35);animation:ripple 2.2s var(--ease-out) infinite;}
+@keyframes ripple{from{transform:scale(.85);opacity:1;}to{transform:scale(1.35);opacity:0;}}
+.wave{display:flex;align-items:center;justify-content:center;gap:3px;height:30px;}
+.wave i{width:4px;border-radius:99px;background:var(--brand-2);animation:wv 1.1s ease-in-out infinite;}
+.wave i:nth-child(1){height:10px;} .wave i:nth-child(2){height:20px;animation-delay:.12s;} .wave i:nth-child(3){height:26px;animation-delay:.24s;} .wave i:nth-child(4){height:15px;animation-delay:.36s;} .wave i:nth-child(5){height:22px;animation-delay:.48s;}
+@keyframes wv{0%,100%{transform:scaleY(.5);}50%{transform:scaleY(1.25);}}
+
+/* Footer */
+footer{padding:56px 0 72px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.8;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ HERO ═══════════ -->
+<header class="hero">
+  <div class="blob blob-a"></div><div class="blob blob-b"></div><div class="blob blob-c"></div>
+  <div class="wrap">
+    <div class="tag"><span class="dot"></span>Aurora Design Language · v1.0 概念稿</div>
+    <h1>TieLink <span class="grad">全新 UI 风格</span><br>移动端全页面设计</h1>
+    <p class="sub">以「Aurora 极光」为核心视觉语言：靛蓝→紫罗兰→青色的品牌渐变、大圆角卡片、玻璃拟态底栏、
+    以动效叙事的页面转场。覆盖 App 全部 14 个界面，包含完整的设计 Token、组件与微交互规范。</p>
+    <div class="stats">
+      <div class="stat"><div class="n">14<em> 页</em></div><div class="l">全量界面覆盖</div></div>
+      <div class="stat"><div class="n">3<em> 段</em></div><div class="l">品牌渐变色谱</div></div>
+      <div class="stat"><div class="n">8<em> 类</em></div><div class="l">动效模式</div></div>
+      <div class="stat"><div class="n">AA<em> 级</em></div><div class="l">WCAG 对比度</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════ 01 TOKENS ═══════════ -->
+<section id="tokens">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">01</span><h2>设计 Token</h2></div>
+    <p class="sec-desc">色彩、字体、动效三套基础系统。所有界面均由以下 Token 驱动，落地时对应 Compose 侧 <code>Theme</code> 对象与 <code>Motion</code> 常量。</p>
+    <div class="tok-grid">
+      <div class="tok-card">
+        <h3>品牌色 · Aurora Gradient</h3>
+        <div class="swatches">
+          <div class="sw" style="background:#5B5CE2"><b>Indigo</b><span>#5B5CE2</span></div>
+          <div class="sw" style="background:#8B5CF6"><b>Violet</b><span>#8B5CF6</span></div>
+          <div class="sw" style="background:#22D3EE"><b>Cyan</b><span>#22D3EE</span></div>
+          <div class="sw" style="background:linear-gradient(135deg,#5B5CE2,#8B5CF6,#22D3EE)"><b>Gradient</b><span>135°</span></div>
+        </div>
+        <div class="swatches" style="margin-top:10px">
+          <div class="sw" style="background:#17181D"><b>Ink 1</b><span>#17181D</span></div>
+          <div class="sw" style="background:#565B6B"><b>Ink 2</b><span>#565B6B</span></div>
+          <div class="sw" style="background:#9BA0B0"><b>Ink 3</b><span>#9BA0B0</span></div>
+          <div class="sw" style="background:#F4F5FA;color:#565B6B;border:1px solid #E7E9F2"><b>Background</b><span>#F4F5FA</span></div>
+        </div>
+        <div class="swatches" style="margin-top:10px">
+          <div class="sw" style="background:#10B981"><b>Success</b><span>#10B981</span></div>
+          <div class="sw" style="background:#F59E0B"><b>Warning</b><span>#F59E0B</span></div>
+          <div class="sw" style="background:#EF4444"><b>Danger</b><span>#EF4444</span></div>
+          <div class="sw" style="background:#3B82F6"><b>Info</b><span>#3B82F6</span></div>
+        </div>
+      </div>
+      <div class="tok-card">
+        <h3>字体刻度 · 8px 基线</h3>
+        <div class="type-row"><span class="demo" style="font-size:26px;font-weight:800">大标题 26/Bold</span><span class="meta">26 / 800 / -1%</span></div>
+        <div class="type-row"><span class="demo" style="font-size:19px;font-weight:800">页标题 19/Bold</span><span class="meta">19 / 800</span></div>
+        <div class="type-row"><span class="demo" style="font-size:15px;font-weight:700">卡片标题 15/Bold</span><span class="meta">15 / 700</span></div>
+        <div class="type-row"><span class="demo" style="font-size:13px;font-weight:400">正文 13/Regular</span><span class="meta">13 / 400 / 1.65</span></div>
+        <div class="type-row"><span class="demo" style="font-size:11px;font-weight:600;color:#9BA0B0">辅助 11/Medium</span><span class="meta">11 / 600 / 60%</span></div>
+      </div>
+      <div class="tok-card">
+        <h3>动效 Token · 4 种核心模式</h3>
+        <div class="motion-item m-1"><div class="ball"></div><div class="info"><b>页面转场 Forward</b><span>420ms · cubic-bezier(.22,1,.36,1) · 位移+淡入</span></div></div>
+        <div class="motion-item m-2"><div class="ball"></div><div class="info"><b>按压回弹 Spring</b><span>280ms · cubic-bezier(.34,1.56,.64,1) · scale 1→0.96→1</span></div></div>
+        <div class="motion-item m-3"><div class="ball"></div><div class="info"><b>骨架屏 Shimmer</b><span>1600ms · linear · 背景位移循环</span></div></div>
+        <div class="motion-item"><div class="ball" style="animation:grow 2.6s var(--ease-out) infinite alternate;background:var(--grad-brand);border-radius:99px;"></div><div class="info"><b>进度生长 Grow</b><span>1200ms · ease-out · width/opacity</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 02 SCREENS ═══════════ -->
+<section id="screens">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">02</span><h2>全部页面 · 14 屏</h2></div>
+    <p class="sec-desc">对应现有 <code>NavGraph</code> 中的全部路由。悬停任意手机可查看抬升微交互；屏内元素均带入场动画示意（气泡逐条浮入、评分环生长、AI 输入中打字、语音波形律动）。</p>
+    <div class="phone-row">
+
+      <!-- 1 · Agent 对话 -->
+      <div class="phone-slot" style="animation-delay:.05s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="chat-bg"></div>
+          <div class="statusbar" style="position:relative"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar" style="position:relative">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="avatar" style="width:34px;height:34px;background:var(--grad-brand);font-size:15px">T</div>
+              <div><div class="ttl" style="font-size:16px">TieLink Agent</div>
+              <div style="font-size:10.5px;color:var(--success);font-weight:600">● 在线 · DeepSeek</div></div>
+            </div>
+            <div class="icobtn">☰</div>
+          </div>
+          <div class="scr-body" style="position:relative">
+            <div style="display:flex;flex-direction:column;gap:10px;padding:6px 16px">
+              <div class="bot-bub">已根据「字节跳动 · Android 工程师」JD 完成匹配分析，综合评分 <b style="color:var(--brand-1)">82</b> 分 👇</div>
+              <div class="card" style="padding:12px;display:flex;gap:12px;align-items:center;animation:msgIn .5s var(--ease-out) .4s both">
+                <svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="21" fill="none" stroke="#E9EBF6" stroke-width="7"/><circle cx="26" cy="26" r="21" fill="none" stroke="#5B5CE2" stroke-width="7" stroke-linecap="round" stroke-dasharray="132" stroke-dashoffset="24" transform="rotate(-90 26 26)"/></svg>
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:700">匹配报告已生成</div>
+                  <div style="font-size:11px;color:var(--ink-3);margin-top:3px">关键词 76 · 语义 89 · 建议 3 条</div>
+                </div>
+                <div class="chip brand">查看</div>
+              </div>
+              <div class="me-bub">帮我针对这个 JD 润色简历</div>
+              <div class="typing"><i></i><i></i><i></i></div>
+            </div>
+            <div class="q-chips" style="position:absolute;bottom:0;left:0;right:0">
+              <span class="chip brand">✦ 生成打招呼话术</span><span class="chip">模拟面试</span><span class="chip">投递跟踪</span>
+            </div>
+          </div>
+          <div class="composer" style="position:relative"><span class="ph-txt">问点什么，或直接粘贴 JD…</span><div class="send">↑</div></div>
+        </div></div>
+        <div class="ph-label">① Agent 对话 · 主入口</div>
+        <div class="ph-sub">agent_chat — 渐变品牌气泡 / 打字动画 / 快捷追问 chips</div>
+      </div>
+
+      <!-- 2 · 简历优化 -->
+      <div class="phone-slot" style="animation-delay:.1s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="ttl">简历优化</div><div class="icobtn">⌕</div></div>
+          <div class="scr-body" style="padding:0 16px;gap:12px">
+            <div class="card" style="padding:18px;background:var(--grad-brand);border:none;color:#fff;position:relative;overflow:hidden">
+              <div style="position:absolute;right:-24px;top:-24px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.14)"></div>
+              <div style="font-size:11px;opacity:.85">当前 JD · 字节跳动</div>
+              <div style="font-size:18px;font-weight:800;margin-top:4px">Android 工程师</div>
+              <div style="display:flex;align-items:flex-end;gap:6px;margin-top:14px">
+                <span style="font-size:40px;font-weight:800;line-height:1">82</span>
+                <span style="font-size:12px;opacity:.85;padding-bottom:6px">/ 100 匹配分</span>
+              </div>
+              <div class="pbar" style="background:rgba(255,255,255,.25);margin-top:10px"><i style="background:#fff"></i></div>
+            </div>
+            <div class="card" style="padding:14px">
+              <div style="font-size:12px;font-weight:700;margin-bottom:9px">能力缺口</div>
+              <div style="display:flex;gap:7px;flex-wrap:wrap">
+                <span class="chip ok">Kotlin ✓</span><span class="chip ok">Compose ✓</span>
+                <span class="chip warn">KMP 缺</span><span class="chip dgr">跨端经验</span>
+              </div>
+            </div>
+            <div class="card" style="padding:14px;animation:msgIn .5s var(--ease-out) .3s both">
+              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>AI 优化建议</span><span class="chip brand">3 条</span></div>
+              <div style="font-size:11.5px;color:var(--ink-2);margin-top:8px;line-height:1.7">① 项目经历补充量化结果<br>② 突出 KMP 跨端可迁移能力<br>③ 技能清单按 JD 权重重排</div>
+            </div>
+            <div style="flex:1"></div>
+            <div class="btn" style="margin-bottom:16px">✦ 一键优化简历</div>
+          </div>
+        </div></div>
+        <div class="ph-label">② 简历优化工作台</div>
+        <div class="ph-sub">resume_optimize — 渐变评分头卡 / 能力缺口色签</div>
+      </div>
+
+      <!-- 3 · JD 输入 -->
+      <div class="phone-slot" style="animation-delay:.15s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="ttl">粘贴 JD</div><div class="icobtn">?</div></div>
+          <div class="scr-body" style="padding:0 16px;gap:12px">
+            <div class="card" style="padding:16px;border-style:dashed;border-width:1.5px;background:var(--surface-2)">
+              <div style="font-size:12.5px;color:var(--ink-2);line-height:1.75">岗位职责：<br>1. 负责 Android 客户端架构设计与开发…<br>任职要求：<br>1. 精通 Kotlin，熟悉 Compose…</div>
+              <div style="text-align:right;font-size:10.5px;color:var(--ink-3);margin-top:8px">326 字 · 已识别结构</div>
+            </div>
+            <div class="card" style="padding:14px;animation:msgIn .5s var(--ease-out) .35s both">
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--success)"><span>✓</span>AI 已解析出 5 个关键要求</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+                <span class="chip brand">Kotlin</span><span class="chip brand">Compose</span><span class="chip brand">性能优化</span><span class="chip brand">3年+</span><span class="chip brand">跨端</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <div class="card" style="flex:1;padding:14px;text-align:center;font-size:12px;font-weight:600;color:var(--ink-2)">📄 导入文件</div>
+              <div class="card" style="flex:1;padding:14px;text-align:center;font-size:12px;font-weight:600;color:var(--ink-2)">📋 从 Boss 导入</div>
+            </div>
+            <div style="flex:1"></div>
+            <div class="btn">下一步 · 选择简历</div>
+            <div style="height:16px"></div>
+          </div>
+        </div></div>
+        <div class="ph-label">③ JD 输入</div>
+        <div class="ph-sub">jd_input — 虚线粘贴区 / 结构化解析即时反馈</div>
+      </div>
+
+      <!-- 4 · 简历输入 -->
+      <div class="phone-slot" style="animation-delay:.2s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="icobtn">←</div><div class="ttl" style="font-size:16px">选择简历</div><div style="width:32px"></div></div>
+          <div class="scr-body" style="padding:0 16px;gap:11px">
+            <div class="card" style="padding:14px;border:1.5px solid var(--brand-1);background:#F6F6FF;position:relative">
+              <div style="position:absolute;top:12px;right:12px"><span class="chip brand">当前使用</span></div>
+              <div style="font-size:13.5px;font-weight:700">张三_Android_2026.pdf</div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:5px">v6 · 上次润色于 3 天前 · 匹配分 82</div>
+            </div>
+            <div class="card" style="padding:14px">
+              <div style="font-size:13.5px;font-weight:700">张三_通用版.pdf</div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:5px">v4 · 2 周前</div>
+            </div>
+            <div class="card" style="padding:14px">
+              <div style="font-size:13.5px;font-weight:700">简历-后端方向.docx</div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:5px">v2 · 1 个月前</div>
+            </div>
+            <div class="card" style="padding:16px;border-style:dashed;text-align:center;color:var(--brand-1);font-size:12.5px;font-weight:700;background:#F9F9FF">＋ 上传新简历（PDF / DOCX / OCR 拍照）</div>
+            <div style="flex:1"></div>
+            <div class="card" style="padding:13px;display:flex;align-items:center;gap:10px;margin-bottom:16px">
+              <div class="avatar" style="width:34px;height:34px;background:var(--grad-brand);font-size:14px">✦</div>
+              <div style="flex:1;font-size:11.5px;color:var(--ink-2);line-height:1.6">将使用 <b>经典模板</b> 进行<b>全文润色</b></div>
+              <div class="chip brand">修改</div>
+            </div>
+            <div class="btn" style="margin-bottom:16px">开始 AI 润色 →</div>
+          </div>
+        </div></div>
+        <div class="ph-label">④ 简历选择与上传</div>
+        <div class="ph-sub">resume_input — 版本卡片 / 模板与模式确认条</div>
+      </div>
+
+      <!-- 5 · AI 润色 -->
+      <div class="phone-slot" style="animation-delay:.25s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="icobtn">←</div><div class="ttl" style="font-size:16px">AI 润色中</div><div style="width:32px"></div></div>
+          <div class="scr-body" style="padding:0 16px">
+            <div class="card" style="padding:20px;text-align:center;margin-bottom:14px">
+              <div class="orb" style="width:64px;height:64px;box-shadow:0 10px 30px rgba(91,92,226,.4)"></div>
+              <div style="font-size:14px;font-weight:800;margin-top:14px">正在重写「项目经历」…</div>
+              <div style="font-size:11.5px;color:var(--ink-3);margin-top:5px">第 2 / 4 段 · 已完成 47%</div>
+              <div class="pbar" style="margin-top:12px"><i></i></div>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:9px">处理管线</div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center"><span class="chip ok">✓</span><span style="font-size:12.5px;font-weight:600">解析简历结构</span><span style="margin-left:auto;font-size:10.5px;color:var(--ink-3)">1.2s</span></div>
+              <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center"><span class="chip ok">✓</span><span style="font-size:12.5px;font-weight:600">关键词对齐 JD</span><span style="margin-left:auto;font-size:10.5px;color:var(--ink-3)">0.8s</span></div>
+              <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;border-color:#DCDFFF;background:#FAFAFF"><div class="skel" style="width:16px;height:16px"></div><span style="font-size:12.5px;font-weight:600;color:var(--brand-1)">逐段润色重写</span><div class="wave" style="margin-left:auto"><i></i><i></i><i></i><i></i><i></i></div></div>
+              <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;opacity:.5"><span class="chip">4</span><span style="font-size:12.5px;font-weight:600">生成 HTML / PDF 导出</span></div>
+            </div>
+            <div style="flex:1"></div>
+            <div class="btn ghost" style="margin-bottom:16px;background:var(--surface)">后台运行，先去看看 JD 库</div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑤ AI 润色进行中</div>
+        <div class="ph-sub">polish — 处理管线清单 / 骨架屏与波形律动</div>
+      </div>
+
+      <!-- 6 · 分析报告 -->
+      <div class="phone-slot" style="animation-delay:.3s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="icobtn">←</div><div class="ttl" style="font-size:16px">分析报告</div><div class="icobtn">↗</div></div>
+          <div class="scr-body" style="padding:0 16px;overflow:hidden">
+            <div class="card" style="padding:18px;margin-bottom:12px">
+              <div class="ring">
+                <svg width="120" height="120"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5B5CE2"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs>
+                <circle class="bgc" cx="60" cy="60" r="52"/><circle class="fgc" cx="60" cy="60" r="52"/></svg>
+                <div class="num"><b>82</b><span>综合匹配分</span></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:16px">
+                <div style="flex:1;text-align:center;background:var(--surface-2);border-radius:14px;padding:10px 4px"><div style="font-size:16px;font-weight:800;color:var(--brand-1)">76</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">关键词</div></div>
+                <div style="flex:1;text-align:center;background:var(--surface-2);border-radius:14px;padding:10px 4px"><div style="font-size:16px;font-weight:800;color:var(--brand-2)">89</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">语义匹配</div></div>
+                <div style="flex:1;text-align:center;background:var(--surface-2);border-radius:14px;padding:10px 4px"><div style="font-size:16px;font-weight:800;color:var(--brand-3)">61</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">经历相关</div></div>
+              </div>
+            </div>
+            <div class="card" style="padding:14px;margin-bottom:12px">
+              <div style="font-size:12.5px;font-weight:700;margin-bottom:9px">优势 ✦</div>
+              <div style="font-size:11.5px;color:var(--ink-2);line-height:1.7">Kotlin + Compose 与 JD 完全吻合，性能优化经历有量化数据支撑。</div>
+              <div style="font-size:12.5px;font-weight:700;margin:12px 0 9px">差距 ⚠</div>
+              <div style="font-size:11.5px;color:var(--ink-2);line-height:1.7">缺少 KMP 跨端实战，建议突出 Compose Multiplatform 学习曲线优势。</div>
+            </div>
+            <div class="btn" style="margin-bottom:14px">导出 PDF 简历</div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑥ 匹配分析报告</div>
+        <div class="ph-sub">result — 评分环生长动画 / 维度分卡 / 差距洞察</div>
+      </div>
+
+      <!-- 7 · JD 库 -->
+      <div class="phone-slot" style="animation-delay:.35s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="ttl">JD 库</div><div class="icobtn">＋</div></div>
+          <div class="scr-body" style="padding:0 16px;gap:10px">
+            <div style="display:flex;gap:7px;margin-bottom:2px">
+              <span class="chip brand">全部 12</span><span class="chip">意向 5</span><span class="chip">已投 4</span><span class="chip">归档 3</span>
+            </div>
+            <div class="card" style="padding:14px;display:flex;gap:11px;align-items:center">
+              <div class="avatar" style="width:40px;height:40px;border-radius:13px;background:#5B5CE2;font-size:15px">字</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:700">字节跳动 · Android 工程师</div>
+              <div style="font-size:10.5px;color:var(--ink-3);margin-top:3px">飞书 · 25-40K · 昨天</div></div>
+              <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:var(--brand-1)">82</div><div style="font-size:9px;color:var(--ink-3)">匹配</div></div>
+            </div>
+            <div class="card" style="padding:14px;display:flex;gap:11px;align-items:center;animation:msgIn .5s var(--ease-out) .3s both">
+              <div class="avatar" style="width:40px;height:40px;border-radius:13px;background:#0EA5E9;font-size:15px">腾</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:700">腾讯 · 客户端开发</div>
+              <div style="font-size:10.5px;color:var(--ink-3);margin-top:3px">CSIG · 28-45K · 3 天前</div></div>
+              <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:var(--brand-1)">78</div><div style="font-size:9px;color:var(--ink-3)">匹配</div></div>
+            </div>
+            <div class="card" style="padding:14px;display:flex;gap:11px;align-items:center">
+              <div class="avatar" style="width:40px;height:40px;border-radius:13px;background:#F59E0B;font-size:15px">阿</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:700">阿里巴巴 · 终端工程师</div>
+              <div style="font-size:10.5px;color:var(--ink-3);margin-top:3px">淘天 · 30-50K · 1 周前</div></div>
+              <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:var(--brand-1)">71</div><div style="font-size:9px;color:var(--ink-3)">匹配</div></div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="display:flex;gap:10px;margin-bottom:16px">
+              <div class="btn ghost" style="flex:1;height:42px;font-size:13px">投递跟踪</div>
+              <div class="btn" style="flex:1;height:42px;font-size:13px">✦ 生成话术</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑦ JD 库</div>
+        <div class="ph-sub">jd_list — 品牌色公司徽标 / 匹配分速览</div>
+      </div>
+
+      <!-- 8 · 简历库 -->
+      <div class="phone-slot" style="animation-delay:.4s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="ttl">简历库</div><div class="icobtn">＋</div></div>
+          <div class="scr-body" style="padding:0 16px;gap:11px">
+            <div class="card" style="padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-size:13.5px;font-weight:700">张三 · Android 方向</div><span class="chip ok">v6 最新</span>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <div style="flex:1;height:44px;border-radius:10px;background:var(--grad-soft);border:1px solid #DCDFFF;display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--brand-1);font-weight:600">经典模板</div>
+                <div style="flex:1;height:44px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--ink-3);font-weight:600">Vibe 模板</div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:11px">
+                <span class="chip">预览</span><span class="chip">导出 PDF</span><span class="chip brand">润色历史</span>
+              </div>
+            </div>
+            <div class="card" style="padding:14px;opacity:.85">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-size:13.5px;font-weight:700">张三 · 通用版</div><span class="chip">v4</span>
+              </div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:8px">2 个版本 · 最近更新 2 周前</div>
+            </div>
+            <div class="card" style="padding:14px;opacity:.85">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-size:13.5px;font-weight:700">简历-后端方向</div><span class="chip">v2</span>
+              </div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:8px">1 个版本 · 最近更新 1 个月前</div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="height:16px"></div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑧ 简历库</div>
+        <div class="ph-sub">resume_library — 版本管理 / 双模板切换</div>
+      </div>
+
+      <!-- 9 · 模拟面试 -->
+      <div class="phone-slot" style="animation-delay:.45s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div style="height:100%;background:linear-gradient(170deg,#191C38 0%,#232657 60%,#1A2C48 100%);display:flex;flex-direction:column">
+            <div class="statusbar on-brand" style="position:relative"><span>9:41</span><span>􀟠 􀛨</span></div>
+            <div class="appbar" style="color:#fff"><div class="icobtn" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.15);color:#fff">←</div>
+              <div class="ttl" style="color:#fff;font-size:16px">模拟面试</div>
+              <div style="width:32px;height:32px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:12px">14:22</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0 22px">
+              <div class="orb"></div>
+              <div style="color:#fff;font-size:16px;font-weight:800;margin-top:20px">面试官 · 王工</div>
+              <div style="color:#9BA0C8;font-size:12px;margin-top:5px">字节跳动 · 高级客户端面试官</div>
+              <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:18px 18px 18px 6px;padding:13px 15px;margin-top:22px;color:#E7E9FF;font-size:12.5px;line-height:1.7;width:100%">
+                请讲一下你在 Compose 项目中做过的一次性能优化，是怎么定位掉帧问题的？
+                <div style="margin-top:10px;display:flex;justify-content:center"><div class="wave"><i style="background:#8FA0FF"></i><i style="background:#8FA0FF"></i><i style="background:#8FA0FF"></i><i style="background:#8FA0FF"></i><i style="background:#8FA0FF"></i></div></div>
+              </div>
+              <div style="display:flex;gap:12px;margin-top:26px">
+                <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px">🎙</div>
+                <div style="width:52px;height:52px;border-radius:50%;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;box-shadow:0 10px 26px rgba(91,92,226,.5)">⏸</div>
+                <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px">✎</div>
+              </div>
+            </div>
+            <div style="color:#7E84AE;font-size:10.5px;text-align:center;padding-bottom:20px">语音回答中 · 松开结束本轮</div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑨ 模拟面试 · 沉浸模式</div>
+        <div class="ph-sub">mock_interview — 唯一深色界面 / 呼吸光环 + 语音波形</div>
+      </div>
+
+      <!-- 10 · 实战复盘 -->
+      <div class="phone-slot" style="animation-delay:.5s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="icobtn">←</div><div class="ttl" style="font-size:16px">面试复盘</div><div style="width:32px"></div></div>
+          <div class="scr-body" style="padding:0 16px;gap:11px">
+            <div class="card" style="padding:16px;display:flex;gap:14px;align-items:center">
+              <div style="font-size:34px;font-weight:800;color:var(--brand-1)">B+</div>
+              <div style="flex:1;font-size:11.5px;color:var(--ink-2);line-height:1.65">整体表达清晰，技术深度尚可；<br>追问环节应对偏被动。</div>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:var(--ink-2)">表现维度</div>
+            <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:11px">
+              <div><div style="display:flex;justify-content:space-between;font-size:11.5px"><span>技术深度</span><b>85</b></div><div class="pbar" style="margin-top:5px"><i style="animation:none;width:85%"></i></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:11.5px"><span>结构化表达</span><b>78</b></div><div class="pbar" style="margin-top:5px"><i style="animation:none;width:78%;background:linear-gradient(90deg,#8B5CF6,#22D3EE)"></i></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:11.5px"><span>追问应对</span><b style="color:var(--warning)">58</b></div><div class="pbar" style="margin-top:5px"><i style="animation:none;width:58%;background:linear-gradient(90deg,#F59E0B,#FBBF24)"></i></div></div>
+            </div>
+            <div class="card" style="padding:14px;animation:msgIn .5s var(--ease-out) .3s both">
+              <div style="font-size:12px;font-weight:700;margin-bottom:8px">✦ AI 复盘要点</div>
+              <div style="font-size:11.5px;color:var(--ink-2);line-height:1.7">被问「为什么不用 WorkManager」时先辩解后让步。建议采用 <b>承认局限 → 给出权衡 → 补方案</b> 三段式回应。</div>
+            </div>
+            <div style="flex:1"></div>
+            <div class="btn" style="margin-bottom:16px">针对薄弱点发起专项模拟</div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑩ 实战面试复盘</div>
+        <div class="ph-sub">interview_debrief — 维度条形动画 / 薄弱点直达练习</div>
+      </div>
+
+      <!-- 11 · 投递跟踪 -->
+      <div class="phone-slot" style="animation-delay:.55s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="ttl">投递跟踪</div><div class="icobtn">＋</div></div>
+          <div class="scr-body" style="padding:0 16px;gap:11px">
+            <div style="display:flex;gap:9px">
+              <div class="card" style="flex:1;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800">9</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">投递中</div></div>
+              <div class="card" style="flex:1;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--info)">3</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">约面</div></div>
+              <div class="card" style="flex:1;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--success)">2</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">Offer</div></div>
+              <div class="card" style="flex:1;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:var(--danger)">4</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">挂了</div></div>
+            </div>
+            <div class="card" style="padding:14px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar" style="width:34px;height:34px;border-radius:12px;background:#5B5CE2;font-size:13px">字</div>
+                <div style="flex:1"><div style="font-size:12.5px;font-weight:700">字节跳动 · Android</div><div style="font-size:10px;color:var(--ink-3)">投递于 11-18</div></div>
+                <span class="chip brand">约面 ✓</span>
+              </div>
+              <div class="tl" style="margin-top:13px">
+                <div class="ev done"><div class="dt"></div><div style="font-size:11px;font-weight:600">简历投递</div></div>
+                <div class="ev done"><div class="dt"></div><div style="font-size:11px;font-weight:600">HR 初筛通过 · 11-20</div></div>
+                <div class="ev"><div class="dt"></div><div style="font-size:11px;font-weight:600;color:var(--brand-1)">一面 · 明天 14:00 <span class="chip warn" style="padding:2px 8px;font-size:9.5px">即将到来</span></div></div>
+              </div>
+            </div>
+            <div class="card" style="padding:13px;display:flex;gap:10px;align-items:center;opacity:.9">
+              <div class="avatar" style="width:32px;height:32px;border-radius:11px;background:#0EA5E9;font-size:12px">腾</div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:700">腾讯 · 客户端</div><div style="font-size:10px;color:var(--ink-3)">状态：简历评估中</div></div>
+              <div class="icobtn" style="width:28px;height:28px;font-size:11px">⋯</div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="height:16px"></div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑪ 投递跟踪看板</div>
+        <div class="ph-sub">tracking — 漏斗统计卡 / 节点时间线</div>
+      </div>
+
+      <!-- 12 · 历史记录 -->
+      <div class="phone-slot" style="animation-delay:.6s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="ttl">历史记录</div><div class="icobtn">⌕</div></div>
+          <div class="scr-body" style="padding:0 16px;gap:10px">
+            <div style="font-size:11px;font-weight:700;color:var(--ink-3);margin-bottom:-2px">今天</div>
+            <div class="card" style="padding:13px;display:flex;gap:11px;align-items:center">
+              <div style="width:38px;height:38px;border-radius:12px;background:#EEF0FF;display:flex;align-items:center;justify-content:center;font-size:15px">✦</div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Agent 对话 · 简历润色</div><div style="font-size:10.5px;color:var(--ink-3)">14:02 · 18 条消息</div></div>
+              <div style="color:var(--ink-3);font-size:13px">›</div>
+            </div>
+            <div class="card" style="padding:13px;display:flex;gap:11px;align-items:center;animation:msgIn .5s var(--ease-out) .25s both">
+              <div style="width:38px;height:38px;border-radius:12px;background:#E6F9F1;display:flex;align-items:center;justify-content:center;font-size:15px">📊</div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:700">匹配分析 · 字节跳动</div><div style="font-size:10.5px;color:var(--ink-3)">10:31 · 82 分</div></div>
+              <div style="color:var(--ink-3);font-size:13px">›</div>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:var(--ink-3);margin-top:4px">本周</div>
+            <div class="card" style="padding:13px;display:flex;gap:11px;align-items:center;opacity:.9">
+              <div style="width:38px;height:38px;border-radius:12px;background:#FEF4E2;display:flex;align-items:center;justify-content:center;font-size:15px">🎙</div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:700">模拟面试 · Compose 专题</div><div style="font-size:10.5px;color:var(--ink-3)">周二 · 22 分钟 · B+</div></div>
+              <div style="color:var(--ink-3);font-size:13px">›</div>
+            </div>
+            <div class="card" style="padding:13px;display:flex;gap:11px;align-items:center;opacity:.9">
+              <div style="width:38px;height:38px;border-radius:12px;background:#E9F1FE;display:flex;align-items:center;justify-content:center;font-size:15px">📄</div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:700">简历优化 · 腾讯 JD</div><div style="font-size:10.5px;color:var(--ink-3)">周一 · v6 已生成</div></div>
+              <div style="color:var(--ink-3);font-size:13px">›</div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="height:16px"></div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑫ 历史记录</div>
+        <div class="ph-sub">history — 语义分组 / 类型色块识别</div>
+      </div>
+
+      <!-- 13 · 设置 -->
+      <div class="phone-slot" style="animation-delay:.65s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="ttl">设置</div><div style="width:32px"></div></div>
+          <div class="scr-body" style="padding:0 16px;gap:12px">
+            <div class="card" style="padding:16px;display:flex;gap:13px;align-items:center;background:var(--grad-soft);border-color:#DCDFFF">
+              <div class="avatar" style="width:46px;height:46px;background:var(--grad-brand);font-size:18px">张</div>
+              <div style="flex:1"><div style="font-size:14px;font-weight:800">张三</div><div style="font-size:11px;color:var(--ink-2);margin-top:3px">3 份简历 · 12 个 JD · 求职冲刺中</div></div>
+              <div style="color:var(--brand-1);font-size:14px">›</div>
+            </div>
+            <div class="card" style="padding:4px 14px">
+              <div style="display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:15px">🤖</span><div style="flex:1;font-size:12.5px;font-weight:600">模型配置</div><span style="font-size:11px;color:var(--ink-3)">DeepSeek · V3</span><span style="color:var(--ink-3);font-size:13px">›</span></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:15px">🔑</span><div style="flex:1;font-size:12.5px;font-weight:600">API Key</div><span style="font-size:11px;color:var(--success);font-weight:600">已配置</span><span style="color:var(--ink-3);font-size:13px">›</span></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:15px">🌐</span><div style="flex:1;font-size:12.5px;font-weight:600">语言</div><span style="font-size:11px;color:var(--ink-3)">简体中文</span><span style="color:var(--ink-3);font-size:13px">›</span></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:12px 0"><span style="font-size:15px">📄</span><div style="flex:1;font-size:12.5px;font-weight:600">默认导出模板</div><span style="font-size:11px;color:var(--ink-3)">经典</span><span style="color:var(--ink-3);font-size:13px">›</span></div>
+            </div>
+            <div class="card" style="padding:4px 14px">
+              <div style="display:flex;align-items:center;gap:11px;padding:12px 0"><span style="font-size:15px">🧠</span><div style="flex:1;font-size:12.5px;font-weight:600">本地语义模型（TFLite）</div>
+                <div style="width:40px;height:22px;border-radius:99px;background:var(--brand-1);position:relative"><div style="position:absolute;right:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div></div>
+              </div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="text-align:center;font-size:10.5px;color:var(--ink-3);margin-bottom:16px">TieLink 2.0 · Aurora UI</div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑬ 设置</div>
+        <div class="ph-sub">settings — 分组列表 / 渐变个人卡</div>
+      </div>
+
+      <!-- 14 · 模型配置 -->
+      <div class="phone-slot" style="animation-delay:.7s">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>􀟠 􀛨</span></div>
+          <div class="appbar"><div class="icobtn">←</div><div class="ttl" style="font-size:16px">模型配置</div><div style="width:32px"></div></div>
+          <div class="scr-body" style="padding:0 16px;gap:11px">
+            <div style="font-size:12px;font-weight:700;color:var(--ink-2)">Provider 链</div>
+            <div class="card" style="padding:14px;border:1.5px solid var(--brand-1);background:#F6F6FF;display:flex;gap:11px;align-items:center">
+              <div class="avatar" style="width:36px;height:36px;border-radius:12px;background:var(--grad-brand);font-size:13px">①</div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:700">DeepSeek API</div><div style="font-size:10.5px;color:var(--ink-3)">主模型 · V3 · 已连接</div></div>
+              <span class="chip ok">默认</span>
+            </div>
+            <div class="card" style="padding:14px;display:flex;gap:11px;align-items:center">
+              <div class="avatar" style="width:36px;height:36px;border-radius:12px;background:#64748B;font-size:13px">②</div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Ollama 本地</div><div style="font-size:10.5px;color:var(--ink-3)">qwen2.5:7b · 未启用</div></div>
+              <div style="width:40px;height:22px;border-radius:99px;background:#DFE2EE;position:relative"><div style="position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div></div>
+            </div>
+            <div class="card" style="padding:14px;display:flex;gap:11px;align-items:center;opacity:.85">
+              <div class="avatar" style="width:36px;height:36px;border-radius:12px;background:#94A3B8;font-size:13px">③</div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:700">本地兜底</div><div style="font-size:10.5px;color:var(--ink-3)">TFLite 语义匹配（离线）</div></div>
+              <span class="chip">常驻</span>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-top:2px">连接测试</div>
+            <div class="card" style="padding:14px">
+              <div style="display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--success);font-weight:600"><span>✓</span>延迟 246ms · 流式正常 · 上下文 64K</div>
+              <div class="pbar" style="margin-top:10px"><i style="animation:none;width:100%;background:linear-gradient(90deg,#10B981,#34D399)"></i></div>
+            </div>
+            <div style="flex:1"></div>
+            <div class="btn" style="margin-bottom:16px">保存配置</div>
+          </div>
+        </div></div>
+        <div class="ph-label">⑭ 模型配置</div>
+        <div class="ph-sub">model_config — 降级链可视化 / 开关与连通性测试</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 03 MOTION ═══════════ -->
+<section id="motion">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">03</span><h2>页面转场与微交互规范</h2></div>
+    <p class="sec-desc">对应 Compose 侧 <code>motionForwardEnter/Exit</code>、<code>motionBackEnter/Exit</code> 的升级方案。全部动效仅作用于 <b>transform / opacity</b>，保证 60fps 与低功耗。</p>
+    <div class="tok-grid">
+      <div class="tok-card">
+        <h3>页面转场 · Forward / Back</h3>
+        <div style="display:flex;gap:14px;align-items:center;height:130px;justify-content:center;background:var(--surface-2);border-radius:14px;margin-bottom:14px">
+          <div style="width:64px;height:112px;border-radius:12px;background:#DFE2EE"></div>
+          <div style="width:64px;height:112px;border-radius:12px;background:var(--grad-brand);animation:transDemo 2.8s var(--ease-out) infinite;box-shadow:var(--sh-float)"></div>
+          <div style="width:64px;height:112px;border-radius:12px;background:#DFE2EE"></div>
+        </div>
+        <div style="font-size:12px;line-height:1.8;color:var(--ink-2)">
+          进入：translateX(18%) + fade，<b>420ms</b> ease-out-quint<br>
+          返回：反向位移动画，<b>320ms</b><br>
+          沉浸页（面试）：fade + scale(0.96→1)，无横向位移
+        </div>
+      </div>
+      <div class="tok-card">
+        <h3>组件级微交互</h3>
+        <div style="font-size:12.5px;line-height:2.15;color:var(--ink-2)">
+          <b style="color:var(--ink-1)">卡片按压</b> — scale 0.97，80ms 按下 / 280ms 弹回<br>
+          <b style="color:var(--ink-1)">按钮成功态</b> — 打勾描边 400ms + 轻微 scale 弹跳<br>
+          <b style="color:var(--ink-1)">评分环</b> — dashoffset 生长 1.2s + 数字滚动<br>
+          <b style="color:var(--ink-1)">列表入场</b> — 逐项 stagger 40ms fadeUp<br>
+          <b style="color:var(--ink-1)">AI 气泡</b> — 流式打字 + 光标闪烁<br>
+          <b style="color:var(--ink-1)">状态切换</b> — 时间线节点填充波纹扩散
+        </div>
+      </div>
+      <div class="tok-card">
+        <h3>无障碍与性能红线</h3>
+        <div style="font-size:12.5px;line-height:2.15;color:var(--ink-2)">
+          ✓ 正文对比度 ≥ <b>4.5:1</b>，大字号与图标 ≥ 3:1<br>
+          ✓ 动效状态不以颜色为唯一传达（附图标/文案）<br>
+          ✓ 尊重系统「减弱动态效果」：转场退化为淡入淡出<br>
+          ✓ 仅动画 transform/opacity，禁用 layout 属性动画<br>
+          ✓ 列表长页入场 stagger 上限 8 项，防动画过载
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  TieLink · Aurora UI 概念稿 · 覆盖 NavGraph 全部 14 个路由界面<br>
+  确认风格后可逐屏输出 Compose 实现文档（Design Token → 主题对象 → 页面组件）
+</footer>
+
+<style>
+@keyframes transDemo{
+  0%,12%{transform:translateX(0) scale(1);opacity:.55;}
+  42%,70%{transform:translateX(26px) scale(1.06);opacity:1;}
+  100%{transform:translateX(0) scale(1);opacity:.55;}
+}
+</style>
+</body>
+</html>

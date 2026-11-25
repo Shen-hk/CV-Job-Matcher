@@ -94,10 +94,11 @@ class MatchScoreDetailUseCase @Inject constructor(
         val techKeywords = classified.byCategory
             .filter { (cat, _) -> cat in TECH_CATEGORIES }
             .values.flatten()
-        if (techKeywords.isEmpty()) return computeKeywordCoverage(jdKeywords, emptyList())
+        if (techKeywords.isEmpty()) {
+            return NlpEngine.matchKeywords(jdKeywords, resumeText).first.size.toFloat() / jdKeywords.size
+        }
 
-        val resumeLower = resumeText.lowercase()
-        val matchedTech = techKeywords.count { kw -> resumeLower.contains(kw.lowercase()) }
+        val matchedTech = NlpEngine.matchKeywords(techKeywords, resumeText).first.size
         return (matchedTech.toFloat() / techKeywords.size).coerceIn(0f, 1f)
     }
 
@@ -165,7 +166,7 @@ class MatchScoreDetailUseCase @Inject constructor(
         val requiredPatterns = listOf("必须", "必备", "要求", "需要", "必要", "required", "must")
         val idx = jdLower.indexOf(skill.lowercase())
         if (idx < 0) return false
-        val context = jdLower.substring(maxOf(0, idx - 50), idx + skill.length + 50)
+        val context = jdLower.substring(maxOf(0, idx - 50), minOf(jdLower.length, idx + skill.length + 50))
         return requiredPatterns.any { context.contains(it) }
     }
 
@@ -173,7 +174,7 @@ class MatchScoreDetailUseCase @Inject constructor(
         val preferredPatterns = listOf("优先", "加分", "最好", "preferred", "nice to have", "plus")
         val idx = jdLower.indexOf(skill.lowercase())
         if (idx < 0) return false
-        val context = jdLower.substring(maxOf(0, idx - 50), idx + skill.length + 50)
+        val context = jdLower.substring(maxOf(0, idx - 50), minOf(jdLower.length, idx + skill.length + 50))
         return preferredPatterns.any { context.contains(it) }
     }
 }

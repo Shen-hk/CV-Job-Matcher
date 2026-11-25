@@ -158,7 +158,11 @@ data class DynamicCardAction(
      * prompt | open_jd_library | open_resume_library | upload_resume | open_tracking
      * | open_resume_optimize | open_settings
      */
-    val type: String = TYPE_PROMPT
+    val type: String = TYPE_PROMPT,
+    /** Internal actions are constructed by the app, never accepted from render_card. */
+    val executionId: String? = null,
+    val taskId: String? = null,
+    val planVersion: Int? = null
 ) {
     companion object {
         const val TYPE_PROMPT = "prompt"
@@ -168,6 +172,10 @@ data class DynamicCardAction(
         const val TYPE_OPEN_TRACKING = "open_tracking"
         const val TYPE_OPEN_RESUME_OPTIMIZE = "open_resume_optimize"
         const val TYPE_OPEN_SETTINGS = "open_settings"
+        const val TYPE_CONFIRM_EXECUTION = "confirm_execution"
+        const val TYPE_REJECT_EXECUTION = "reject_execution"
+        const val TYPE_EXECUTE_TASK = "execute_task"
+        const val TYPE_OPEN_BACKGROUND_TASK = "open_background_task"
 
         val SUPPORTED_TYPES = setOf(
             TYPE_PROMPT,

@@ -341,7 +341,7 @@ private fun TrackingOverviewCard(items: List<TrackingItem>) {
     val activeCount = items.count { it.status != "已拒" && it.status != "已offer" }
     val progress = if (items.isEmpty()) 0f else {
         items.sumOf { item ->
-            STATUS_OPTIONS.indexOf(item.status).coerceIn(0, 4)
+            when (item.status) { "简历过筛" -> 1; "待面试" -> 2; "已面试" -> 3; "已offer" -> 4; else -> 0 }
         }.toFloat() / (items.size * 4f)
     }
 

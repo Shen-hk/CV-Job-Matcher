@@ -63,18 +63,20 @@ class AgentContextRepository @Inject constructor(
         activeDebriefSessionId: Long? = null,
         conversationSummary: String? = null
     ) {
-        val current = getAgentContext()
-        val updated = current.copy(
-            currentJdId = currentJdId ?: current.currentJdId,
-            currentJdText = currentJdText ?: current.currentJdText,
-            currentJdCompany = currentJdCompany ?: current.currentJdCompany,
-            currentResumeVersionId = currentResumeVersionId ?: current.currentResumeVersionId,
-            activeInterviewSessionId = activeInterviewSessionId ?: current.activeInterviewSessionId,
-            activeDebriefSessionId = activeDebriefSessionId ?: current.activeDebriefSessionId,
-            conversationSummary = conversationSummary ?: current.conversationSummary,
-            lastActiveTime = System.currentTimeMillis()
-        )
-        saveAgentContext(updated)
+        appPreferences.updateAgentContextJson { json ->
+            val current = decode(json)
+            val updated = current.copy(
+                currentJdId = currentJdId ?: current.currentJdId,
+                currentJdText = currentJdText ?: current.currentJdText,
+                currentJdCompany = currentJdCompany ?: current.currentJdCompany,
+                currentResumeVersionId = currentResumeVersionId ?: current.currentResumeVersionId,
+                activeInterviewSessionId = activeInterviewSessionId ?: current.activeInterviewSessionId,
+                activeDebriefSessionId = activeDebriefSessionId ?: current.activeDebriefSessionId,
+                conversationSummary = conversationSummary ?: current.conversationSummary,
+                lastActiveTime = System.currentTimeMillis()
+            )
+            adapter.toJson(updated)
+        }
     }
 
     /**

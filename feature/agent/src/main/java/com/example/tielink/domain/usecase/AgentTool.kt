@@ -2,6 +2,8 @@ package com.example.tielink.domain.usecase
 
 import com.example.tielink.domain.agent.AgentToolDefinition
 import com.example.tielink.domain.model.UiCard
+import com.example.tielink.domain.model.ToolOutcomeStatus
+import com.example.tielink.domain.model.ResumeCandidate
 import org.json.JSONObject
 
 /**
@@ -23,5 +25,9 @@ interface AgentTool {
 data class ToolExecutionResult(
     /** 会作为 tool result 回传给模型，因此不能包含密钥或只供内部使用的数据。 */
     val content: String,
-    val cards: List<UiCard> = emptyList()
+    val cards: List<UiCard> = emptyList(),
+    val status: ToolOutcomeStatus = ToolOutcomeStatus.SUCCESS,
+    /** Only an actual business artifact may advance a task. Informational reads leave this null. */
+    val artifactId: String? = null,
+    val candidate: ResumeCandidate? = null
 )

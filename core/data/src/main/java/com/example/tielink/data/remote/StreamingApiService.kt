@@ -6,6 +6,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
@@ -100,23 +101,29 @@ object StreamingApiService {
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                if (!response.isSuccessful) {
-                    val errBody = response.body?.string().orEmpty().take(200)
-                    trySend(StreamEvent.Error("请求失败 (${response.code}) $errBody"))
-                    close()
-                    return
-                }
-                trySend(StreamEvent.Start)
-                response.body?.charStream()?.buffered()?.useLines { lines ->
-                    lines.forEach { line ->
-                        processOpenAiLine(line)?.let { event ->
-                            trySend(event)
-                            if (event is StreamEvent.Done) return@useLines
+                try {
+                    if (!response.isSuccessful) {
+                        val errBody = response.body?.string().orEmpty().take(200)
+                        trySendBlocking(StreamEvent.Error("请求失败 (${response.code}) $errBody"))
+                        return
+                    }
+                    trySendBlocking(StreamEvent.Start)
+                    var completed = false
+                    response.body?.charStream()?.buffered()?.useLines { lines ->
+                        lines.forEach { line ->
+                            processOpenAiLine(line)?.let { event ->
+                                if (trySendBlocking(event).isFailure) return@useLines
+                                if (event is StreamEvent.Done) { completed = true; return@useLines }
+                            }
                         }
                     }
+                    if (!completed) trySendBlocking(StreamEvent.Error("生成连接已中断，未收到完成标记"))
+                } catch (_: IOException) {
+                    trySendBlocking(StreamEvent.Error("读取生成内容时网络中断，未完成内容已保留"))
+                } finally {
+                    response.close()
+                    close()
                 }
-                response.close()
-                close()
             }
         })
         awaitClose { call.cancel() }
@@ -160,23 +167,29 @@ object StreamingApiService {
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                if (!response.isSuccessful) {
-                    val errBody = response.body?.string().orEmpty().take(200)
-                    trySend(StreamEvent.Error("请求失败 (${response.code}) $errBody"))
-                    close()
-                    return
-                }
-                trySend(StreamEvent.Start)
-                response.body?.charStream()?.buffered()?.useLines { lines ->
-                    lines.forEach { line ->
-                        processOllamaLine(line)?.let { event ->
-                            trySend(event)
-                            if (event is StreamEvent.Done) return@useLines
+                try {
+                    if (!response.isSuccessful) {
+                        val errBody = response.body?.string().orEmpty().take(200)
+                        trySendBlocking(StreamEvent.Error("请求失败 (${response.code}) $errBody"))
+                        return
+                    }
+                    trySendBlocking(StreamEvent.Start)
+                    var completed = false
+                    response.body?.charStream()?.buffered()?.useLines { lines ->
+                        lines.forEach { line ->
+                            processOllamaLine(line)?.let { event ->
+                                if (trySendBlocking(event).isFailure) return@useLines
+                                if (event is StreamEvent.Done) { completed = true; return@useLines }
+                            }
                         }
                     }
+                    if (!completed) trySendBlocking(StreamEvent.Error("生成连接已中断，未收到完成标记"))
+                } catch (_: IOException) {
+                    trySendBlocking(StreamEvent.Error("读取生成内容时网络中断，未完成内容已保留"))
+                } finally {
+                    response.close()
+                    close()
                 }
-                response.close()
-                close()
             }
         })
         awaitClose { call.cancel() }
@@ -189,7 +202,10 @@ object StreamingApiService {
         return try {
             val adapter = moshi.adapter(StreamChunk::class.java)
             val chunk = adapter.fromJson(data) ?: return null
-            val delta = chunk.choices?.firstOrNull()?.delta ?: return null
+            val choice = chunk.choices?.firstOrNull() ?: return null
+            if (choice.finishReason == "length") return StreamEvent.Error("生成达到模型输出上限，内容尚未完整，请缩小范围后重试")
+            if (choice.finishReason == "content_filter") return StreamEvent.Error("模型未能完成本次输出，请调整要求后重试")
+            val delta = choice.delta ?: return null
             delta.reasoningContent?.let { return StreamEvent.Thinking(it) }
             delta.content?.let { StreamEvent.Content(it) }
         } catch (_: Exception) {

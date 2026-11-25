@@ -5,6 +5,8 @@ import com.example.tielink.data.local.AppPreferences
 import com.example.tielink.domain.nlp.EmbeddingEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -81,7 +83,9 @@ class AiProviderManager @Inject constructor(
     }
     
     suspend fun chatWithFallback(request: LlmRequest): LlmResponse = withContext(Dispatchers.IO) {
-        val orderedProviders = when (preferences.snapshot().aiProvider) {
+        val providerName = preferences.getAiProvider()
+        requireChatProvider(providerName)
+        val orderedProviders = when (providerName) {
             "ollama" -> listOf(
                 ollamaProvider to "Ollama",
                 deepSeekProvider to "DeepSeek"
@@ -104,6 +108,7 @@ class AiProviderManager @Inject constructor(
                 Log.d(TAG, "尝试使用$name...")
                 return@withContext provider.chatCompletion(request)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.w(TAG, name + "调用失败: " + e.message + ", 尝试下一个...")
             }
         }
@@ -116,8 +121,9 @@ class AiProviderManager @Inject constructor(
      * AgentUseCase 使用这个方法，不再调用 chatWithFallbackStream。
      */
     suspend fun chatStream(request: LlmRequest): Flow<StreamEvent> {
+        val providerName = preferences.getAiProvider()
+        requireChatProvider(providerName)
         val snapshot = preferences.snapshot()
-        val providerName = snapshot.aiProvider
         val apiKey = snapshot.apiKey
         val model = snapshot.model
         val baseUrl = snapshot.baseUrl
@@ -156,11 +162,11 @@ class AiProviderManager @Inject constructor(
     }
 
     fun chatWithFallbackStream(request: LlmRequest): Flow<StreamEvent> {
-        val provider = getProvider()
-        return provider.chatCompletionStream(request)
+        return flow { emitAll(chatStream(request)) }
     }
     
     suspend fun smartEmbed(text: String): FloatArray {
+        if (preferences.getAiProvider() == "local") return EmbeddingEngine.embed(text)
         val provider = getProvider()
         
         val embedding = provider.embed(text)
@@ -174,6 +180,11 @@ class AiProviderManager @Inject constructor(
 
     companion object {
         private const val TAG = "AiProviderManager"
+        const val LOCAL_CHAT_UNAVAILABLE = "当前为本地模式，未调用网络服务。该模式不支持对话生成，请切换到 DeepSeek 或 Ollama。"
+
+        private fun requireChatProvider(providerName: String) {
+            if (providerName == "local") throw UnsupportedOperationException(LOCAL_CHAT_UNAVAILABLE)
+        }
     }
 }
 

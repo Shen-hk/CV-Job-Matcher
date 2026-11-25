@@ -109,8 +109,8 @@ fun MatchCardComposable(card: UiCard.MatchCard, modifier: Modifier = Modifier) {
     ) {
         Column(Modifier.padding(16.dp)) {
             ResultCardHeader(
-                label = "AI ANALYSIS",
-                title = "匹配度分析",
+                label = "TEXT MATCH",
+                title = "文本匹配参考",
                 subtitle = scoreLabel(card.overallScore),
                 accent = scoreColor(card.overallScore)
             ) {
@@ -133,6 +133,12 @@ fun MatchCardComposable(card: UiCard.MatchCard, modifier: Modifier = Modifier) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(12.dp))
 
+            Text(
+                "基于关键词、文本相似度和学历规则，分数仅供比较；不代表录用概率或能力认证。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
             // 4 dimension bars
             ScoreDimRow("关键词覆盖", card.keywordScore)
             Spacer(Modifier.height(8.dp))
@@ -145,7 +151,7 @@ fun MatchCardComposable(card: UiCard.MatchCard, modifier: Modifier = Modifier) {
             // Missing skills
             if (card.missingSkills.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
-                Text("缺失技能", style = MaterialTheme.typography.labelMedium,
+                Text("未匹配的岗位关键词", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
@@ -159,7 +165,7 @@ fun MatchCardComposable(card: UiCard.MatchCard, modifier: Modifier = Modifier) {
             // Highlights
             if (card.highlights.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                Text("匹配亮点", style = MaterialTheme.typography.labelMedium,
+                Text("命中的关键词", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 card.highlights.forEach { h ->
@@ -407,7 +413,8 @@ fun ResumePreviewCardComposable(card: UiCard.ResumePreviewCard, modifier: Modifi
                     onClick = {
                         (card.onNavigateToResult ?: { onNavigateToResumePreview(card.versionId) }).invoke()
                     },
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp),
+                    enabled = card.versionId > 0
                 ) {
                     Icon(
                         Icons.Filled.Fullscreen, "全屏预览",

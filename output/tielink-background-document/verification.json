@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-25",
+  "room_version": 17,
+  "unit_tests": {
+    "core/data": {
+      "errors": 0,
+      "tests": 13,
+      "failures": 0
+    },
+    "app": {
+      "errors": 0,
+      "tests": 23,
+      "failures": 0
+    },
+    "core/domain": {
+      "errors": 0,
+      "tests": 60,
+      "failures": 0
+    }
+  },
+  "lint_module": "feature:agent",
+  "lint_errors": 0,
+  "lint_warnings": 4,
+  "room_migration_schema": "15->16->17 matches generated schema; old draft and unrelated data retained in SQLite check",
+  "instrumentation_tests": "13 new background/team tests compiled, not run; no connected device or AVD",
+  "build_log": "logs/agent-background-delivery-checks.log",
+  "apk_bytes": 94529637,
+  "sha256": "ab028e720eab1f5eb7a4f6fd53bac1421096c4e3a9e8d9ef7f2750f9e6ffebd6"
+}

@@ -1,6 +1,12 @@
 package com.example.tielink
 
 import android.os.Bundle
+import android.content.Intent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.example.tielink.background.AgentBackgroundDispatcher
+import com.example.tielink.domain.model.AgentBackgroundOpenRequest
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +24,7 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var backgroundOpenRequest by mutableStateOf<AgentBackgroundOpenRequest?>(null)
 
     // 使用字段注入获取 Singleton（比 hiltViewModel() 更安全，不依赖 ViewModelStoreOwner 上下文）
     @Inject
@@ -28,6 +35,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        readBackgroundTaskIntent(intent)
         enableEdgeToEdge()
         val benchmarkStream = intent?.getBooleanExtra(EXTRA_BENCHMARK_STREAM, false) == true
         val benchmarkStreamThrottleMs = intent?.getLongExtra(EXTRA_BENCHMARK_STREAM_THROTTLE_MS, 0L) ?: 0L
@@ -38,9 +46,23 @@ class MainActivity : ComponentActivity() {
             TieLinkTheme {
                 CompositionLocalProvider(LocalCurrentJobContext provides currentJobContextStore) {
                     val navController = rememberNavController()
-                    NavGraph(navController = navController, benchmarkStream = benchmarkStream, benchmarkStreamThrottleMs = benchmarkStreamThrottleMs)
+                    NavGraph(navController = navController, benchmarkStream = benchmarkStream, benchmarkStreamThrottleMs = benchmarkStreamThrottleMs,
+                        backgroundOpenRequest = backgroundOpenRequest)
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        readBackgroundTaskIntent(intent)
+    }
+
+    private fun readBackgroundTaskIntent(intent: Intent?) {
+        intent?.getStringExtra(AgentBackgroundDispatcher.EXTRA_TASK_ID)?.takeIf { it.isNotBlank() }?.let {
+            backgroundOpenRequest = AgentBackgroundOpenRequest(it)
+            intent.removeExtra(AgentBackgroundDispatcher.EXTRA_TASK_ID)
         }
     }
 

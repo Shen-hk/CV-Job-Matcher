@@ -56,17 +56,16 @@ object NlpEngine {
 
     /**
      * Deterministic keyword matching: returns (matched, missing) from [candidates]
-     * against [text], using whole-word / substring matching.
+     * against [text], respecting Latin token boundaries and common explicit negations.
      */
     fun matchKeywords(
         candidates: List<String>,
         text: String
     ): Pair<List<String>, List<String>> {
-        val textLower = text.lowercase()
         val matched = mutableListOf<String>()
         val missing = mutableListOf<String>()
         for (kw in candidates) {
-            if (textLower.contains(kw.lowercase())) matched.add(kw) else missing.add(kw)
+            if (KeywordEvidenceMatcher.hasPositiveMatch(kw, text)) matched.add(kw) else missing.add(kw)
         }
         return matched to missing
     }

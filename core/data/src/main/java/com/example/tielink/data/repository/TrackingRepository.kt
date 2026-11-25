@@ -1,5 +1,9 @@
 package com.example.tielink.data.repository
 
+import androidx.room.withTransaction
+import com.example.tielink.data.local.db.AppDatabase
+import com.example.tielink.data.local.db.entity.AgentOperationReceipt
+
 import com.example.tielink.data.local.db.dao.TrackingDao
 import com.example.tielink.data.local.db.entity.TrackingEntity
 import com.squareup.moshi.Moshi
@@ -29,7 +33,8 @@ data class TimelineEvent(
 @Singleton
 class TrackingRepository @Inject constructor(
     private val dao: TrackingDao,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val database: AppDatabase
 ) {
     fun getAllFlow(): Flow<List<TrackingItem>> = dao.getAllFlow().map { list ->
         list.map { it.toDomain() }
@@ -50,6 +55,29 @@ class TrackingRepository @Inject constructor(
             listOf(TimelineEvent(status = item.status, timestamp = item.createdAt))
         } else item.timeline
         return dao.insert(item.copy(timeline = timeline).toEntity())
+    }
+
+    suspend fun insertOnce(operationId: String, item: TrackingItem): Long = database.withTransaction {
+        val receipts = database.agentOperationReceiptDao()
+        val receipt = receipts.get(operationId)
+        if (receipt != null) {
+            require(receipt.kind == "tracking" && dao.getById(receipt.resultId) != null) { "已保存的投递记录已删除" }
+            receipt.resultId
+        } else {
+            val existing = dao.getAll().firstOrNull {
+                it.companyName == item.companyName && it.positionName == item.positionName && it.jdRawText == item.jdRawText &&
+                    it.resumeVersionId == item.resumeVersionId
+            }
+            val id = existing?.id ?: insert(item)
+            if (existing?.status == "待投" && item.status == "已投") updateStatus(id, "已投")
+            receipts.insert(AgentOperationReceipt(operationId, "tracking", id))
+            id
+        }
+    }
+
+    suspend fun committedItemId(operationId: String): Long? {
+        val receipt = database.agentOperationReceiptDao().get(operationId)?.takeIf { it.kind == "tracking" } ?: return null
+        return receipt.resultId.takeIf { dao.getById(it) != null }
     }
 
     suspend fun update(item: TrackingItem) {

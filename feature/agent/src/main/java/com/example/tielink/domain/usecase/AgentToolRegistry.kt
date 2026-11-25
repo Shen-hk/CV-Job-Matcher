@@ -12,7 +12,9 @@ class AgentToolRegistry @Inject constructor(
     private val builtInToolNames = setOf(
         "analyze_jd", "calculate_match", "optimize_resume", "show_resume_preview",
         "get_interview_turn", "get_latest_application", "create_application_from_current_jd",
-        "generate_greeting", "analyze_boss_opportunities", "render_card"
+        "generate_greeting", "analyze_boss_opportunities", "render_card",
+        "create_career_goal", "get_career_plan", "check_career_goal", "complete_current_career_task",
+        "block_current_career_task", "replan_career_goal", "achieve_career_goal"
     )
 
     private val customToolsByName: Map<String, AgentTool> = customTools

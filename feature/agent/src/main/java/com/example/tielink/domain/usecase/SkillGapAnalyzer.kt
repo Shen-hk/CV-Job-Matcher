@@ -40,14 +40,13 @@ class SkillGapAnalyzer @Inject constructor(
     ): List<SkillGap> {
         // Use provided skills or extract from JD text
         val skillCandidates = jdSkills.ifEmpty {
-            NlpEngine.extractKeywords(jdText, topN = TOP_JD_KEYWORDS, referenceText = resumeText)
+            NlpEngine.extractKeywords(jdText, topN = TOP_JD_KEYWORDS)
         }
 
-        val resumeLower = resumeText.lowercase()
         val jdLower = jdText.lowercase()
+        val missingSkills = NlpEngine.matchKeywords(skillCandidates, resumeText).second
 
-        return skillCandidates
-            .filter { skill -> !resumeLower.contains(skill.lowercase()) }
+        return missingSkills
             .map { skill ->
                 SkillGap(
                     skill = skill,

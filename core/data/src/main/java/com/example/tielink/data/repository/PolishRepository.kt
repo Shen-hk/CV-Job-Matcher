@@ -41,6 +41,7 @@ class PolishRepository @Inject constructor(
                 Log.i(TAG, "$mode 完成 (${aiProviderManager.getProvider().providerName}): ${content.length} chars")
                 Result.success(content)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "润色失败: ${e.message}", e)
                 Result.failure(e)
             }
@@ -64,6 +65,7 @@ class PolishRepository @Inject constructor(
                 Log.i(TAG, "迭代润色完成 (${aiProviderManager.getProvider().providerName}): ${content.length} chars")
                 Result.success(content)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "迭代润色失败: ${e.message}", e)
                 Result.failure(e)
             }

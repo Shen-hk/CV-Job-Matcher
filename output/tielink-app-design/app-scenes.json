@@ -1,0 +1,1167 @@
+{
+  "date": "2026-11-25",
+  "fileKey": "9Wp2MFkHvQhRoWPA1IQ2RN",
+  "pageId": "1519363719:505",
+  "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363750-10104",
+  "overview": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-7067",
+  "prototype": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1261&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1261&scaling=min-zoom&content-scaling=fixed",
+  "screens": [
+    {
+      "id": "A01",
+      "title": "让灵感成为成果",
+      "group": "首次使用",
+      "nodeId": "1519363740:7592",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7592",
+      "layout": "onboarding",
+      "source": null
+    },
+    {
+      "id": "A02",
+      "title": "由你决定如何提醒",
+      "group": "首次使用",
+      "nodeId": "1519363727:1901",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-1901",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "A03",
+      "title": "先连接一个模型",
+      "group": "首次使用",
+      "nodeId": "1519363740:7643",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7643",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "A04",
+      "title": "首次连接模型",
+      "group": "首次使用",
+      "nodeId": "1519363740:7683",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7683",
+      "layout": "source",
+      "source": "1519363703:22055"
+    },
+    {
+      "id": "A05",
+      "title": "为当前任务连接模型",
+      "group": "首次使用",
+      "nodeId": "1519363740:7752",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7752",
+      "layout": "source",
+      "source": "1519363703:22055"
+    },
+    {
+      "id": "H01",
+      "title": "TieLink",
+      "group": "主 Agent 与全局入口",
+      "nodeId": "1519363723:1261",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1261",
+      "layout": "chat",
+      "source": null
+    },
+    {
+      "id": "H02",
+      "title": "面试复盘助手方案",
+      "group": "主 Agent 与全局入口",
+      "nodeId": "1519363727:1989",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-1989",
+      "layout": "chat",
+      "source": null
+    },
+    {
+      "id": "H03",
+      "title": "新的对话",
+      "group": "主 Agent 与全局入口",
+      "nodeId": "1519363727:2089",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2089",
+      "layout": "chat",
+      "source": null
+    },
+    {
+      "id": "H04",
+      "title": "直接使用工具",
+      "group": "主 Agent 与全局入口",
+      "nodeId": "1519363727:2186",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2186",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "T01",
+      "title": "我的团队",
+      "group": "团队与客制化",
+      "nodeId": "1519363723:1358",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1358",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "T02",
+      "title": "我的团队",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2266",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2266",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "T03",
+      "title": "简历团队",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2344",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2344",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "T04",
+      "title": "创建团队",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2401",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2401",
+      "layout": "form",
+      "source": null
+    },
+    {
+      "id": "T05",
+      "title": "团队配置",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2450",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2450",
+      "layout": "form",
+      "source": null
+    },
+    {
+      "id": "T06",
+      "title": "编辑角色",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2515",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2515",
+      "layout": "form",
+      "source": null
+    },
+    {
+      "id": "T07",
+      "title": "团队工具",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2568",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2568",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "T08",
+      "title": "工具依赖需要调整",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2629",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2629",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "T09",
+      "title": "团队已保存",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2666",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2666",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "T10",
+      "title": "运行中的团队版本",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2716",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2716",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "T11",
+      "title": "删除团队",
+      "group": "团队与客制化",
+      "nodeId": "1519363727:2771",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2771",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "U01",
+      "title": "工具中心",
+      "group": "工具中心",
+      "nodeId": "1519363723:1441",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1441",
+      "layout": "grid",
+      "source": null
+    },
+    {
+      "id": "U02",
+      "title": "HTML 生成",
+      "group": "工具中心",
+      "nodeId": "1519363727:2808",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2808",
+      "layout": "form",
+      "source": null
+    },
+    {
+      "id": "U03",
+      "title": "PDF 查看",
+      "group": "工具中心",
+      "nodeId": "1519363727:2860",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2860",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "U04",
+      "title": "能力暂未接入",
+      "group": "工具中心",
+      "nodeId": "1519363727:2908",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2908",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "L01",
+      "title": "资料与成果",
+      "group": "资料中心",
+      "nodeId": "1519363723:1586",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1586",
+      "layout": "hub",
+      "source": null
+    },
+    {
+      "id": "L02",
+      "title": "添加资料",
+      "group": "资料中心",
+      "nodeId": "1519363727:2956",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-2956",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "L03",
+      "title": "正在读取资料",
+      "group": "资料中心",
+      "nodeId": "1519363727:3015",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3015",
+      "layout": "loading",
+      "source": null
+    },
+    {
+      "id": "L04",
+      "title": "资料没有读完整",
+      "group": "资料中心",
+      "nodeId": "1519363727:3057",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3057",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "L05",
+      "title": "选择本次资料",
+      "group": "资料中心",
+      "nodeId": "1519363727:3097",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3097",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "L06",
+      "title": "资料详情",
+      "group": "资料中心",
+      "nodeId": "1519363727:3151",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3151",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "L07",
+      "title": "删除引用中的资料",
+      "group": "资料中心",
+      "nodeId": "1519363727:3213",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3213",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "B01",
+      "title": "我的任务",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3250",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3250",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "B02",
+      "title": "我的任务",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3342",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3342",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "B03",
+      "title": "任务进度",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363723:1731",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1731",
+      "layout": "task",
+      "source": null
+    },
+    {
+      "id": "B04",
+      "title": "等待开始",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3411",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3411",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "B05",
+      "title": "阶段成果",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3464",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3464",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "B06",
+      "title": "补充任务要求",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3518",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3518",
+      "layout": "form",
+      "source": null
+    },
+    {
+      "id": "B07",
+      "title": "需要你补充资料",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3566",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3566",
+      "layout": "form",
+      "source": null
+    },
+    {
+      "id": "B08",
+      "title": "等待网络",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3620",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3620",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "B09",
+      "title": "正在暂停",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3670",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3670",
+      "layout": "loading",
+      "source": null
+    },
+    {
+      "id": "B10",
+      "title": "任务已暂停",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3713",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3713",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "B11",
+      "title": "取消这次任务",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3763",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3763",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "B12",
+      "title": "部分工作未完成",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3800",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3800",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "B13",
+      "title": "恢复上次任务",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3857",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3857",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "B14",
+      "title": "任务已完成",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:3914",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-3914",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "B15",
+      "title": "通知中心",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363740:7821",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7821",
+      "layout": "notification",
+      "source": null
+    },
+    {
+      "id": "B16",
+      "title": "锁屏通知",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363740:7868",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7868",
+      "layout": "lock",
+      "source": null
+    },
+    {
+      "id": "B17",
+      "title": "未允许系统通知",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:4037",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4037",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "B18",
+      "title": "等待顺序已调整",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363727:4087",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4087",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "B19",
+      "title": "正在更新关联文件",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363740:7903",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7903",
+      "layout": "task",
+      "source": null
+    },
+    {
+      "id": "B20",
+      "title": "本次修改已完成",
+      "group": "后台任务与系统通知",
+      "nodeId": "1519363740:7960",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7960",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "D01",
+      "title": "文档成果",
+      "group": "成果工作台",
+      "nodeId": "1519363727:4132",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4132",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "D02",
+      "title": "一页方案",
+      "group": "成果工作台",
+      "nodeId": "1519363740:8008",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8008",
+      "layout": "document",
+      "source": null
+    },
+    {
+      "id": "D03",
+      "title": "修改文档",
+      "group": "成果工作台",
+      "nodeId": "1519363727:4228",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4228",
+      "layout": "editor",
+      "source": null
+    },
+    {
+      "id": "D04",
+      "title": "HTML 预览",
+      "group": "成果工作台",
+      "nodeId": "1519363727:4269",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4269",
+      "layout": "html",
+      "source": null
+    },
+    {
+      "id": "D05",
+      "title": "PDF 查看",
+      "group": "成果工作台",
+      "nodeId": "1519363740:8051",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8051",
+      "layout": "pdf",
+      "source": null
+    },
+    {
+      "id": "D06",
+      "title": "版本与修改记录",
+      "group": "成果工作台",
+      "nodeId": "1519363727:4357",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4357",
+      "layout": "compare",
+      "source": null
+    },
+    {
+      "id": "D07",
+      "title": "内容已更新",
+      "group": "成果工作台",
+      "nodeId": "1519363740:8095",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8095",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "D08",
+      "title": "采用为正式简历",
+      "group": "成果工作台",
+      "nodeId": "1519363727:4464",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4464",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "D09",
+      "title": "导出成果",
+      "group": "成果工作台",
+      "nodeId": "1519363740:8148",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8148",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "D10",
+      "title": "这次没有导出成功",
+      "group": "成果工作台",
+      "nodeId": "1519363727:4555",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4555",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "D11",
+      "title": "这个版本暂不可用",
+      "group": "成果工作台",
+      "nodeId": "1519363727:4603",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4603",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "D12",
+      "title": "文件已导出",
+      "group": "成果工作台",
+      "nodeId": "1519363740:8195",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8195",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "D13",
+      "title": "一页方案",
+      "group": "成果工作台",
+      "nodeId": "1519363740:8243",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8243",
+      "layout": "document",
+      "source": null
+    },
+    {
+      "id": "D14",
+      "title": "HTML 预览",
+      "group": "成果工作台",
+      "nodeId": "1519363740:8286",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8286",
+      "layout": "html",
+      "source": null
+    },
+    {
+      "id": "S01",
+      "title": "设置与偏好",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:4651",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4651",
+      "layout": "settings",
+      "source": null
+    },
+    {
+      "id": "S02",
+      "title": "模型配置",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363740:8328",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8328",
+      "layout": "source",
+      "source": "1519363703:22055"
+    },
+    {
+      "id": "S03",
+      "title": "通知与锁屏隐私",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:4783",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4783",
+      "layout": "settings",
+      "source": null
+    },
+    {
+      "id": "S04",
+      "title": "记忆与偏好",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:4839",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4839",
+      "layout": "settings",
+      "source": null
+    },
+    {
+      "id": "S05",
+      "title": "编辑记忆偏好",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:4894",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4894",
+      "layout": "form",
+      "source": null
+    },
+    {
+      "id": "S06",
+      "title": "会话历史",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:4941",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4941",
+      "layout": "list",
+      "source": null
+    },
+    {
+      "id": "S07",
+      "title": "删除运行中的会话",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:4996",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4996",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "S08",
+      "title": "还没有保存的修改",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:5033",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5033",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "S09",
+      "title": "当前连接不可用",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:5070",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5070",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "S10",
+      "title": "成果保存未完成",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:5127",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5127",
+      "layout": "empty",
+      "source": null
+    },
+    {
+      "id": "S11",
+      "title": "还没有保存的文档",
+      "group": "历史、记忆与设置",
+      "nodeId": "1519363727:5175",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5175",
+      "layout": "modal",
+      "source": null
+    },
+    {
+      "id": "J01",
+      "title": "岗位 JD 库",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:8397",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8397",
+      "layout": "source",
+      "source": "1519363703:8748"
+    },
+    {
+      "id": "J02",
+      "title": "添加岗位材料",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:5330",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5330",
+      "layout": "source",
+      "source": "1519363703:9501"
+    },
+    {
+      "id": "J03",
+      "title": "岗位详情与要求",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:5471",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5471",
+      "layout": "source",
+      "source": "1519363703:9692"
+    },
+    {
+      "id": "J04",
+      "title": "简历库与版本",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:8515",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8515",
+      "layout": "source",
+      "source": "1519363703:11084"
+    },
+    {
+      "id": "J05",
+      "title": "新增与上传简历",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:5677",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5677",
+      "layout": "source",
+      "source": "1519363703:11455"
+    },
+    {
+      "id": "J06",
+      "title": "简历优化工作台",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:5834",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5834",
+      "layout": "source",
+      "source": "1519363703:12319"
+    },
+    {
+      "id": "J07",
+      "title": "岗位匹配与建议",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:5953",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5953",
+      "layout": "source",
+      "source": "1519363703:12969"
+    },
+    {
+      "id": "J08",
+      "title": "简历作品台",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:6024",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-6024",
+      "layout": "source",
+      "source": "1519363703:14460"
+    },
+    {
+      "id": "J09",
+      "title": "简历导出选项",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:6116",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-6116",
+      "layout": "source",
+      "source": "1519363703:15301"
+    },
+    {
+      "id": "J10",
+      "title": "模拟面试准备",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:6244",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-6244",
+      "layout": "source",
+      "source": "1519363703:16131"
+    },
+    {
+      "id": "J11",
+      "title": "模拟面试进行中",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:8636",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8636",
+      "layout": "source",
+      "source": "1519363703:16301"
+    },
+    {
+      "id": "J12",
+      "title": "面试评估与改进",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:8737",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8737",
+      "layout": "source",
+      "source": "1519363703:17929"
+    },
+    {
+      "id": "J13",
+      "title": "真实面试复盘",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:6480",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-6480",
+      "layout": "source",
+      "source": "1519363703:18092"
+    },
+    {
+      "id": "J14",
+      "title": "复盘报告与训练",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:8799",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8799",
+      "layout": "source",
+      "source": "1519363703:18888"
+    },
+    {
+      "id": "J15",
+      "title": "投递节奏与记录",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:8908",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8908",
+      "layout": "source",
+      "source": "1519363703:19388"
+    },
+    {
+      "id": "J16",
+      "title": "新增投递记录",
+      "group": "求职场景整合",
+      "nodeId": "1519363727:6843",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-6843",
+      "layout": "source",
+      "source": "1519363703:19958"
+    },
+    {
+      "id": "J17",
+      "title": "投递详情与时间线",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:9106",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-9106",
+      "layout": "source",
+      "source": "1519363703:20342"
+    },
+    {
+      "id": "J18",
+      "title": "系统保存位置",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:9203",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-9203",
+      "layout": "source",
+      "source": "1519363703:22732"
+    },
+    {
+      "id": "J19",
+      "title": "结束面试确认",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:9264",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-9264",
+      "layout": "source",
+      "source": "1519363703:17133"
+    },
+    {
+      "id": "J20",
+      "title": "面试转写记录",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:9382",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-9382",
+      "layout": "source",
+      "source": "1519363703:17988"
+    },
+    {
+      "id": "J21",
+      "title": "修改投递状态",
+      "group": "求职场景整合",
+      "nodeId": "1519363740:9444",
+      "figma": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-9444",
+      "layout": "source",
+      "source": "1519363703:20617"
+    }
+  ],
+  "flows": [
+    {
+      "nodeId": "1519363740:7592",
+      "name": "01 首次使用",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7592&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363723:1261",
+      "name": "02 主 Agent 与全局导航",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1261&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1261&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363723:1358",
+      "name": "03 创建与定制团队",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1358&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363723:1586",
+      "name": "04 资料与工具",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1586&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363723:1731",
+      "name": "05 后台任务与成果",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363723-1731&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363740:7821",
+      "name": "06 系统通知",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-7821&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7821&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363740:8008",
+      "name": "07 文档与版本",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8008&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A8008&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363727:5834",
+      "name": "08 简历工作台",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-5834&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A5834&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363727:6244",
+      "name": "09 模拟面试",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-6244&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363740:8908",
+      "name": "10 投递记录",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363740-8908&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A8908&scaling=min-zoom&content-scaling=fixed"
+    },
+    {
+      "nodeId": "1519363727:4651",
+      "name": "11 历史与设置",
+      "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363727-4651&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A4651&scaling=min-zoom&content-scaling=fixed"
+    }
+  ],
+  "validation": {
+    "screenCount": 97,
+    "newScreens": 73,
+    "reusedScreens": 24,
+    "componentInstances": 924,
+    "editableTextLayers": 1544,
+    "sceneInteractions": 470,
+    "missingDestinations": [],
+    "incorrectScreenSizes": [],
+    "missingFonts": [],
+    "textOverflow": [],
+    "browserChecks": [
+      {
+        "flow": "team",
+        "steps": [
+          {
+            "screen": "T01",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1358&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "T04",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2401&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "T05",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2450&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "T07",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2568&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "T08",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2629&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "T07",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2568&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "T05",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2450&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "T09",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2666&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          },
+          {
+            "screen": "H01",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1261&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1358&show-proto-sidebar=1"
+          }
+        ]
+      },
+      {
+        "flow": "task",
+        "steps": [
+          {
+            "screen": "B03",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          },
+          {
+            "screen": "D02",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8008&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          },
+          {
+            "screen": "B03",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          },
+          {
+            "screen": "B06",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-3518&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          },
+          {
+            "screen": "B03",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          },
+          {
+            "screen": "B09",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-3670&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          },
+          {
+            "screen": "B10",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-3713&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          },
+          {
+            "screen": "B03",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1731&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1731&show-proto-sidebar=1"
+          }
+        ]
+      },
+      {
+        "flow": "resources",
+        "steps": [
+          {
+            "screen": "L01",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1586&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          },
+          {
+            "screen": "U01",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1441&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          },
+          {
+            "screen": "U03",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-2860&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          },
+          {
+            "screen": "D05",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8051&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J18",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9203&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          },
+          {
+            "screen": "D05",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8051&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J18",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9203&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          },
+          {
+            "screen": "D12",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8195&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363723%3A1586&show-proto-sidebar=1"
+          }
+        ]
+      },
+      {
+        "flow": "career",
+        "steps": [
+          {
+            "screen": "J10",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-6244&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J11",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8636&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J19",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9264&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J11",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8636&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J19",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-9264&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J12",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-8737&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+          },
+          {
+            "screen": "J10",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-6244&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363727%3A6244&show-proto-sidebar=1"
+          }
+        ]
+      },
+      {
+        "flow": "onboarding",
+        "steps": [
+          {
+            "screen": "A01",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-7592&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+          },
+          {
+            "screen": "A04",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363740-7683&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+          },
+          {
+            "screen": "A02",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363727-1901&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+          },
+          {
+            "screen": "H01",
+            "url": "https://www.figma.com/proto/9Wp2MFkHvQhRoWPA1IQ2RN/TieLink-%E5%85%A8%E9%87%8F%E7%95%8C%E9%9D%A2%E8%AE%BE%E8%AE%A1?node-id=1519363723-1261&p=f&t=lip5tFFTb4SCx8NR-0&scaling=min-zoom&content-scaling=fixed&page-id=1519363719%3A505&starting-point-node-id=1519363740%3A7592&show-proto-sidebar=1"
+          }
+        ]
+      }
+    ]
+  },
+  "retainedSpecialistStates": [
+    {
+      "name": "04 · 岗位 JD",
+      "pageId": "1519363703:8741",
+      "frames": 23,
+      "url": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363703-8741"
+    },
+    {
+      "name": "05 · 简历库",
+      "pageId": "1519363703:11077",
+      "frames": 11,
+      "url": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363703-11077"
+    },
+    {
+      "name": "06 · 简历优化",
+      "pageId": "1519363703:12312",
+      "frames": 24,
+      "url": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363703-12312"
+    },
+    {
+      "name": "07 · 简历作品台",
+      "pageId": "1519363703:14453",
+      "frames": 21,
+      "url": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363703-14453"
+    },
+    {
+      "name": "08 · 面试与复盘",
+      "pageId": "1519363703:16124",
+      "frames": 37,
+      "url": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363703-16124"
+    },
+    {
+      "name": "09 · 投递节奏",
+      "pageId": "1519363703:19381",
+      "frames": 18,
+      "url": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363703-19381"
+    },
+    {
+      "name": "10 · 设置与系统状态",
+      "pageId": "1519363703:21592",
+      "frames": 17,
+      "url": "https://www.figma.com/design/9Wp2MFkHvQhRoWPA1IQ2RN?node-id=1519363703-21592"
+    }
+  ]
+}

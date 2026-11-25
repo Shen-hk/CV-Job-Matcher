@@ -1,6 +1,10 @@
 package com.example.tielink.ui.agent
 
 import android.net.Uri
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +30,9 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DrawerValue
@@ -58,6 +65,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -66,6 +74,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.tielink.domain.model.AgentUiAction
 import com.example.tielink.domain.model.AgentMessageRole
+import com.example.tielink.domain.model.AgentBackgroundOpenRequest
+import com.example.tielink.domain.model.AgentBackgroundStatus
 import com.example.tielink.domain.model.isAgentChat
 import com.example.tielink.ui.history.HistoryViewModel
 import com.example.tielink.ui.theme.AppSpacing
@@ -91,6 +101,7 @@ fun AgentChatScreen(
     initialPrompt: String? = null,
     benchmarkStream: Boolean = false,
     benchmarkStreamThrottleMs: Long = 0L,
+    backgroundOpenRequest: AgentBackgroundOpenRequest? = null,
     viewModel: AgentViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -103,6 +114,61 @@ fun AgentChatScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val backgroundViewModel: AgentBackgroundTasksViewModel = hiltViewModel()
+    val teamsViewModel: AgentTeamsViewModel = hiltViewModel()
+    val teams by teamsViewModel.teams.collectAsStateWithLifecycle()
+    val teamsLoaded by teamsViewModel.loaded.collectAsStateWithLifecycle()
+    val teamsBusy by teamsViewModel.busy.collectAsStateWithLifecycle()
+    val teamsError by teamsViewModel.error.collectAsStateWithLifecycle()
+    val teamChange by teamsViewModel.change.collectAsStateWithLifecycle()
+    val selectedTeamId by viewModel.selectedTeamId.collectAsStateWithLifecycle()
+    var showTeams by rememberSaveable { mutableStateOf(false) }
+    val backgroundTasks by backgroundViewModel.tasks.collectAsState()
+    val backgroundTasksLoaded by backgroundViewModel.loaded.collectAsState()
+    val backgroundError by backgroundViewModel.error.collectAsState()
+    val openBackgroundTask by viewModel.openBackgroundTask.collectAsState()
+    var showBackgroundTasks by rememberSaveable { mutableStateOf(false) }
+    var selectedBackgroundTask by rememberSaveable { mutableStateOf<String?>(null) }
+    var askedNotifications by rememberSaveable { mutableStateOf(false) }
+    var showNotificationExplanation by rememberSaveable { mutableStateOf(false) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(openBackgroundTask) {
+        openBackgroundTask?.let { selectedBackgroundTask = it.taskId; showBackgroundTasks = true }
+    }
+    LaunchedEffect(backgroundOpenRequest) {
+        backgroundOpenRequest?.let { selectedBackgroundTask = it.taskId; showBackgroundTasks = true }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.backgroundTaskAccepted.collect {
+            if (Build.VERSION.SDK_INT >= 33 && !askedNotifications &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                askedNotifications = true
+                showNotificationExplanation = true
+            }
+        }
+    }
+    if (showNotificationExplanation) AlertDialog(onDismissRequest = { showNotificationExplanation = false },
+        title = { Text("在通知中查看任务进度") },
+        text = { Text("离开聊天后，通知会展示当前步骤与阶段成果。即使不开启通知，也能回到任务入口查看。") },
+        confirmButton = { TextButton(onClick = { showNotificationExplanation = false
+            if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }) { Text("允许通知") } },
+        dismissButton = { TextButton(onClick = { showNotificationExplanation = false }) { Text("稍后") } })
+    if (showBackgroundTasks) AgentBackgroundTasksSheet(
+        tasks = backgroundTasks, loaded = backgroundTasksLoaded, selectedId = selectedBackgroundTask,
+        onSelect = { selectedBackgroundTask = it }, onDismiss = { showBackgroundTasks = false },
+        onPause = backgroundViewModel::pause, onResume = backgroundViewModel::resume,
+        onCancel = backgroundViewModel::cancel, onRead = backgroundViewModel::markRead,
+        onOpenConversation = { id -> showBackgroundTasks = false; viewModel.openHistorySession(id) }
+    )
+    if (showTeams) AgentTeamsSheet(teams, teamsLoaded, selectedTeamId, teamsBusy, teamsError,
+        changeVersion = teamChange.version, lastDeletedId = teamChange.deletedId,
+        onSelect = viewModel::selectTeam, onDismiss = { showTeams = false },
+        onSave = teamsViewModel::save, onDelete = teamsViewModel::delete,
+        onClearError = teamsViewModel::clearError)
+    backgroundError?.let { message -> AlertDialog(onDismissRequest = backgroundViewModel::clearError,
+        title = { Text("任务状态") }, text = { Text(message) },
+        confirmButton = { TextButton(onClick = backgroundViewModel::clearError) { Text("知道了") } }) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val inlineProcessMessageId = state.messages.lastOrNull {
         it.role == AgentMessageRole.AGENT && it.card == null && it.toolLoadingName == null
@@ -307,15 +373,15 @@ fun AgentChatScreen(
                         title = {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    "TieLink",
+                                    "TieLink Agent",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
                                     if (state.contextBar.jdTitle != null || state.contextBar.resumeVersionName != null) {
-                                        "Career Agent · 上下文已连接"
+                                        "主 Agent · 已连接所选资料"
                                     } else {
-                                        "Career Agent · 等待上下文"
+                                        "把灵感交给我，直接开始"
                                     },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -328,6 +394,9 @@ fun AgentChatScreen(
                             }
                         },
                         actions = {
+                            IconButton(onClick = { selectedBackgroundTask = null; showBackgroundTasks = true }) {
+                                Icon(Icons.Default.Checklist, contentDescription = if (backgroundTasks.any { it.isUnread }) "后台任务，有新成果" else "后台任务")
+                            }
                             IconButton(onClick = onNavigateToJdList) {
                                 Icon(Icons.Default.Work, contentDescription = "JD 库")
                             }
@@ -345,10 +414,25 @@ fun AgentChatScreen(
                     Column(
                         modifier = Modifier.background(MaterialTheme.colorScheme.background.copy(alpha = 0.97f))
                     ) {
+                        val visibleBackgroundTask = backgroundTasks.firstOrNull { it.status == AgentBackgroundStatus.RUNNING }
+                            ?: backgroundTasks.firstOrNull { it.isUnread || !it.status.isTerminal }
+                        visibleBackgroundTask?.let { task ->
+                            AgentBackgroundTaskBanner(task = task, onClick = {
+                                selectedBackgroundTask = task.id
+                                showBackgroundTasks = true
+                            })
+                        }
                         QuickActionsBar(
                             onResumeOptimize = onNavigateToResumeOptimize,
                             onTracking = onNavigateToTracking
                         )
+                        TextButton(onClick = { teamsViewModel.clearError(); showTeams = true },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("新文档任务 · " + (teams.firstOrNull { it.id == selectedTeamId }?.name
+                                ?: if (selectedTeamId == null) "默认主 Agent · 选择团队" else "团队待核验 · 重新选择"),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium)
+                        }
                         AnimatedVisibility(
                             visible = state.pendingAttachmentName != null || state.isParsingFile,
                             enter = motionExpandIn(),

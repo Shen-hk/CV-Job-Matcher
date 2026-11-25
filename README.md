@@ -53,7 +53,7 @@ flowchart LR
     B --> C["读取简历上下文"]
     C --> D["匹配度分析"]
     D --> E["靶向优化简历"]
-    E --> F["生成预览 / 导出 PDF"]
+    E --> F["候选稿预览 → 用户采用 → 保存 / 导出"]
     F --> G["模拟面试训练"]
     G --> H["投递记录与跟进"]
     H --> I["沉淀求职记忆"]
@@ -66,8 +66,8 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    U["用户一句话需求"] --> I["Intent Classifier<br/>识别意图"]
-    I --> R["Tool Router<br/>选择工具"]
+    U["用户一句话需求"] --> I["意图约束与多轮工具选择"]
+    I --> R["任务执行器<br/>校验依赖与输入版本"]
     R --> T1["JD Tool"]
     R --> T2["Resume Tool"]
     R --> T3["Match Tool"]
@@ -95,7 +95,7 @@ flowchart LR
     R --> P
 ```
 
-目标、计划版本、任务状态和观察记录保存在本地。JD、匹配、简历、面试和投递工具完成后，会自动把结果回写到当前计划；涉及完成确认或重新规划时仍由用户明确触发。
+目标、计划版本、执行记录和待确认候选稿保存在本地。JD、匹配和投递任务依据结构化状态与产物证据推进；简历候选稿经用户采用后才事务保存，面试训练需已结束的评估并经用户确认，读取信息不会直接完成任务。输入变化使旧确认失效；重规划更新岗位、期限与成功标准，并保留兼容产物。Room 操作凭据支持重复提交防重和中断恢复，详见 [求职任务编排](docs/CAREER_TASK_ORCHESTRATION.md)。
 
 ## 核心场景
 
@@ -109,7 +109,7 @@ flowchart LR
 
 ### 2. 改简历，但不盲改
 
-TieLink 会围绕当前 JD 做靶向优化，而不是把简历改成一篇漂亮但失焦的文章。它可以做 STAR 改写、数据量化、关键词补强、版本保存和差异对比。
+TieLink 围绕当前 JD 生成定向简历候选稿，支持 STAR 改写、基于真实经历的量化表达、关键词补强及预览。用户检查并采用后才保存和激活新版本；暂不采用时保留原简历。
 
 ```text
 把这段项目经历改得更像后端开发岗位需要的表达。
@@ -174,11 +174,15 @@ AI Provider Layer
 ├── app/
 │   └── src/main/java/com/example/tielink/
 │       ├── automation/          # BOSS 岗位导入相关能力
-│       ├── data/                # Repository、Room、DataStore、AI Provider
-│       ├── domain/              # 领域模型、NLP、UseCase、Agent Tool
 │       ├── navigation/          # Compose 路由
-│       ├── ui/                  # 页面、富卡片、组件、主题
+│       ├── ui/                  # 其他业务页面
 │       └── util/                # 文件解析、HTML/PDF 导出、日志
+├── core/
+│   ├── model/                   # 领域模型、执行记录、卡片协议
+│   ├── domain/                  # NLP、匹配、任务规则与重规划
+│   ├── data/                    # Repository、Room、DataStore、AI Provider
+│   └── ui/                      # 共享组件与主题
+├── feature/agent/               # Agent 运行时、工具、会话页面与卡片
 ├── baselineprofile/             # Baseline Profile
 ├── docs/                        # PRD、技术方案、升级文档
 ├── gradle/                      # Version Catalog
